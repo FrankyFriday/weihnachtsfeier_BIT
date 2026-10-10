@@ -22,6 +22,107 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Projekte");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Shows");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ShowProjektZuo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektId");
+
+                    b.HasIndex("ShowId");
+
+                    b.ToTable("ShowProjektZuos");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Punkte")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("Teams");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Nummer")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("Teilnehmer");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.TestEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -40,6 +141,68 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("TestEntries");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ShowProjektZuo", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany("ShowProjektZuo")
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Show", "Show")
+                        .WithMany("ShowProjektZuo")
+                        .HasForeignKey("ShowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+
+                    b.Navigation("Show");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Team", "Team")
+                        .WithMany("Teilnehmer")
+                        .HasForeignKey("TeamId");
+
+                    b.Navigation("Projekt");
+
+                    b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
+                {
+                    b.Navigation("ShowProjektZuo");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
+                {
+                    b.Navigation("ShowProjektZuo");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
+                {
+                    b.Navigation("Teilnehmer");
                 });
 #pragma warning restore 612, 618
         }
