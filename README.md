@@ -60,6 +60,21 @@ docker compose logs --tail 100 apiservice
 
 Die Anwendung geschieht automatisch beim API-Start über `Database.MigrateAsync()`. Ein separates `dotnet ef database update` ist für die Docker-Datenbank nicht nötig.
 
+Slides werden als EF-Core-TPH-Vererbung in einer gemeinsamen Tabelle `Slides` gespeichert. Gemeinsame Werte wie Show-Zuordnung und Position sind normale Spalten; typspezifische `Parameters` liegen in einer PostgreSQL-`jsonb`-Spalte. Neue Eigenschaften an einem Parametersatz erfordern dadurch keine Datenbankmigration. Für neue Slide-Typen muss zusätzlich der EF-Discriminator in `WeihnachtsfeierDbContext` registriert werden.
+
+Parameter lassen sich wie normale mutable Objekte ändern. `SaveChanges` serialisiert den aktuellen Zustand in die JSONB-Spalte:
+
+```csharp
+var slide = new PollSlide { ShowId = showId, Position = 0 };
+slide.Parameters.Question = "Welche Farbe bevorzugst du?";
+slide.Parameters.Options = ["Rot", "Blau", "Grün"];
+dbContext.Slides.Add(slide);
+await dbContext.SaveChangesAsync();
+
+slide.Parameters.Question = "Welche Farbe magst du am liebsten?";
+await dbContext.SaveChangesAsync();
+```
+
 ### Datenbankzugriff
 
 DataGrip-Verbindung zu PostgreSQL:

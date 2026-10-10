@@ -69,6 +69,39 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("ShowProjektZuos");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Slide", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("Parameters");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ShowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SlideType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShowId", "Position");
+
+                    b.ToTable("Slides", (string)null);
+
+                    b.HasDiscriminator<string>("SlideType").HasValue("Slide");
+
+                    b.UseTphMappingStrategy();
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
                 {
                     b.Property<Guid>("Id")
@@ -143,6 +176,34 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("TestEntries");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.AnnouncementSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("announcement");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.PollSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("poll");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.QuizSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("quiz");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.RankingSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("ranking");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ShowProjektZuo", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
@@ -158,6 +219,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Projekt");
+
+                    b.Navigation("Show");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Slide", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Show", "Show")
+                        .WithMany("Slides")
+                        .HasForeignKey("ShowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Show");
                 });
@@ -198,6 +270,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
                 {
                     b.Navigation("ShowProjektZuo");
+
+                    b.Navigation("Slides");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
