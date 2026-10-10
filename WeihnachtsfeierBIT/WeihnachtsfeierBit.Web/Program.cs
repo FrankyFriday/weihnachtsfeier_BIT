@@ -19,7 +19,25 @@ builder.Services.AddHttpClient<WeatherApiClient>(client =>
         client.BaseAddress = new("https+http://apiservice");
     });
 
+builder.Services.AddHttpClient<TestEntryApiClient>(client =>
+{
+    client.BaseAddress = new(builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice");
+});
+
 var app = builder.Build();
+
+app.MapPost("/test-entry-form", async (HttpRequest request, TestEntryApiClient apiClient, CancellationToken cancellationToken) =>
+{
+    var form = await request.ReadFormAsync(cancellationToken);
+    var name = form["name"].ToString().Trim();
+    if (string.IsNullOrWhiteSpace(name))
+    {
+        return Results.BadRequest("Bitte einen Namen eingeben.");
+    }
+
+    await apiClient.CreateEntryAsync(name, cancellationToken);
+    return Results.Redirect("/");
+});
 
 if (!app.Environment.IsDevelopment())
 {

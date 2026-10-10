@@ -1,7 +1,82 @@
 ﻿@page "/"
+@inject TestEntryApiClient TestEntryApi
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Datenbanktest</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Datenbanktest</h1>
+<p class="text-secondary">Testeinträge werden direkt in PostgreSQL gespeichert.</p>
 
-Welcome to your new app.
+<form class="d-flex gap-2 mb-4" action="/test-entry-form" method="post">
+	<input class="form-control" type="text" name="name" aria-label="Name des Testeintrags" placeholder="Name des Eintrags" required />
+	<button class="btn btn-primary text-nowrap" type="submit">Eintrag speichern</button>
+</form>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+	<p class="text-danger" role="alert">@statusMessage</p>
+}
+
+<div class="d-flex align-items-center justify-content-between mb-2">
+	<h2 class="h5 mb-0">Gespeicherte Einträge</h2>
+	<a class="btn btn-outline-secondary btn-sm" href="/">Aktualisieren</a>
+</div>
+
+@if (isLoading)
+{
+	<p class="text-secondary">Einträge werden geladen ...</p>
+}
+else if (entries.Length == 0)
+{
+	<p class="text-secondary">Noch keine Einträge vorhanden.</p>
+}
+else
+{
+	<div class="table-responsive">
+		<table class="table table-striped align-middle">
+			<thead>
+				<tr>
+					<th scope="col">ID</th>
+					<th scope="col">Name</th>
+					<th scope="col">Erstellt (UTC)</th>
+				</tr>
+			</thead>
+			<tbody>
+				@foreach (var entry in entries)
+				{
+					<tr @key="entry.Id">
+						<td>@entry.Id</td>
+						<td>@entry.Name</td>
+						<td>@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+@code {
+	private TestEntryDto[] entries = [];
+	private string? statusMessage;
+	private bool isLoading = true;
+
+	protected override Task OnInitializedAsync() => LoadEntriesAsync();
+
+	private async Task LoadEntriesAsync()
+	{
+		isLoading = true;
+		statusMessage = null;
+
+		try
+		{
+			entries = await TestEntryApi.GetEntriesAsync();
+		}
+		catch (HttpRequestException)
+		{
+			statusMessage = "Die API ist gerade nicht erreichbar. Bitte den Containerstatus prüfen.";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+}
