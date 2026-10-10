@@ -1,0 +1,241 @@
+syntax: glob
+
+### GitHub Agentic Workflows ###
+.github/aw/logs/
+.worktrees/
+
+### VisualStudio ###
+
+# Tools directory
+.dotnet/
+.packages/
+.tools/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+
+artifacts/
+artifacts_stage_1/
+BenchmarkDotNet.Artifacts/
+[Dd]ebug/
+[Rr]elease/
+x64/ !eng/common/cross/x64/
+x86/ !eng/common/cross/x86/
+[Bb]in/
+[Oo]bj/
+msbuild.log
+msbuild.err
+msbuild.wrn
+*.binlog
+
+# Visual Studio 2015
+.vs/
+
+# Visual Studio 2015 Pre-CTP6
+*.sln.ide
+*.ide/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+#NUNIT
+*.VisualState.xml
+TestResult.xml
+
+# ReSharper is a .NET coding add-in
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# DotCover is a Code Coverage Tool
+*.dotCover
+
+# Generated blazor.web.js files (copied from NuGet packages at build time by BlazorAssets.targets)
+src/Aspire.Dashboard/wwwroot/framework/blazor.web.*.js
+
+# NuGet Packages
+*.nuget.props
+*.nuget.targets
+*.nupkg
+**/packages/*
+
+### Windows ###
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+### Linux ###
+
+*~
+
+# KDE directory preferences
+.directory
+
+### OSX ###
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# vim temporary files
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+# Private test configuration and binaries.
+config.ps1
+**/IISApplications
+
+# Language server cache files
+*.lscache
+
+# Node.js modules
+node_modules/
+**/.yarn/install-state.gz
+
+# Maven build outputs
+target/
+dependency-reduced-pom.xml
+
+# Gradle local cache/state and Java build outputs
+# Unanchored so caches match at any nesting depth.
+.gradle/
+playground/Java*/**/build/
+tests/PolyglotAppHosts/**/Java/**/build/
+
+# Java AppHost build artifacts
+#
+# .java-build is where the CLI compiles a single-file Java AppHost before launching it with
+# `java -cp .java-build AppHost`, so it appears next to any Java AppHost - the playgrounds, the
+# polyglot test fixtures, and the scratch workspace the extension E2E runner creates under
+# extension/. Scoping the rule to known directories left the others untracked-but-visible, which is
+# how build output ends up in a commit.
+.java-build/
+playground/**/*.class
+tests/PolyglotAppHosts/**/Java/**/*.class
+
+# Ignore cache created with the Angular CLI.
+.angular/
+
+# Python Compile Outputs
+
+*.pyc
+*.egg-info/
+/playground/python/**/build
+
+# IntelliJ
+.idea/
+
+# vscode python env files
+.env
+
+# Storage emulator storage files
+**/.azurite/*
+
+# Azure Developer CLI files
+/playground/**/.gitignore
+/playground/**/azure.yaml
+/playground/**/next-steps.md
+*.svclog
+
+# Python virtual environments
+.venv
+
+# Publisher Outputs
+playground/**/publish/
+playground/**/aspire-output/
+playground/**/aspire-manifest.json
+
+# TypeScript AppHost
+playground/**/dist/
+tests/PolyglotAppHosts/**/TypeScript/dist/
+
+# Go AppHost
+tests/PolyglotAppHosts/**/Go/apphost
+tests/PolyglotAppHosts/**/Go/apphost.exe
+
+# Verify
+*.received.*
+
+#Aspire CLI
+.aspire/
+.modules/
+
+# Release notes automation output
+tools/ReleaseNotes/analysis-output/
+tools/ReleaseNotes/release-notes-*.md
+
+# Extension build artifacts
+extension/dist/
+extension/.localization/
+extension/out/
+extension/.test-artifacts/
+extension/.test-extensions/
+extension/.test-results/
+extension/.test-storage/
+extension/.test-workspace/
+extension/.test-workspaces/
+extension/node_modules/
+extension/.corepack-cache/
+**/.vscode-test/
+extension/.version
+extension/.vscode-test-short.mjs
+extension/local-shortpath.vscode-test.mjs
+extension/v/
+extension/x/
+
+# Generated extension localization files (regenerated from XLF during build)
+extension/l10n/bundle.l10n.json
+extension/l10n/bundle.l10n.*.json
+extension/package.nls.*.json
+
+# Playwright CLI artifacts
+.playwright-cli/
+
+# Azure Functions local settings (may contain encrypted secrets)
+local.settings.json
+diagnostics.log
+.squad/
+tags

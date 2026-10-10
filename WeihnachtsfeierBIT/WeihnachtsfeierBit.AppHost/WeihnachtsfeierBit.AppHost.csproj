@@ -1,0 +1,16 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>3bc99243-48b1-4926-9ec1-045dce00ee35</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WeihnachtsfeierBit.ApiService\WeihnachtsfeierBit.ApiService.csproj" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.Web\WeihnachtsfeierBit.Web.csproj" />
+  </ItemGroup>
+
+</Project>
