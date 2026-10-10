@@ -69,6 +69,46 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("ShowProjektZuos");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Sitzung", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ErstelltAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LaeuftAbAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LetzteAktivitaetAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TeilnehmerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("WiderrufenAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("TeilnehmerId", "WiderrufenAmUtc", "LaeuftAbAmUtc");
+
+                    b.ToTable("Sitzungen");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Slide", b =>
                 {
                     b.Property<Guid>("Id")
@@ -223,6 +263,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Show");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Sitzung", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Teilnehmer")
+                        .WithMany("Sitzungen")
+                        .HasForeignKey("TeilnehmerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Teilnehmer");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Slide", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.Show", "Show")
@@ -277,6 +328,11 @@ namespace WeihnachtsfeierBit.Data.Migrations
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
                 {
                     b.Navigation("Teilnehmer");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
+                {
+                    b.Navigation("Sitzungen");
                 });
 #pragma warning restore 612, 618
         }

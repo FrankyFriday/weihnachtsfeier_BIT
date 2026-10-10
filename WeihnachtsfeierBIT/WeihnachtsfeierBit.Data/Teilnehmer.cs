@@ -7,4 +7,5 @@ public class Teilnehmer
     public string? Name { get; set; }
     public Team? Team { get; set; }
     public required Projekt Projekt { get; set; }
+    public List<Sitzung> Sitzungen { get; set; } = [];
 }

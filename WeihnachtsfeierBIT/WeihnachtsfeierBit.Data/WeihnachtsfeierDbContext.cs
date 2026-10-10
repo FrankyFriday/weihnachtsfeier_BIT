@@ -8,6 +8,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Projekt> Projekte => Set<Projekt>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
+    public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -43,6 +44,25 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasMany(show => show.Slides)
             .WithOne(slide => slide.Show)
             .HasForeignKey(slide => slide.ShowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var sitzungen = modelBuilder.Entity<Sitzung>();
+        sitzungen.Property(sitzung => sitzung.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired();
+        sitzungen.Property(sitzung => sitzung.UserAgent)
+            .HasMaxLength(512);
+        sitzungen.HasIndex(sitzung => sitzung.TokenHash)
+            .IsUnique();
+        sitzungen.HasIndex(sitzung => new
+        {
+            sitzung.TeilnehmerId,
+            sitzung.WiderrufenAmUtc,
+            sitzung.LaeuftAbAmUtc
+        });
+        sitzungen.HasOne(sitzung => sitzung.Teilnehmer)
+            .WithMany(teilnehmer => teilnehmer.Sitzungen)
+            .HasForeignKey(sitzung => sitzung.TeilnehmerId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 

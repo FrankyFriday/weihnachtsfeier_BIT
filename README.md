@@ -62,6 +62,8 @@ Die Anwendung geschieht automatisch beim API-Start über `Database.MigrateAsync(
 
 Slides werden als EF-Core-TPH-Vererbung in einer gemeinsamen Tabelle `Slides` gespeichert. Gemeinsame Werte wie Show-Zuordnung und Position sind normale Spalten; typspezifische `Parameters` liegen in einer PostgreSQL-`jsonb`-Spalte. Neue Eigenschaften an einem Parametersatz erfordern dadurch keine Datenbankmigration. Für neue Slide-Typen muss zusätzlich der EF-Discriminator in `WeihnachtsfeierDbContext` registriert werden.
 
+Teilnehmer können mehrere `Sitzungen` besitzen. Die Sitzungen speichern einen Hash des Anmeldetokens sowie Erstellungs-, Aktivitäts-, Ablauf- und optionalen Widerrufszeitpunkt. Eine Sitzung gilt als aktiv, wenn sie nicht widerrufen und noch nicht abgelaufen ist. Der Token selbst sollte nur im `HttpOnly`-Cookie des Browsers liegen.
+
 Parameter lassen sich wie normale mutable Objekte ändern. `SaveChanges` serialisiert den aktuellen Zustand in die JSONB-Spalte:
 
 ```csharp
