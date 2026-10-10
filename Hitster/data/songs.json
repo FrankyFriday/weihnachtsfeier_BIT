@@ -1,0 +1,602 @@
+[
+  {
+    "id": "59VR9MekNIMRLxQYfSn3Qr",
+    "title": "Wann wird's mal wieder richtig Sommer",
+    "artist": "Rudi Carrell",
+    "year": 1975
+  },
+  {
+    "id": "0qxYx4F3vm1AOnfux6dDxP",
+    "title": "You Can Call Me Al",
+    "artist": "Paul Simon",
+    "year": 1986
+  },
+  {
+    "id": "7HKez549fwJQDzx3zLjHKC",
+    "title": "Start Me Up - Remastered 2009",
+    "artist": "The Rolling Stones",
+    "year": 1981
+  },
+  {
+    "id": "6DSvUZQdqtNfkJI4cAiUsM",
+    "title": "The Twist",
+    "artist": "Chubby Checker",
+    "year": 1962
+  },
+  {
+    "id": "2pgbGOb00WrlXY3ZRFKn7v",
+    "title": "Blurred Lines",
+    "artist": "Robin Thicke, T.I., Pharrell Williams",
+    "year": 2013
+  },
+  {
+    "id": "23TrBtndcavtlYBQg5GoR8",
+    "title": "Hangover",
+    "artist": "Taio Cruz, Flo Rida",
+    "year": 2011
+  },
+  {
+    "id": "2Uy6EhQXAYkXA6MohPgjpV",
+    "title": "One More Time - Radio Edit",
+    "artist": "Daft Punk",
+    "year": 2000
+  },
+  {
+    "id": "3U9B0ZcnVPisVh9wGOg6qL",
+    "title": "China In Your Hand - Single Version",
+    "artist": "T'Pau",
+    "year": 2005
+  },
+  {
+    "id": "6pPWRBubXOBAHnjl5ZIujB",
+    "title": "The Best",
+    "artist": "Tina Turner",
+    "year": 1989
+  },
+  {
+    "id": "2yDXsPUm95218qlAQfnilm",
+    "title": "The Hustle",
+    "artist": "Van McCoy & The Soul City Symphony",
+    "year": 1975
+  },
+  {
+    "id": "2GbePPrWWSRxcmW6QRSPae",
+    "title": "Piece of My Heart",
+    "artist": "Erma Franklin",
+    "year": 1967
+  },
+  {
+    "id": "7eafuv44YprITfOdzfVLoU",
+    "title": "Hungry Eyes - From \"Dirty Dancing\" Soundtrack",
+    "artist": "Eric Carmen",
+    "year": 1987
+  },
+  {
+    "id": "3XDeeP9wBZzGhIPZmLfEEx",
+    "title": "Karma Chameleon",
+    "artist": "Culture Club",
+    "year": 1983
+  },
+  {
+    "id": "4ZhPLoMzZwewHLLjV1J15c",
+    "title": "99 Luftballons",
+    "artist": "Nena",
+    "year": 1983
+  },
+  {
+    "id": "2zygsl5Awjq2CuJc1L55x0",
+    "title": "Beinhart - Single Version",
+    "artist": "Torfrock",
+    "year": 2006
+  },
+  {
+    "id": "7iL6o9tox1zgHpKUfh9vuC",
+    "title": "In Da Club",
+    "artist": "50 Cent",
+    "year": 2003
+  },
+  {
+    "id": "5JOVSWohrjXW0BFTboh8XO",
+    "title": "Don't Go",
+    "artist": "Yazoo",
+    "year": 1982
+  },
+  {
+    "id": "2tUBqZG2AbRi7Q0BIrVrEj",
+    "title": "I Wanna Dance with Somebody (Who Loves Me)",
+    "artist": "Whitney Houston",
+    "year": 1987
+  },
+  {
+    "id": "5kqIPrATaCc2LqxVWzQGbk",
+    "title": "7 Years",
+    "artist": "Lukas Graham",
+    "year": 2015
+  },
+  {
+    "id": "6OnOIWxhezuZjF4APOl7oF",
+    "title": "Sugar-Baby",
+    "artist": "Peter Kraus",
+    "year": 1958
+  },
+  {
+    "id": "2YWjW3wwQIBLNhxWKBQd16",
+    "title": "Lean On",
+    "artist": "Major Lazer, DJ Snake, MØ",
+    "year": 2015
+  },
+  {
+    "id": "2L6hCTpUlR2p7Su3hiSB0s",
+    "title": "Einmal um die Welt",
+    "artist": "CRO",
+    "year": 2012
+  },
+  {
+    "id": "2uwDgQNRc1zS5khCPVM0jl",
+    "title": "Ich will keine Schokolade",
+    "artist": "Trude Herr",
+    "year": 1960
+  },
+  {
+    "id": "4EB11zPPq3jDbhnwWpzFL9",
+    "title": "80 Millionen",
+    "artist": "Max Giesinger",
+    "year": 2016
+  },
+  {
+    "id": "4QlzkaRHtU8gAdwqjWmO8n",
+    "title": "Friday I'm In Love",
+    "artist": "The Cure",
+    "year": 1992
+  },
+  {
+    "id": "2IHaGyfxNoFPLJnaEg4GTs",
+    "title": "What Is Love - 7\" Mix",
+    "artist": "Haddaway",
+    "year": 1992
+  },
+  {
+    "id": "6dXt4t5jgySnVTeTpT4C0l",
+    "title": "Auf uns",
+    "artist": "Andreas Bourani",
+    "year": 2014
+  },
+  {
+    "id": "4bHsxqR3GMrXTxEPLuK5ue",
+    "title": "Don't Stop Believin'",
+    "artist": "Journey",
+    "year": 1981
+  },
+  {
+    "id": "0Fyj9w0HVfjoxm9S8nGClt",
+    "title": "Orinoco Flow",
+    "artist": "Enya",
+    "year": 1988
+  },
+  {
+    "id": "5JSzcnZbYk3qv3nEn5Bo41",
+    "title": "Über den Wolken",
+    "artist": "Reinhard Mey",
+    "year": 1974
+  },
+  {
+    "id": "3N4DI1vuTSX1tz7fa2NQZw",
+    "title": "Rehab",
+    "artist": "Amy Winehouse",
+    "year": 2006
+  },
+  {
+    "id": "3DMk51IjcSdYmUT51QWfm1",
+    "title": "Liebeskummer lohnt sich nicht",
+    "artist": "Siw Malmkvist",
+    "year": 1964
+  },
+  {
+    "id": "0RnCUYXa7jhgTXtiMXF2PQ",
+    "title": "You Make Me Feel (Mighty Real)",
+    "artist": "Sylvester",
+    "year": 1978
+  },
+  {
+    "id": "7e89621JPkKaeDSTQ3avtg",
+    "title": "Sweet Home Alabama",
+    "artist": "Lynyrd Skynyrd",
+    "year": 1974
+  },
+  {
+    "id": "6f5sSC3ORfpUMYtE4J06VW",
+    "title": "He Ain't Heavy He's My Brother",
+    "artist": "The Hollies",
+    "year": 1969
+  },
+  {
+    "id": "0oH9kW4faMsq9YgRYirgD0",
+    "title": "Eine neue Liebe ist wie ein neues Leben",
+    "artist": "Jürgen Marcus",
+    "year": 1973
+  },
+  {
+    "id": "798fUF6UnRn27xiVuKyJCi",
+    "title": "Manic Monday",
+    "artist": "The Bangles",
+    "year": 1985
+  },
+  {
+    "id": "2g7gviEeJr6pyxO7G35EWQ",
+    "title": "Paradise By the Dashboard Light",
+    "artist": "Meat Loaf",
+    "year": 1977
+  },
+  {
+    "id": "1F43XlPBiwAUUIhrUGzylO",
+    "title": "Never Ending Story",
+    "artist": "Limahl",
+    "year": 1984
+  },
+  {
+    "id": "5Xc9L411IGVexidbaF7CHG",
+    "title": "Don't Call Me Up",
+    "artist": "Mabel",
+    "year": 2019
+  },
+  {
+    "id": "3d9DChrdc6BOeFsbrZ3Is0",
+    "title": "Under the Bridge",
+    "artist": "Red Hot Chili Peppers",
+    "year": 1991
+  },
+  {
+    "id": "4Hg99jQ6zjks47xaH8eK40",
+    "title": "König von Deutschland",
+    "artist": "Rio Reiser",
+    "year": 1986
+  },
+  {
+    "id": "6NJNZEjyCD2YWFPsBzIHnM",
+    "title": "Upside Down - Single Version",
+    "artist": "Diana Ross",
+    "year": 1980
+  },
+  {
+    "id": "6JGQ98So2ik5GVI9ydQ2Yh",
+    "title": "Don't Speak",
+    "artist": "No Doubt",
+    "year": 1995
+  },
+  {
+    "id": "1b6AW6uDrtrUN0Y6GJR45j",
+    "title": "(I Can't Get No) Satisfaction - Mono",
+    "artist": "The Rolling Stones",
+    "year": 1965
+  },
+  {
+    "id": "14MgTooapmJdLlEMAr2zAM",
+    "title": "Dilemma (feat. Kelly Rowland)",
+    "artist": "Nelly, Kelly Rowland",
+    "year": 2002
+  },
+  {
+    "id": "0UAJH0k4k3slcE83a9UGCe",
+    "title": "Lola",
+    "artist": "The Kinks",
+    "year": 1970
+  },
+  {
+    "id": "2L5FEDC0MU2a6OEkLjByEd",
+    "title": "Captain Jack - Short Mix",
+    "artist": "Captain Jack",
+    "year": 1995
+  },
+  {
+    "id": "2A6yzRGMgSQCUapR2ptm6A",
+    "title": "True Colors",
+    "artist": "Cyndi Lauper",
+    "year": 1986
+  },
+  {
+    "id": "2PpruBYCo4H7WOBJ7Q2EwM",
+    "title": "Hey Ya!",
+    "artist": "Outkast",
+    "year": 2003
+  },
+  {
+    "id": "0KMGf0ebdR8aazf1PoHEdb",
+    "title": "Guajira Guantanamera",
+    "artist": "Joseito Fernández",
+    "year": 1940
+  },
+  {
+    "id": "6jS8cXW9QsiQKiQ3LFiM4n",
+    "title": "La Cintura",
+    "artist": "Alvaro Soler",
+    "year": 2018
+  },
+  {
+    "id": "6WMQVizkSPAufOGOk2x4dL",
+    "title": "Sick and Tired",
+    "artist": "Anastacia",
+    "year": 2004
+  },
+  {
+    "id": "0KMGxYKeUzK9wc5DZCt3HT",
+    "title": "If You Leave Me Now",
+    "artist": "Chicago",
+    "year": 1976
+  },
+  {
+    "id": "6RTEzkbTQCivNPX5ShoJVv",
+    "title": "Siebzehn Jahr, blondes Haar",
+    "artist": "Udo Jürgens",
+    "year": 1972
+  },
+  {
+    "id": "5rtpGGu3bPKsJEFjDGs63M",
+    "title": "Murder On The Dancefloor",
+    "artist": "Sophie Ellis-Bextor",
+    "year": 2001
+  },
+  {
+    "id": "01kVVoJQuWVqaOvRgRztJD",
+    "title": "Sing Hallelujah!",
+    "artist": "Dr. Alban",
+    "year": 1992
+  },
+  {
+    "id": "3di5hcvxxciiqwMH1jarhY",
+    "title": "Set Fire to the Rain",
+    "artist": "Adele",
+    "year": 2011
+  },
+  {
+    "id": "1X7654uBsdVKnZAqyIJT7y",
+    "title": "Herz an Herz",
+    "artist": "Blümchen",
+    "year": 1995
+  },
+  {
+    "id": "2lYsCjTvXIHOqT8xSbK2jq",
+    "title": "Tage wie diese",
+    "artist": "Die Toten Hosen",
+    "year": 2012
+  },
+  {
+    "id": "62AuGbAkt8Ox2IrFFb8GKV",
+    "title": "Sweet Caroline",
+    "artist": "Neil Diamond",
+    "year": 1969
+  },
+  {
+    "id": "7gEpTMp9MQc1uJwivtL37R",
+    "title": "Do Wah Diddy Diddy",
+    "artist": "Manfred Mann",
+    "year": 1964
+  },
+  {
+    "id": "6lhzUwb3Ggfi1tPR3YoIh6",
+    "title": "Über sieben Brücken musst du gehn",
+    "artist": "Karat",
+    "year": 1978
+  },
+  {
+    "id": "51qi5dgc9CsotM87GmRkAX",
+    "title": "Don't Leave Me This Way",
+    "artist": "Thelma Houston",
+    "year": 1976
+  },
+  {
+    "id": "3bidbhpOYeV4knp8AIu8Xn",
+    "title": "Can't Hold Us (feat. Ray Dalton)",
+    "artist": "Macklemore, Ryan Lewis, Macklemore & Ryan Lewis, Ray Dalton",
+    "year": 2011
+  },
+  {
+    "id": "4MloswMM3eu7dHZ7MOzW3i",
+    "title": "Do You Know? (The Ping Pong Song)",
+    "artist": "Enrique Iglesias",
+    "year": 2007
+  },
+  {
+    "id": "39Qd2qBDQdREL3aLTb9F0d",
+    "title": "Warum?",
+    "artist": "Tic Tac Toe",
+    "year": 1997
+  },
+  {
+    "id": "09lZ2Mx2NSpzy6KBpX2kDq",
+    "title": "Gimme Hope Jo'Anna",
+    "artist": "Eddy Grant",
+    "year": 2010
+  },
+  {
+    "id": "5WSsTyBvMEFG3ac6JKb9gY",
+    "title": "Wind of Change",
+    "artist": "Scorpions",
+    "year": 1990
+  },
+  {
+    "id": "7Kszjzps0xbQXyo1pO4KfE",
+    "title": "Le Freak - 2018 Remaster",
+    "artist": "CHIC",
+    "year": 1978
+  },
+  {
+    "id": "7A4KdLy1DXOOC5fhIdDuHz",
+    "title": "Haus am See",
+    "artist": "Peter Fox",
+    "year": 2008
+  },
+  {
+    "id": "5R8dQOPq8haW94K7mgERlO",
+    "title": "Poker Face",
+    "artist": "Lady Gaga",
+    "year": 2008
+  },
+  {
+    "id": "2pag2vElkdroT8hIO4Gozi",
+    "title": "It's a Heartache",
+    "artist": "Bonnie Tyler",
+    "year": 1977
+  },
+  {
+    "id": "2QfiRTz5Yc8DdShCxG1tB2",
+    "title": "Johnny B. Goode",
+    "artist": "Chuck Berry",
+    "year": 1958
+  },
+  {
+    "id": "0bvpSvOYt4KTfZIZJmyFOs",
+    "title": "White Wedding",
+    "artist": "Billy Idol",
+    "year": 1983
+  },
+  {
+    "id": "7idTMG6EKZy0531lIx8RJ5",
+    "title": "Rigoletto: \"La Donna E' Mobile\"",
+    "artist": "Enrico Caruso",
+    "year": 1903
+  },
+  {
+    "id": "6Pgkp4qUoTmJIPn7ReaGxL",
+    "title": "Without You (feat. Sandro Cavazza)",
+    "artist": "Avicii, Sandro Cavazza",
+    "year": 2017
+  },
+  {
+    "id": "4OjJAGDDZTLlTNeOMBl7UM",
+    "title": "Volare (Nel Blu di Pinto di Blu)",
+    "artist": "Gipsy Kings",
+    "year": 1989
+  },
+  {
+    "id": "71yCMlsD6qbD7NmNUEoVNR",
+    "title": "Ca plane pour moi",
+    "artist": "Plastic Bertrand",
+    "year": 1977
+  },
+  {
+    "id": "3XIEWK1V9n25PS9Vb6axj5",
+    "title": "Born to Be Alive - The Original",
+    "artist": "Patrick Hernandez",
+    "year": 1978
+  },
+  {
+    "id": "0hCB0YR03f6AmQaHbwWDe8",
+    "title": "Whole Lotta Love - 1990 Remaster",
+    "artist": "Led Zeppelin",
+    "year": 1969
+  },
+  {
+    "id": "5kNYGyPkorBykxgUE6EL1X",
+    "title": "Ein Kompliment",
+    "artist": "Sportfreunde Stiller",
+    "year": 2002
+  },
+  {
+    "id": "0wAyDBh0ujohCsYeXBtDLF",
+    "title": "In the Mood - 2006 Remastered Version",
+    "artist": "Glenn Miller",
+    "year": 1939
+  },
+  {
+    "id": "2Nv773K16hckJrb3Ir7wOu",
+    "title": "Wahnsinn",
+    "artist": "Wolfgang Petry",
+    "year": 1983
+  },
+  {
+    "id": "2tpWsVSb9UEmDRxAl1zhX1",
+    "title": "Counting Stars",
+    "artist": "OneRepublic",
+    "year": 2013
+  },
+  {
+    "id": "52Zr0sinhWTCRrQhRRY4EP",
+    "title": "Dragostea din tei",
+    "artist": "O-Zone",
+    "year": 2004
+  },
+  {
+    "id": "6PypGyiu0Y2lCDBN1XZEnP",
+    "title": "Everybody Hurts",
+    "artist": "R.E.M.",
+    "year": 1992
+  },
+  {
+    "id": "1mKXFLRA179hdOWQBwUk9e",
+    "title": "Just Give Me a Reason (feat. Nate Ruess)",
+    "artist": "P!nk, Nate Ruess",
+    "year": 2012
+  },
+  {
+    "id": "1ILbD4eWKWvg8ub5qJyBTP",
+    "title": "Joyride",
+    "artist": "Roxette",
+    "year": 1991
+  },
+  {
+    "id": "1uRKT2LRANv4baowBWHfDS",
+    "title": "(We're Gonna) Rock Around The Clock",
+    "artist": "Bill Haley & His Comets",
+    "year": 1955
+  },
+  {
+    "id": "0odIT9B9BvOCnXfS0e4lB5",
+    "title": "Bette Davis Eyes",
+    "artist": "Kim Carnes",
+    "year": 1981
+  },
+  {
+    "id": "32gpJnMZkRafZdQvU7ZzR7",
+    "title": "Lambada - Version 1989",
+    "artist": "Kaoma",
+    "year": 1989
+  },
+  {
+    "id": "53Za5vyGc1x7GxgJVRjRKc",
+    "title": "Ain't Nobody",
+    "artist": "Rufus, Chaka Khan",
+    "year": 1979
+  },
+  {
+    "id": "2LawezPeJhN4AWuSB0GtAU",
+    "title": "Have You Ever Seen The Rain",
+    "artist": "Creedence Clearwater Revival",
+    "year": 1970
+  },
+  {
+    "id": "4BFMQ15vXr626UOoZL8bUI",
+    "title": "(I've Had) The Time of My Life - From \"Dirty Dancing\" Soundtrack",
+    "artist": "Bill Medley, Jennifer Warnes",
+    "year": 2004
+  },
+  {
+    "id": "0KligwQn4Iy344p2Q5m6k6",
+    "title": "Più bella cosa",
+    "artist": "Eros Ramazzotti",
+    "year": 1996
+  },
+  {
+    "id": "2nHajACLqGsbctpe3Rafh3",
+    "title": "No Son Of Mine",
+    "artist": "Genesis",
+    "year": 1991
+  },
+  {
+    "id": "60nZcImufyMA1MKQY3dcCH",
+    "title": "Happy - From \"Despicable Me 2\"",
+    "artist": "Pharrell Williams",
+    "year": 2013
+  },
+  {
+    "id": "1qPbGZqppFwLwcBC1JQ6Vr",
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "year": 1995
+  },
+  {
+    "id": "4H1iMlEWKZmpKTHCZzDhju",
+    "title": "You Can't Hurry Love",
+    "artist": "The Supremes",
+    "year": 1966
+  }
+]

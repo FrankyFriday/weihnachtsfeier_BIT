@@ -1,0 +1,8 @@
+.git
+.env
+.env.*
+!.env.docker.example
+!.env.server.example
+node_modules
+npm-debug.log
+data/year-cache.json
