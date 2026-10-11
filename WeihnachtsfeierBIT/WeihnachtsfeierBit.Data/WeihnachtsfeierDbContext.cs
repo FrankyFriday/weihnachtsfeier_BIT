@@ -7,6 +7,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<TestEntry> TestEntries => Set<TestEntry>();
     public DbSet<Projekt> Projekte => Set<Projekt>();
     public DbSet<ProjektAdmin> ProjektAdmins => Set<ProjektAdmin>();
+    public DbSet<ProjektAdminProjekt> ProjektAdminProjekte => Set<ProjektAdminProjekt>();
     public DbSet<ProjektAdminSitzung> ProjektAdminSitzungen => Set<ProjektAdminSitzung>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
@@ -81,11 +82,19 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         admins.Property(admin => admin.PasswortHash)
             .HasMaxLength(256)
             .IsRequired();
-        admins.HasIndex(admin => new { admin.ProjektId, admin.BenutzernameNormalisiert })
+        admins.HasIndex(admin => admin.BenutzernameNormalisiert)
             .IsUnique();
-        admins.HasOne(admin => admin.Projekt)
-            .WithMany(projekt => projekt.Admins)
-            .HasForeignKey(admin => admin.ProjektId)
+
+        var adminProjekte = modelBuilder.Entity<ProjektAdminProjekt>();
+        adminProjekte.HasKey(membership => new { membership.ProjektAdminId, membership.ProjektId });
+        adminProjekte.HasIndex(membership => membership.ProjektId);
+        adminProjekte.HasOne(membership => membership.ProjektAdmin)
+            .WithMany(admin => admin.Projekte)
+            .HasForeignKey(membership => membership.ProjektAdminId)
+            .OnDelete(DeleteBehavior.Cascade);
+        adminProjekte.HasOne(membership => membership.Projekt)
+            .WithMany(project => project.Admins)
+            .HasForeignKey(membership => membership.ProjektId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var adminSitzungen = modelBuilder.Entity<ProjektAdminSitzung>();

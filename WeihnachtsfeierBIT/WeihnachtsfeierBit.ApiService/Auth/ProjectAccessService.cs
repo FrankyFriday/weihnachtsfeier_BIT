@@ -15,9 +15,8 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
         var now = DateTime.UtcNow;
         var tokenHash = ApiToken.Hash(token);
         var adminSession = await dbContext.ProjektAdminSitzungen
-            .Include(session => session.ProjektAdmin)
             .FirstOrDefaultAsync(session => session.TokenHash == tokenHash &&
-                session.ProjektAdmin.ProjektId == projectId &&
+            session.ProjektAdmin.Projekte.Any(membership => membership.ProjektId == projectId) &&
                 session.WiderrufenAmUtc == null &&
                 session.LaeuftAbAmUtc > now, cancellationToken);
 

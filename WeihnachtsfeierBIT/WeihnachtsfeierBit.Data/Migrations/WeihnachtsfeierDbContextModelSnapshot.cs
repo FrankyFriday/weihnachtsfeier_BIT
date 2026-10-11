@@ -61,15 +61,30 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<Guid>("ProjektId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ProjektId", "BenutzernameNormalisiert")
+                    b.HasIndex("BenutzernameNormalisiert")
                         .IsUnique();
 
                     b.ToTable("ProjektAdmins");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
+                {
+                    b.Property<Guid>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("HinzugefuegtAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ProjektAdminId", "ProjektId");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("ProjektAdminProjekte");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
@@ -320,8 +335,14 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("ranking");
                 });
 
-            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdmin", b =>
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
                 {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany("Projekte")
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
                         .WithMany("Admins")
                         .HasForeignKey("ProjektId")
@@ -329,6 +350,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Projekt");
+
+                    b.Navigation("ProjektAdmin");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
@@ -420,6 +443,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdmin", b =>
                 {
+                    b.Navigation("Projekte");
+
                     b.Navigation("Sitzungen");
                 });
 

@@ -2,13 +2,13 @@ using System.Text.Json;
 
 namespace WeihnachtsfeierBit.ApiService.Contracts;
 
-public sealed record CreateProjectRequest(string Name, string AdminUsername, string AdminPassword);
+public sealed record CreateAdminAccountRequest(string Username, string Password);
+public sealed record AttachAdminToProjectRequest(string Username);
 public sealed record ProjectResponse(Guid Id, string Name);
 public sealed record RenameProjectRequest(string Name);
 public sealed record ParticipantLoginRequest(int Number);
 public sealed record AdminLoginRequest(string Username, string Password);
-public sealed record CreateAdminRequest(string Username, string Password);
-public sealed record SessionResponse(Guid SessionId, string AccessToken, DateTime ExpiresAtUtc, string Role);
+public sealed record SessionResponse(Guid SessionId, string AccessToken, DateTime ExpiresAtUtc, string Role, Guid? ProjectId, string DisplayName);
 public sealed record ParticipantResponse(Guid Id, int Number, string? Name, Guid? TeamId);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);
 public sealed record UpdateParticipantRequest(string? Name, Guid? TeamId, int? Number);

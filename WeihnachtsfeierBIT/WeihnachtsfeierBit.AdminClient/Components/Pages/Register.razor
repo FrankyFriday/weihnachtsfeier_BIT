@@ -1,0 +1,32 @@
+@page "/register"
+
+<PageTitle>Projekt registrieren | Admin</PageTitle>
+
+<section class="auth-layout">
+    <div class="auth-copy">
+        <span class="eyebrow">ADMINISTRATION</span>
+        <h1>Admin-Konto erstellen</h1>
+        <p>Ein Konto kann später Zugriff auf mehrere Projekte erhalten.</p>
+    </div>
+
+    <form class="auth-form" action="auth/register" method="post">
+        <h2>Registrieren</h2>
+        @if (Error)
+        {
+            <p class="form-error" role="alert">Registrierung fehlgeschlagen. Prüfe deine Eingaben und versuche es erneut.</p>
+        }
+        <label for="username">Admin-Benutzername</label>
+        <input id="username" name="username" maxlength="64" autocomplete="username" required />
+        <label for="password">Passwort</label>
+        <input id="password" name="password" type="password" minlength="12" autocomplete="new-password" required />
+        <button class="primary-button" type="submit">Admin-Konto erstellen</button>
+        <a class="auth-link" href="login">Ich habe bereits ein Konto</a>
+    </form>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    private bool Error => ErrorCode == "registration";
+}
