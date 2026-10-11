@@ -37,6 +37,96 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("Projekte");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdmin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Benutzername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("BenutzernameNormalisiert")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ErstelltAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PasswortHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BenutzernameNormalisiert")
+                        .IsUnique();
+
+                    b.ToTable("ProjektAdmins");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
+                {
+                    b.Property<Guid>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("HinzugefuegtAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ProjektAdminId", "ProjektId");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("ProjektAdminProjekte");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ErstelltAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LaeuftAbAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LetzteAktivitaetAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("WiderrufenAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("ProjektAdminId", "WiderrufenAmUtc", "LaeuftAbAmUtc");
+
+                    b.ToTable("ProjektAdminSitzungen");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
                 {
                     b.Property<Guid>("Id")
@@ -189,9 +279,10 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProjektId");
-
                     b.HasIndex("TeamId");
+
+                    b.HasIndex("ProjektId", "Nummer")
+                        .IsUnique();
 
                     b.ToTable("Teilnehmer");
                 });
@@ -242,6 +333,36 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
 
                     b.HasDiscriminator().HasValue("ranking");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany("Projekte")
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany("Admins")
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+
+                    b.Navigation("ProjektAdmin");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany("Sitzungen")
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProjektAdmin");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ShowProjektZuo", b =>
@@ -315,7 +436,16 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
                 {
+                    b.Navigation("Admins");
+
                     b.Navigation("ShowProjektZuo");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdmin", b =>
+                {
+                    b.Navigation("Projekte");
+
+                    b.Navigation("Sitzungen");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>

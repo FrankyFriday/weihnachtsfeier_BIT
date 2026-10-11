@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+
+<div class="admin-shell">
+    <header class="topbar">
+        <a class="brand" href="./">Weihnachtsfeier <span>Admin</span></a>
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <details class="profile-menu">
+                    <summary aria-label="Profilmenü öffnen" title="Profilmenü">
+                        <span class="avatar">@Initial(auth.User.Identity?.Name)</span>
+                    </summary>
+                    <div class="profile-popover">
+                        <strong>@auth.User.Identity?.Name</strong>
+                        <span>Projektadministration</span>
+                        <form action="auth/logout" method="post">
+                            <button type="submit">Abmelden</button>
+                        </form>
+                    </div>
+                </details>
+            </Authorized>
+        </AuthorizeView>
+    </header>
+
+    <main class="page-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    private static string Initial(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "A" : name.Trim()[..1].ToUpperInvariant();
+}

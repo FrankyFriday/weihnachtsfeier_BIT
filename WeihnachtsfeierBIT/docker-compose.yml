@@ -30,6 +30,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  adminclient:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.AdminClient/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ApiBaseUrl: http://apiservice:8080
+    depends_on:
+      - apiservice
+    restart: unless-stopped
+
   webfrontend:
     build:
       context: ..
@@ -37,10 +48,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ApiBaseUrl: http://apiservice:8080
+      AdminClientBaseUrl: http://adminclient:8080
     ports:
       - "8080:8080"
     depends_on:
       - apiservice
+      - adminclient
     restart: unless-stopped
 
 volumes:

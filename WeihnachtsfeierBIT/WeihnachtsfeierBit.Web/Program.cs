@@ -1,5 +1,6 @@
 using WeihnachtsfeierBit.Web;
 using WeihnachtsfeierBit.Web.Components;
+using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,29 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddOutputCache();
+
+var adminClientAddress = builder.Configuration["AdminClientBaseUrl"]
+    ?? builder.Configuration["services:adminclient:http:0"]
+    ?? "http://adminclient:8080";
+builder.Services.AddReverseProxy().LoadFromMemory(
+[
+    new RouteConfig
+    {
+        RouteId = "admin-client",
+        ClusterId = "admin-client",
+        Match = new RouteMatch { Path = "/admin/{**catch-all}" }
+    }
+],
+[
+    new ClusterConfig
+    {
+        ClusterId = "admin-client",
+        Destinations = new Dictionary<string, DestinationConfig>
+        {
+            ["admin-client"] = new() { Address = adminClientAddress }
+        }
+    }
+]);
 
 builder.Services.AddHttpClient<WeatherApiClient>(client =>
     {
@@ -53,6 +77,7 @@ app.UseAntiforgery();
 app.UseOutputCache();
 
 app.MapStaticAssets();
+app.MapReverseProxy();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

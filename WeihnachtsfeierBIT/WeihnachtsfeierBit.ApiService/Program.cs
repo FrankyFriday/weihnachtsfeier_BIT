@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
+using WeihnachtsfeierBit.ApiService.Auth;
+using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +14,23 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("weihnachtsfeierdb")));
+
+builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<ProjectAccessService>();
+builder.Services.AddScoped<ProjectAuthenticationService>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("authentication", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -25,57 +45,25 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
-
 app.MapGet("/", () => "API service is running. Navigate to /weatherforecast to see sample data.");
 
-app.MapGet("/weatherforecast", () =>
+app.MapAuthenticationEndpoints();
+app.MapProjectEndpoints();
+app.MapWeatherEndpoints();
+
+if (app.Environment.IsDevelopment())
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.MapGet("/test-entries", async (WeihnachtsfeierDbContext dbContext) =>
-    await dbContext.TestEntries.AsNoTracking().ToListAsync())
-    .WithName("GetTestEntries");
-
-app.MapPost("/test-entries", async (CreateTestEntryRequest request, WeihnachtsfeierDbContext dbContext) =>
-{
-    var name = request.Name?.Trim();
-    if (string.IsNullOrWhiteSpace(name))
-    {
-        return Results.BadRequest(new { message = "Name darf nicht leer sein." });
-    }
-
-    var entry = new TestEntry { Name = name };
-    dbContext.TestEntries.Add(entry);
-    await dbContext.SaveChangesAsync();
-
-    return Results.Created($"/test-entries/{entry.Id}", entry);
-})
-    .WithName("CreateTestEntry");
+    app.MapTestEntryEndpoints();
+}
 
 app.MapDefaultEndpoints();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
-
-record CreateTestEntryRequest(string? Name);

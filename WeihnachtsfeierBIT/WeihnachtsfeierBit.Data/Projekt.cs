@@ -5,4 +5,5 @@ public class Projekt
     public Guid Id { get; set; }
     public required string Name { get; set; }
     public List<ShowProjektZuo> ShowProjektZuo { get; set; } = [];
+    public List<ProjektAdminProjekt> Admins { get; set; } = [];
 }

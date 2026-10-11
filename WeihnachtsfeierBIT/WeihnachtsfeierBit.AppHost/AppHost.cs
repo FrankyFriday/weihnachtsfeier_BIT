@@ -9,10 +9,17 @@ var apiService = builder.AddProject<Projects.WeihnachtsfeierBit_ApiService>("api
     .WaitFor(database)
     .WithHttpHealthCheck("/health");
 
+var adminClient = builder.AddProject<Projects.WeihnachtsfeierBit_AdminClient>("adminclient")
+    .WithReference(apiService)
+    .WaitFor(apiService);
+
 builder.AddProject<Projects.WeihnachtsfeierBit_Web>("webfrontend")
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health")
     .WithReference(apiService)
-    .WaitFor(apiService);
+    .WithReference(adminClient)
+    .WithEnvironment("AdminClientBaseUrl", adminClient.GetEndpoint("http"))
+    .WaitFor(apiService)
+    .WaitFor(adminClient);
 
 builder.Build().Run();

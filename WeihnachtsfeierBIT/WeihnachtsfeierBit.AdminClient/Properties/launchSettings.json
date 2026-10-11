@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "WeihnachtsfeierBit.AdminClient": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:65360;http://localhost:65361"
+    }
+  }
+}

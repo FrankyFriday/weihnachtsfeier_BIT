@@ -7,5 +7,6 @@ public class Team
     public required string Color { get; set; }
     public required int Punkte { get; set; }
     public List<Teilnehmer> Teilnehmer { get; set; } = [];
+    public Guid ProjektId { get; set; }
     public required Projekt Projekt { get; set; }
 }
