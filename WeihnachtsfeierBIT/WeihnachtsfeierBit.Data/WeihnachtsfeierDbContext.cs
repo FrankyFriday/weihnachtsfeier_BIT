@@ -6,6 +6,8 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
 {
     public DbSet<TestEntry> TestEntries => Set<TestEntry>();
     public DbSet<Projekt> Projekte => Set<Projekt>();
+    public DbSet<ProjektAdmin> ProjektAdmins => Set<ProjektAdmin>();
+    public DbSet<ProjektAdminSitzung> ProjektAdminSitzungen => Set<ProjektAdminSitzung>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
@@ -63,6 +65,46 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         sitzungen.HasOne(sitzung => sitzung.Teilnehmer)
             .WithMany(teilnehmer => teilnehmer.Sitzungen)
             .HasForeignKey(sitzung => sitzung.TeilnehmerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Teilnehmer>()
+            .HasIndex(teilnehmer => new { teilnehmer.ProjektId, teilnehmer.Nummer })
+            .IsUnique();
+
+        var admins = modelBuilder.Entity<ProjektAdmin>();
+        admins.Property(admin => admin.Benutzername)
+            .HasMaxLength(64)
+            .IsRequired();
+        admins.Property(admin => admin.BenutzernameNormalisiert)
+            .HasMaxLength(64)
+            .IsRequired();
+        admins.Property(admin => admin.PasswortHash)
+            .HasMaxLength(256)
+            .IsRequired();
+        admins.HasIndex(admin => new { admin.ProjektId, admin.BenutzernameNormalisiert })
+            .IsUnique();
+        admins.HasOne(admin => admin.Projekt)
+            .WithMany(projekt => projekt.Admins)
+            .HasForeignKey(admin => admin.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var adminSitzungen = modelBuilder.Entity<ProjektAdminSitzung>();
+        adminSitzungen.Property(sitzung => sitzung.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired();
+        adminSitzungen.Property(sitzung => sitzung.UserAgent)
+            .HasMaxLength(512);
+        adminSitzungen.HasIndex(sitzung => sitzung.TokenHash)
+            .IsUnique();
+        adminSitzungen.HasIndex(sitzung => new
+        {
+            sitzung.ProjektAdminId,
+            sitzung.WiderrufenAmUtc,
+            sitzung.LaeuftAbAmUtc
+        });
+        adminSitzungen.HasOne(sitzung => sitzung.ProjektAdmin)
+            .WithMany(admin => admin.Sitzungen)
+            .HasForeignKey(sitzung => sitzung.ProjektAdminId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 

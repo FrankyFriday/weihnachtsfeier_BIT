@@ -93,6 +93,44 @@ Das Passwort entspricht `POSTGRES_PASSWORD`, falls diese Umgebungsvariable geset
 
 Auf der Startseite kannst du Testeinträge anlegen und die gespeicherten Zeilen anzeigen. Alternativ sind sie über `GET http://localhost:8081/test-entries` abrufbar und über `POST http://localhost:8081/test-entries` mit JSON `{ "name": "Mein Test" }` anlegbar.
 
+### API und Berechtigungen
+
+Die API-Dokumentation ist in Development unter <http://localhost:8081/openapi/v1.json> verfügbar. Projektbezogene Requests senden das ausgegebene Token als `Authorization: Bearer <AccessToken>`. Projektanlage, Projekt-Admin-Login und Teilnehmernummern-Login sind auf zehn Versuche pro IP und Minute begrenzt.
+
+Projekt und erstes Admin-Konto gemeinsam anlegen:
+
+```powershell
+$project = Invoke-RestMethod -Method Post -Uri http://localhost:8081/api/projects -ContentType 'application/json' -Body (@{
+	name = 'Weihnachtsfeier'
+	adminUsername = 'admin'
+	adminPassword = 'EinLangesLokalesPasswort!'
+} | ConvertTo-Json)
+$projectId = $project.project.id
+$adminToken = $project.session.accessToken
+```
+
+Teilnehmernummern im Projekt registrieren und Teilnehmer anmelden:
+
+```powershell
+$participant = Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/projects/$projectId/participants" -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body (@{
+	number = 12
+	name = 'Teilnehmer 12'
+} | ConvertTo-Json)
+$participantSession = Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/projects/$projectId/participant-sessions" -ContentType 'application/json' -Body (@{ number = 12 } | ConvertTo-Json)
+$participantToken = $participantSession.accessToken
+```
+
+Teilnehmer können Projekt, Teams, Shows, Slides und das eigene Profil lesen. Projekt-, Teilnehmer-, Team-, Show- und Slide-Änderungen benötigen ein Projekt-Admin-Token. Admins können Teilnehmer-Sitzungen ansehen und widerrufen; Teilnehmer können ihre eigenen Sitzungen ansehen und beenden. Entfernte oder abgelaufene Tokens werden bei weiteren Requests mit `401` abgewiesen, fehlende Adminrechte mit `403`.
+
+Beispiele für geschützte Lese- und Schreibzugriffe:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8081/api/projects/$projectId/teams" -Headers @{ Authorization = "Bearer $participantToken" }
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/projects/$projectId/teams" -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body (@{ displayName = 'Team Rot'; color = '#d32f2f' } | ConvertTo-Json)
+```
+
+Die Dev-Testendpunkte `/test-entries` stehen nur bei `ASPNETCORE_ENVIRONMENT=Development` zur Verfügung. In den Release-Containern sind sie deaktiviert.
+
 ### Aspire ohne Docker für API und Web
 
 Für die lokale Entwicklung ohne Container für API und Web kannst du weiterhin den Aspire-AppHost starten:
