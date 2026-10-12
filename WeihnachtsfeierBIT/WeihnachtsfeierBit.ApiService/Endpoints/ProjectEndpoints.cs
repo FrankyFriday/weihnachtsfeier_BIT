@@ -16,6 +16,7 @@ public static class ProjectEndpoints
             .AddEndpointFilter<RequireProjectAdminFilter>();
 
         reader.MapGet("", GetProjectAsync).WithName("GetProject");
+        reader.MapGet("/overview", GetProjectOverviewAsync).WithName("GetProjectOverview");
         admin.MapPut("", UpdateProjectAsync).WithName("UpdateProject");
         admin.MapDelete("", DeleteProjectAsync).WithName("DeleteProject");
 
@@ -41,6 +42,23 @@ public static class ProjectEndpoints
             .Select(item => new ProjectResponse(item.Id, item.Name))
             .FirstOrDefaultAsync(cancellationToken);
         return project is null ? Results.NotFound() : Results.Ok(project);
+    }
+
+    private static async Task<IResult> GetProjectOverviewAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var overview = await dbContext.Projekte.AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => new ProjectOverviewResponse(
+                project.Id,
+                project.Name,
+                dbContext.ShowProjektZuos.Count(link => link.ProjektId == project.Id),
+                dbContext.Teilnehmer.Count(participant => participant.ProjektId == project.Id),
+                dbContext.Teams.Count(team => team.ProjektId == project.Id)))
+            .FirstOrDefaultAsync(cancellationToken);
+        return overview is null ? Results.NotFound() : Results.Ok(overview);
     }
 
     private static async Task<IResult> UpdateProjectAsync(

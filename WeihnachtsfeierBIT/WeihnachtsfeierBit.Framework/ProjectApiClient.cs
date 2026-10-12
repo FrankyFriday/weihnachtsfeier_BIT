@@ -32,6 +32,18 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keine Projektdaten zurückgegeben.");
     }
 
+    public async Task<ProjectOverviewResponse> GetProjectOverviewAsync(
+        string accessToken,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/overview", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectOverviewResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Projektübersicht zurückgegeben.");
+    }
+
     public async Task<ProjectResponse> RenameProjectAsync(
         string accessToken,
         Guid projectId,
@@ -143,6 +155,7 @@ public sealed class ProjectApiClient(HttpClient httpClient)
 
 public sealed record ProjectSummary(Guid Id, string Name);
 public sealed record ProjectResponse(Guid Id, string Name);
+public sealed record ProjectOverviewResponse(Guid Id, string Name, int ShowCount, int ParticipantCount, int TeamCount);
 public sealed record CreateProjectRequest(string Name);
 public sealed record RenameProjectRequest(string Name);
 public sealed record ApiError(string Message);

@@ -5,6 +5,8 @@ namespace WeihnachtsfeierBit.ApiService.Auth;
 
 public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 {
+    private static readonly TimeSpan ActivityUpdateInterval = TimeSpan.FromSeconds(30);
+
     public async Task<ProjectAccess?> AuthenticateAsync(Guid projectId, string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -22,8 +24,12 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 
         if (adminSession is not null)
         {
-            adminSession.LetzteAktivitaetAmUtc = now;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (now - adminSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
+            {
+                adminSession.LetzteAktivitaetAmUtc = now;
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             return new ProjectAccess(projectId, null, adminSession.ProjektAdminId);
         }
 
@@ -39,8 +45,12 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
             return null;
         }
 
-        participantSession.LetzteAktivitaetAmUtc = now;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        if (now - participantSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
+        {
+            participantSession.LetzteAktivitaetAmUtc = now;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         return new ProjectAccess(projectId, participantSession.TeilnehmerId, null);
     }
 

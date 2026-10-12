@@ -16,6 +16,14 @@ docker compose up --build -d
 
 Danach ist der Testclient unter <http://localhost:8080> erreichbar, der Adminclient unter <http://localhost:8080/admin> und die API auf Port `8081`. Der Adminclient läuft als eigener Container, wird aber über den Testclient auf `/admin` weitergeleitet. Beim Start der API werden ausstehende EF-Core-Migrationen automatisch angewendet. PostgreSQL speichert die Daten in einem Docker-Volume namens `postgres-data`.
 
+### Admin-Oberfläche und UI-Framework
+
+Das Admin-Panel liegt unter `/admin`. Anmeldung und Registrierung verwenden nur Admin-Benutzername und Passwort. Ein neues Admin-Konto erhält zunächst kein Projekt; Projekte werden nach der Anmeldung im Admin-Panel angelegt.
+
+Die Admin-Routen und fachlichen Seiteninhalte liegen in `WeihnachtsfeierBit.AdminClient/Components`. Dazu gehören Projektübersicht, Projektverwaltung, Show-Bibliothek und Show-Details, Teilnehmer, Teams/Auswertung sowie allgemeine Projekteinstellungen. Die zugehörigen Razor-Seiten sind schlanke Routen-Hosts.
+
+`WeihnachtsfeierBit.Framework` enthält wiederverwendbare, fachlich neutrale Bausteine wie `Card` (mit optionalen Header-, Inhalt- und Footer-Slots), `StandardDataTable`, Buttons, Links, Seitenüberschriften, Leerzustände und Lade-/Fehleranzeigen. Gemeinsame Projekt-API-Clients und DTOs liegen ebenfalls dort. Admin-spezifische Navigation, Formulare und Seiten bleiben im AdminClient.
+
 Containerstatus und API-Startprotokoll anzeigen:
 
 ```powershell
@@ -112,14 +120,18 @@ $login = Invoke-RestMethod -Method Post -Uri http://localhost:8081/api/admin-ses
 $adminToken = $login.accessToken
 ```
 
-Alternativ kannst du das Konto unter <http://localhost:8080/admin/register> registrieren und dich anschließend unter <http://localhost:8080/admin/login> anmelden. Login und Registrierung benötigen keine Projekt-ID. Ein Admin-Konto kann später mehreren Projekten zugeordnet werden; bis zur Zuordnung besitzt es noch keinen Zugriff auf Projektendpunkte. Der Adminclient zeigt zunächst den angemeldeten Namen und bietet das Profilmenü zum Abmelden.
+Alternativ kannst du das Konto unter <http://localhost:8080/admin/register> registrieren und dich anschließend unter <http://localhost:8080/admin/login> anmelden. Login und Registrierung benötigen keine Projekt-ID. Ein Admin-Konto kann mehreren Projekten zugeordnet werden und im Admin-Panel eigene Projekte anlegen. Die Projektübersicht zeigt die Projekte des angemeldeten Admins; jedes Projekt besitzt eine Übersicht sowie Seiten für Shows, Show-Details, Teilnehmer, Teams/Auswertung und allgemeine Einstellungen. Das Profilmenü bietet die Abmeldung.
 
-Ein bestehender Projekt-Admin kann ein bereits registriertes Admin-Konto einem Projekt zuordnen. Projektanlage und Projektverwaltung im Adminclient sind noch nicht umgesetzt:
+Ein bestehender Projekt-Admin kann ein bereits registriertes Admin-Konto einem Projekt zuordnen. Die eigene Projektliste eines Admins ist über folgende Endpunkte erreichbar; beide Requests benötigen ein Admin-Bearer-Token:
 
 ```powershell
-$projectId = 'UUID-EINES-BESTEHENDEN-PROJEKTS'
+$projects = Invoke-RestMethod -Uri 'http://localhost:8081/api/admin/projects' -Headers @{ Authorization = "Bearer $adminToken" }
+$createdProject = Invoke-RestMethod -Method Post -Uri 'http://localhost:8081/api/admin/projects' -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body (@{ name = 'Weihnachtsfeier 2026' } | ConvertTo-Json)
+$projectId = $createdProject.id
 Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/projects/$projectId/admins" -Headers @{ Authorization = "Bearer $adminToken" } -ContentType 'application/json' -Body (@{ username = 'weiterer-admin' } | ConvertTo-Json)
 ```
+
+Für die Projektstartseite liefert `GET /api/projects/{projectId}/overview` Projektname sowie Anzahl der Shows, Teilnehmer und Teams in einer Antwort. Geschützte Show-, Teilnehmer- und Teamendpunkte verwenden dieselbe Projektzugriffsprüfung wie die übrigen Projektendpunkte.
 
 Teilnehmernummern im Projekt registrieren und Teilnehmer anmelden:
 

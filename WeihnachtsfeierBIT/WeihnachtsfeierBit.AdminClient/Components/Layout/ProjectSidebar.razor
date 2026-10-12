@@ -50,6 +50,8 @@
 @code {
     private ProjectSummary[] _projects = [];
     private ProjectShow[] _shows = [];
+    private Guid? _loadedShowsProjectId;
+    private bool _hasLoadedProjects;
     private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
     private Guid? CurrentShowId => GetShowId(Navigation.Uri);
     private ProjectSummary? CurrentProject => _projects.FirstOrDefault(project => project.Id == CurrentProjectId);
@@ -59,19 +61,37 @@
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += OnLocationChanged;
-        await RefreshAsync();
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _projects = await ProjectApiClient.GetAdminProjectsAsync(token);
+            _hasLoadedProjects = true;
+            _loadedShowsProjectId = CurrentProjectId;
+            _shows = _loadedShowsProjectId is Guid projectId
+                ? await ProjectApiClient.GetShowsAsync(token, projectId)
+                : [];
+        });
     }
-
-    private async Task RefreshAsync() => await LoadAuthenticatedAsync(async token =>
-    {
-        _projects = await ProjectApiClient.GetAdminProjectsAsync(token);
-        var projectId = CurrentProjectId;
-        _shows = projectId is null ? [] : await ProjectApiClient.GetShowsAsync(token, projectId.Value);
-    });
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(async () =>
     {
-        await RefreshAsync();
+        var projectId = CurrentProjectId;
+        if (projectId != _loadedShowsProjectId)
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                if (!_hasLoadedProjects || projectId is Guid id && !_projects.Any(project => project.Id == id))
+                {
+                    _projects = await ProjectApiClient.GetAdminProjectsAsync(token);
+                    _hasLoadedProjects = true;
+                }
+
+                _shows = projectId is Guid selectedProjectId
+                    ? await ProjectApiClient.GetShowsAsync(token, selectedProjectId)
+                    : [];
+                _loadedShowsProjectId = projectId;
+            });
+        }
+
         StateHasChanged();
     });
 
