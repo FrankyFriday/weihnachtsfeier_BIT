@@ -1,20 +1,4 @@
 @page "/"
 
-<PageTitle>Admin</PageTitle>
-
-<AuthorizeView>
-    <Authorized Context="auth">
-        <section class="dashboard-heading">
-            <span class="eyebrow">ADMINISTRATION</span>
-            <h1>Willkommen, @auth.User.Identity?.Name</h1>
-        </section>
-    </Authorized>
-    <NotAuthorized>
-        <section class="dashboard-heading">
-            <span class="eyebrow">ADMINISTRATION</span>
-            <h1>Projektverwaltung</h1>
-            <p><a href="login">Anmelden</a> oder <a href="register">Projekt registrieren</a></p>
-        </section>
-    </NotAuthorized>
-</AuthorizeView>
-
+<PageTitle>Projekte | Admin</PageTitle>
+<ProjectListContent />

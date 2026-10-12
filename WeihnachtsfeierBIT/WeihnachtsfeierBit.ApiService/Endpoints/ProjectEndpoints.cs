@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.Data;
+using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
 
@@ -51,7 +52,7 @@ public static class ProjectEndpoints
         var name = request.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
         {
-            return Results.BadRequest(new ApiError("Der Projektname muss zwischen 1 und 120 Zeichen lang sein."));
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Der Projektname muss zwischen 1 und 120 Zeichen lang sein."));
         }
 
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);

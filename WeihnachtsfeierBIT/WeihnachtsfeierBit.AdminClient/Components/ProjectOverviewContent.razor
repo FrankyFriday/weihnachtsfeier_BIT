@@ -1,0 +1,70 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Projekt wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    else if (_project is not null)
+    {
+        <PageHeading Eyebrow="PROJEKTÜBERSICHT" Title="@_project.Name" Description="Dein Eventbereich mit Shows, Teilnehmern und Teams." />
+        <section class="project-summary-grid" aria-label="Projektbereiche">
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Shows</span>
+                    <strong>@_shows.Length</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("shows")" Label="Show-Bibliothek öffnen" Variant="text" /></FooterContent>
+            </Card>
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Teilnehmer</span>
+                    <strong>@_participants.Length</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("participants")" Label="Teilnehmer verwalten" Variant="text" /></FooterContent>
+            </Card>
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Teams</span>
+                    <strong>@_teams.Length</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("teams")" Label="Auswertung ansehen" Variant="text" /></FooterContent>
+            </Card>
+        </section>
+        <Card Class="project-settings-prompt">
+            <ChildContent>
+                <h2>Projekt verwalten</h2>
+                <p>Allgemeine Informationen und Einstellungen des Projekts.</p>
+            </ChildContent>
+            <FooterContent><FrameworkLink Href="@ProjectUrl("settings")" Label="Einstellungen öffnen" /></FooterContent>
+        </Card>
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ProjectResponse? _project;
+    private ProjectShow[] _shows = [];
+    private ParticipantSummary[] _participants = [];
+    private TeamSummary[] _teams = [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        _project = await ProjectApiClient.GetProjectAsync(token, ProjectId);
+        var showsTask = ProjectApiClient.GetShowsAsync(token, ProjectId);
+        var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+        var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+        await Task.WhenAll(showsTask, participantsTask, teamsTask);
+        _shows = await showsTask;
+        _participants = await participantsTask;
+        _teams = await teamsTask;
+    });
+
+    private string ProjectUrl(string section) => $"{Navigation.BaseUri}projects/{ProjectId}/{section}";
+}

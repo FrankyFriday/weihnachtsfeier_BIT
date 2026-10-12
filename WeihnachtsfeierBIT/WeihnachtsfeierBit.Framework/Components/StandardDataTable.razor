@@ -1,0 +1,31 @@
+@typeparam TItem
+
+<div class="framework-data-table-wrap">
+    <table class="framework-data-table">
+        <thead>
+            <tr>
+                @foreach (var column in Columns)
+                {
+                    <th scope="col">@column.Heading</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Items)
+            {
+                <tr @key="KeySelector?.Invoke(item)">
+                    @foreach (var column in Columns)
+                    {
+                        <td>@column.Value(item)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TItem> Items { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<DataTableColumn<TItem>> Columns { get; set; } = [];
+    [Parameter] public Func<TItem, object?>? KeySelector { get; set; }
+}

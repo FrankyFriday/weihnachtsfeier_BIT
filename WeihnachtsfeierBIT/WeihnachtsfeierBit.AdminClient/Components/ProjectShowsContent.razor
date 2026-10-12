@@ -1,0 +1,62 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    <PageHeading Eyebrow="SHOW-BIBLIOTHEK" Title="Shows" Description="Shows dieses Projekts und ihre Inhalte verwalten." />
+    <div class="page-action-row">
+        <FrameworkButton Label="Show erstellen" BusyLabel="Wird angelegt ..." Busy="@_creating" Disabled="@_creating" OnClick="CreateShowAsync" />
+    </div>
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Shows werden geladen ..." />
+    }
+    else if (_shows.Length == 0)
+    {
+        <EmptyState Title="Noch keine Shows" Description="Erstelle eine Show für dieses Projekt. Shows können mehrere Slides enthalten." />
+    }
+    else
+    {
+        <div class="project-grid">
+            @for (var index = 0; index < _shows.Length; index++)
+            {
+                <Card Class="project-card" @key="_shows[index].Id">
+                    <ChildContent><h2>Show @(index + 1)</h2></ChildContent>
+                    <FooterContent><FrameworkLink Href="@ShowUrl(_shows[index].Id)" Label="Show öffnen" Variant="text" /></FooterContent>
+                </Card>
+            }
+        </div>
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ProjectShow[] _shows = [];
+    private bool _creating;
+
+    protected override async Task OnParametersSetAsync() =>
+        await LoadAuthenticatedAsync(async token => _shows = await ProjectApiClient.GetShowsAsync(token, ProjectId));
+
+    private async Task CreateShowAsync()
+    {
+        _creating = true;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.CreateShowAsync(token, ProjectId);
+                _shows = await ProjectApiClient.GetShowsAsync(token, ProjectId);
+            });
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private string ShowUrl(Guid showId) => $"{Navigation.BaseUri}projects/{ProjectId}/shows/{showId}";
+}

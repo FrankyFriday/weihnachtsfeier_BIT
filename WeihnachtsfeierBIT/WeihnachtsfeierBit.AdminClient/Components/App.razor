@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/admin/" />
     <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="_content/WeihnachtsfeierBit.Framework/framework.css" />
+    <link rel="stylesheet" href="admin-workspace.css" />
     <HeadOutlet />
 </head>
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
 </body>
 </html>

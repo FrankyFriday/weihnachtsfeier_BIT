@@ -1,0 +1,20 @@
+<article class="framework-card @Class">
+    @if (HeaderContent is not null)
+    {
+        <header class="framework-card-header">@HeaderContent</header>
+    }
+    <div class="framework-card-content">
+        @ChildContent
+    </div>
+    @if (FooterContent is not null)
+    {
+        <footer class="framework-card-footer">@FooterContent</footer>
+    }
+</article>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+}

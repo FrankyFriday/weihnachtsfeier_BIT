@@ -4,8 +4,6 @@ namespace WeihnachtsfeierBit.ApiService.Contracts;
 
 public sealed record CreateAdminAccountRequest(string Username, string Password);
 public sealed record AttachAdminToProjectRequest(string Username);
-public sealed record ProjectResponse(Guid Id, string Name);
-public sealed record RenameProjectRequest(string Name);
 public sealed record ParticipantLoginRequest(int Number);
 public sealed record AdminLoginRequest(string Username, string Password);
 public sealed record SessionResponse(Guid SessionId, string AccessToken, DateTime ExpiresAtUtc, string Role, Guid? ProjectId, string DisplayName);

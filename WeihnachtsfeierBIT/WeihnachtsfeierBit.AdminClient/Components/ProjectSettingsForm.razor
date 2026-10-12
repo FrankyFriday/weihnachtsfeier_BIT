@@ -1,0 +1,96 @@
+@inject ProjectApiClient ProjectApiClient
+
+<Card Class="settings-card">
+    <ChildContent>
+        <h2>Allgemeine Einstellungen</h2>
+        <form class="settings-form" @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <FrameworkNotice Message="@_errorMessage" />
+            }
+            <label for="project-name">Projektname</label>
+            <input id="project-name" @bind="_name" required maxlength="120" />
+            <p class="framework-help-text">Der Name wird in der Projektübersicht angezeigt.</p>
+            <FrameworkButton Label="Änderungen speichern" BusyLabel="Speichern ..." Type="submit" Busy="@_saving" Disabled="@_saving" />
+        </form>
+    </ChildContent>
+    <FooterContent>
+        <div class="framework-danger-zone">
+            <h3>Projekt löschen</h3>
+            @if (_confirmDelete)
+            {
+                <p role="alert">Das Projekt und alle zugehörigen Daten werden dauerhaft gelöscht.</p>
+                <div class="framework-button-row">
+                    <FrameworkButton Label="Endgültig löschen" BusyLabel="Wird gelöscht ..." Variant="danger" Busy="@_deleting" Disabled="@_deleting" OnClick="DeleteAsync" />
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelDelete" />
+                </div>
+            }
+            else
+            {
+                <FrameworkButton Label="Projekt löschen" Variant="danger" OnClick="ConfirmDelete" />
+            }
+        </div>
+    </FooterContent>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public ProjectResponse Project { get; set; } = new(Guid.Empty, string.Empty);
+    [Parameter, EditorRequired] public string AccessToken { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ProjectResponse> OnSaved { get; set; }
+    [Parameter] public EventCallback OnDeleted { get; set; }
+
+    private string _name = string.Empty;
+    private string? _errorMessage;
+    private bool _saving;
+    private bool _confirmDelete;
+    private bool _deleting;
+
+    protected override void OnParametersSet() => _name = Project.Name;
+
+    private async Task SaveAsync()
+    {
+        var name = _name.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
+        {
+            _errorMessage = "Der Projektname muss zwischen 1 und 120 Zeichen lang sein.";
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            await OnSaved.InvokeAsync(await ProjectApiClient.RenameProjectAsync(AccessToken, Project.Id, name));
+        }
+        catch (HttpRequestException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ConfirmDelete() => _confirmDelete = true;
+    private void CancelDelete() => _confirmDelete = false;
+
+    private async Task DeleteAsync()
+    {
+        _deleting = true;
+        try
+        {
+            await ProjectApiClient.DeleteProjectAsync(AccessToken, Project.Id);
+            await OnDeleted.InvokeAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            _errorMessage = exception.Message;
+            _confirmDelete = false;
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+}

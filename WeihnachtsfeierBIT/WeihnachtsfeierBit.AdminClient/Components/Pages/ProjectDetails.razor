@@ -1,0 +1,8 @@
+@page "/projects/{ProjectId:guid}/settings"
+
+<PageTitle>Projekteinstellungen | Admin</PageTitle>
+<ProjectSettingsContent ProjectId="ProjectId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+}

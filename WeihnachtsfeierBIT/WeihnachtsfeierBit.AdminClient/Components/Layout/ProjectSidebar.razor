@@ -1,0 +1,102 @@
+@inherits AuthenticatedComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <aside class="project-sidebar">
+            <nav aria-label="Projektbereiche">
+                <div class="sidebar-section">
+                    <span class="sidebar-label">WORKSPACE</span>
+                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri">Projekte</a>
+                </div>
+                <div class="sidebar-section">
+                    <span class="sidebar-label">PROJEKTE</span>
+                    @foreach (var project in _projects)
+                    {
+                        <a class="sidebar-link @(IsCurrentProject(project.Id) ? "active" : null)" href="@ProjectUrl(project.Id)">
+                            <span class="sidebar-project-dot"></span>
+                            <span class="sidebar-project-name">@project.Name</span>
+                        </a>
+                    }
+                    @if (_projects.Length == 0 && !IsLoading)
+                    {
+                        <span class="sidebar-muted">Noch keine Projekte</span>
+                    }
+                </div>
+                @if (CurrentProject is not null)
+                {
+                    <div class="sidebar-section sidebar-current-project">
+                        <span class="sidebar-label">AKTUELLES PROJEKT</span>
+                        <strong>@CurrentProject.Name</strong>
+                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)">Übersicht</a>
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Shows</a>
+                        @for (var index = 0; index < _shows.Length; index++)
+                        {
+                            var show = _shows[index];
+                            <a class="sidebar-link sidebar-show-link @(CurrentShowId == show.Id ? "active" : null)"
+                               href="@ProjectUrl(CurrentProject.Id, $"shows/{show.Id}")">Show @(index + 1)</a>
+                        }
+                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Teilnehmer</a>
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams &amp; Auswertung</a>
+                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")">Einstellungen</a>
+                    </div>
+                }
+            </nav>
+        </aside>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private ProjectSummary[] _projects = [];
+    private ProjectShow[] _shows = [];
+    private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
+    private Guid? CurrentShowId => GetShowId(Navigation.Uri);
+    private ProjectSummary? CurrentProject => _projects.FirstOrDefault(project => project.Id == CurrentProjectId);
+    private string CurrentSection => GetSection(Navigation.Uri);
+    private bool IsProjectOverview => CurrentProjectId is null && Navigation.ToBaseRelativePath(Navigation.Uri).TrimEnd('/') is "" or "index.html";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        _projects = await ProjectApiClient.GetAdminProjectsAsync(token);
+        var projectId = CurrentProjectId;
+        _shows = projectId is null ? [] : await ProjectApiClient.GetShowsAsync(token, projectId.Value);
+    });
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(async () =>
+    {
+        await RefreshAsync();
+        StateHasChanged();
+    });
+
+    private string ProjectUrl(Guid projectId, string? section = null) =>
+        $"{Navigation.BaseUri}projects/{projectId}{(string.IsNullOrEmpty(section) ? string.Empty : $"/{section}")}";
+
+    private bool IsCurrentProject(Guid projectId) => CurrentProjectId == projectId;
+
+    private Guid? GetProjectId(string uri)
+    {
+        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 2 && segments[0] == "projects" && Guid.TryParse(segments[1], out var id) ? id : null;
+    }
+
+    private Guid? GetShowId(string uri)
+    {
+        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 4 && segments[2] == "shows" && Guid.TryParse(segments[3], out var id) ? id : null;
+    }
+
+    private string GetSection(string uri)
+    {
+        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 3 ? segments[2] : "overview";
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

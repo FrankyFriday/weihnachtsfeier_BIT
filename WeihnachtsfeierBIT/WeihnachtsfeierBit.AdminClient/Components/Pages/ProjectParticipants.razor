@@ -1,0 +1,8 @@
+@page "/projects/{ProjectId:guid}/participants"
+
+<PageTitle>Teilnehmer | Projekt | Admin</PageTitle>
+<ProjectParticipantsContent ProjectId="ProjectId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+}

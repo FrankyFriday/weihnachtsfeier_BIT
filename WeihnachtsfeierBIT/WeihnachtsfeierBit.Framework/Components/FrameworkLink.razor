@@ -1,0 +1,7 @@
+<a class="framework-button framework-button-@Variant" href="@Href">@Label</a>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Variant { get; set; } = "secondary";
+}

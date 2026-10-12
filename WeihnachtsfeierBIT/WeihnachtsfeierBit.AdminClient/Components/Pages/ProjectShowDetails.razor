@@ -1,0 +1,9 @@
+@page "/projects/{ProjectId:guid}/shows/{ShowId:guid}"
+
+<PageTitle>Show | Projekt | Admin</PageTitle>
+<ProjectShowDetailsContent ProjectId="ProjectId" ShowId="ShowId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ShowId { get; set; }
+}

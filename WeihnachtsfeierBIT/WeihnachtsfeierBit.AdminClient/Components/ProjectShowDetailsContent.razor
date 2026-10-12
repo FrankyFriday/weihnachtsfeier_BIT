@@ -1,0 +1,46 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    <FrameworkLink Href="@($"{Navigation.BaseUri}projects/{ProjectId}/shows")" Label="Zur Show-Übersicht" Variant="secondary" />
+    <PageHeading Eyebrow="SHOW" Title="@ShowTitle" Description="Slides und Ablauf dieser Show." />
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Slides werden geladen ..." />
+    }
+    else if (_slides.Length == 0)
+    {
+        <EmptyState Title="Noch keine Slides" Description="In dieser Show sind noch keine Inhalte angelegt." />
+    }
+    else
+    {
+        <StandardDataTable Items="_slides" Columns="_columns" KeySelector="SlideKey" />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ShowId { get; set; }
+
+    private SlideSummary[] _slides = [];
+    private DataTableColumn<SlideSummary>[] _columns =
+    [
+        new("Position", slide => slide.Position.ToString()),
+        new("Typ", slide => slide.Type)
+    ];
+    private string ShowTitle => $"Show {Math.Max(_showNumber, 1)}";
+    private int _showNumber;
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        var shows = await ProjectApiClient.GetShowsAsync(token, ProjectId);
+        _showNumber = Array.FindIndex(shows, show => show.Id == ShowId) + 1;
+        _slides = await ProjectApiClient.GetSlidesAsync(token, ProjectId, ShowId);
+    });
+
+    private static object SlideKey(SlideSummary slide) => slide.Id;
+}

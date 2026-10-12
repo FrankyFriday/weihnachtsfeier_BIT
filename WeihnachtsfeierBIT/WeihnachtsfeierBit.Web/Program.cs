@@ -1,5 +1,6 @@
 using WeihnachtsfeierBit.Web;
 using WeihnachtsfeierBit.Web.Components;
+using WeihnachtsfeierBit.Framework;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,10 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddOutputCache();
+builder.Services.AddWeihnachtsfeierFramework(client =>
+{
+    client.BaseAddress = new(builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice");
+});
 
 var adminClientAddress = builder.Configuration["AdminClientBaseUrl"]
     ?? builder.Configuration["services:adminclient:http:0"]

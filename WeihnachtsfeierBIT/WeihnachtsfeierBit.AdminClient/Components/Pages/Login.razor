@@ -1,28 +1,7 @@
 @page "/login"
 
 <PageTitle>Anmelden | Admin</PageTitle>
-
-<section class="auth-layout">
-    <div class="auth-copy">
-        <span class="eyebrow">ADMINISTRATION</span>
-        <h1>Projektverwaltung</h1>
-        <p>Melde dich mit dem Admin-Konto deines Projekts an.</p>
-    </div>
-
-    <form class="auth-form" action="auth/login" method="post">
-        <h2>Anmelden</h2>
-        @if (Error)
-        {
-            <p class="form-error" role="alert">Anmeldung fehlgeschlagen. Prüfe Projekt-ID, Benutzername und Passwort.</p>
-        }
-        <label for="username">Benutzername</label>
-        <input id="username" name="username" autocomplete="username" required />
-        <label for="password">Passwort</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required />
-        <button class="primary-button" type="submit">Anmelden</button>
-        <a class="auth-link" href="register">Neues Projekt registrieren</a>
-    </form>
-</section>
+<AdminCredentialForm Error="Error" />
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]

@@ -1,0 +1,35 @@
+<form class="project-create-form" @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+    <h2>Projekt anlegen</h2>
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <FrameworkNotice Message="@_errorMessage" />
+    }
+    <label for="new-project-name">Projektname</label>
+    <input id="new-project-name" @bind="_name" required maxlength="120" />
+    <div class="framework-button-row">
+        <FrameworkButton Label="Projekt anlegen" BusyLabel="Wird angelegt ..." Type="submit" Busy="@IsCreating" Disabled="@IsCreating" />
+        <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnCancel" />
+    </div>
+</form>
+
+@code {
+    [Parameter] public bool IsCreating { get; set; }
+    [Parameter, EditorRequired] public EventCallback<string> OnCreate { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _name = string.Empty;
+    private string? _errorMessage;
+
+    private async Task CreateAsync()
+    {
+        var name = _name.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
+        {
+            _errorMessage = "Der Projektname muss zwischen 1 und 120 Zeichen lang sein.";
+            return;
+        }
+
+        _errorMessage = null;
+        await OnCreate.InvokeAsync(name);
+    }
+}
