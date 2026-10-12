@@ -1,0 +1,3 @@
+# GitHub Copilot instructions
+
+Follow the repository-wide rules in [AGENTS.md](../AGENTS.md). Start with [docs/index.md](../docs/index.md), then read the relevant topic page before changing `WeihnachtsfeierBIT`. Treat code as the source of truth, keep planned features distinct from implemented behavior, and update focused documentation when contracts change. Ignore `Hitster/` unless the request explicitly concerns it.
