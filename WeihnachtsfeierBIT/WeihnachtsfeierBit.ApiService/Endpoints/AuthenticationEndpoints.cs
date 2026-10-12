@@ -23,6 +23,7 @@ public static class AuthenticationEndpoints
             .WithName("LogoutAdmin");
 
         endpoints.MapAdminProjectEndpoints();
+        endpoints.MapAdminShowEndpoints();
 
         projects.MapPost("/{projectId:guid}/participant-sessions", LoginParticipantAsync)
             .RequireRateLimiting("authentication")

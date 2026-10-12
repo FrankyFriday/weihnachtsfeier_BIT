@@ -27,7 +27,11 @@ builder.Services.AddReverseProxy().LoadFromMemory(
     {
         RouteId = "admin-client",
         ClusterId = "admin-client",
-        Match = new RouteMatch { Path = "/admin/{**catch-all}" }
+        Match = new RouteMatch { Path = "/admin/{**catch-all}" },
+        Transforms =
+        [
+            new Dictionary<string, string> { ["RequestHeaderOriginalHost"] = "true" }
+        ]
     }
 ],
 [

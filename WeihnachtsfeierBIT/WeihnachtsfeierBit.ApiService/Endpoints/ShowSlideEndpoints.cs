@@ -11,8 +11,6 @@ public static class ShowSlideEndpoints
 
     public static void Map(RouteGroupBuilder admin)
     {
-        admin.MapPost("/shows", CreateShowAsync).WithName("CreateShow");
-        admin.MapDelete("/shows/{showId:guid}", DeleteShowAsync).WithName("DeleteShow");
         admin.MapPost("/shows/{showId:guid}/slides", CreateSlideAsync).WithName("CreateSlide");
         admin.MapPut("/shows/{showId:guid}/slides/{slideId:guid}", UpdateSlideAsync).WithName("UpdateSlide");
         admin.MapDelete("/shows/{showId:guid}/slides/{slideId:guid}", DeleteSlideAsync).WithName("DeleteSlide");
@@ -34,57 +32,6 @@ public static class ShowSlideEndpoints
             .OrderBy(slide => slide.Position)
             .ToListAsync(cancellationToken);
         return Results.Ok(slides.Select(ToResponse));
-    }
-
-    private static async Task<IResult> CreateShowAsync(
-        Guid projectId,
-        WeihnachtsfeierDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
-        if (project is null)
-        {
-            return Results.NotFound();
-        }
-
-        var show = new Show();
-        dbContext.Shows.Add(show);
-        dbContext.ShowProjektZuos.Add(new ShowProjektZuo
-        {
-            Show = show,
-            ShowId = show.Id,
-            Projekt = project,
-            ProjektId = projectId
-        });
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/api/projects/{projectId}/shows/{show.Id}", new ShowResponse(show.Id));
-    }
-
-    private static async Task<IResult> DeleteShowAsync(
-        Guid projectId,
-        Guid showId,
-        WeihnachtsfeierDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        var link = await dbContext.ShowProjektZuos.FirstOrDefaultAsync(
-            item => item.ProjektId == projectId && item.ShowId == showId, cancellationToken);
-        if (link is null)
-        {
-            return Results.NotFound();
-        }
-
-        dbContext.ShowProjektZuos.Remove(link);
-        if (!await dbContext.ShowProjektZuos.AnyAsync(item => item.ShowId == showId && item.ProjektId != projectId, cancellationToken))
-        {
-            var show = await dbContext.Shows.FirstOrDefaultAsync(item => item.Id == showId, cancellationToken);
-            if (show is not null)
-            {
-                dbContext.Shows.Remove(show);
-            }
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.NoContent();
     }
 
     private static async Task<IResult> CreateSlideAsync(

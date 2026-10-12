@@ -1,3 +1,5 @@
 # GitHub Copilot instructions
 
 Follow the repository-wide rules in [AGENTS.md](../AGENTS.md). Start with [docs/index.md](../docs/index.md), then read the relevant topic page before changing `WeihnachtsfeierBIT`. Treat code as the source of truth, keep planned features distinct from implemented behavior, and update focused documentation when contracts change. Ignore `Hitster/` unless the request explicitly concerns it.
+
+Prefer the full update scripts after implementation when Docker is available and starting the stack is appropriate: `scripts/update-and-validate.ps1` on Windows or `bash scripts/update-and-validate.sh` on macOS/Linux. They run lightweight validation, rebuild/start all Compose services, and verify that every configured service is running. Use `scripts/validate.ps1` or `bash scripts/validate.sh` for docs-only changes, unavailable Docker, or when the user asks not to start services. Do not repeat checks manually or run final browser/functional tests by default; the user performs final functional testing after implementation.

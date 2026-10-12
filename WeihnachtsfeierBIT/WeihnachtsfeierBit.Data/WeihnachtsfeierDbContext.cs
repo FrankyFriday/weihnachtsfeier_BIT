@@ -43,7 +43,12 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasValue<RankingSlide>("ranking");
         slides.HasIndex(slide => new { slide.ShowId, slide.Position });
 
-        modelBuilder.Entity<Show>()
+        var shows = modelBuilder.Entity<Show>();
+        shows.Property(show => show.Name)
+            .HasMaxLength(120)
+            .HasDefaultValue("Neue Show")
+            .IsRequired();
+        shows
             .HasMany(show => show.Slides)
             .WithOne(slide => slide.Show)
             .HasForeignKey(slide => slide.ShowId)

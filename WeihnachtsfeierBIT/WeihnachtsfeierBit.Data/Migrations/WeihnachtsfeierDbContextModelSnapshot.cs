@@ -133,6 +133,13 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasDefaultValue("Neue Show");
+
                     b.HasKey("Id");
 
                     b.ToTable("Shows");

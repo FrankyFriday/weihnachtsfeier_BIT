@@ -17,4 +17,6 @@
 
 ## Validation
 
-Run `dotnet build WeihnachtsfeierBIT/WeihnachtsfeierBit.slnx` after code changes. For container/runtime changes, validate with `docker compose -f WeihnachtsfeierBIT/docker-compose.yml config` and, when possible, rebuild and exercise the affected service. See [development and operations](docs/development-and-operations.md).
+By default after code changes, run the full update script when Docker is available and starting the local stack is appropriate: `scripts/update-and-validate.ps1` on Windows or `bash scripts/update-and-validate.sh` on macOS/Linux. It runs lightweight validation, rebuilds and starts all Compose services, then fails if any configured service is not running. API startup can apply pending database migrations; the script does not delete the database volume.
+
+Use the lightweight script instead when the change does not affect build/runtime behavior (for example, documentation-only changes), Docker is unavailable, or the user asks not to start services: `scripts/validate.ps1` on Windows or `bash scripts/validate.sh` on macOS/Linux. It builds the full solution and validates the Compose configuration. Do not repeat these checks manually or inspect runtime logs unless a check fails or the user asks for more. Do not run final browser or functional tests by default; the user performs final functional testing after implementation. See [development and operations](docs/development-and-operations.md).

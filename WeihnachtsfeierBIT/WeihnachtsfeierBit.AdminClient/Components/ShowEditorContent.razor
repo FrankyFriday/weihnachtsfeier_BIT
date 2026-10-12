@@ -1,0 +1,25 @@
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Show wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    else if (_show is not null)
+    {
+        <PageHeading Eyebrow="SHOW" Title="@_show.Name" Description="Der Show-Editor wird in einem separaten Schritt ergänzt." />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ShowId { get; set; }
+
+    private AdminShow? _show;
+
+    protected override async Task OnParametersSetAsync() =>
+        await LoadAuthenticatedAsync(async token => _show = await ProjectApiClient.GetAdminShowAsync(token, ShowId));
+}

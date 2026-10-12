@@ -18,10 +18,11 @@ public static class AdminProjectEndpoints
 
     private static async Task<IResult> GetProjectsAsync(
         HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var adminId = await GetAdminIdAsync(httpContext, dbContext, cancellationToken);
+        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
         if (adminId is null)
         {
             return Results.Unauthorized();
@@ -38,10 +39,11 @@ public static class AdminProjectEndpoints
     private static async Task<IResult> CreateProjectAsync(
         CreateProjectRequest request,
         HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var adminId = await GetAdminIdAsync(httpContext, dbContext, cancellationToken);
+        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
         if (adminId is null)
         {
             return Results.Unauthorized();
@@ -63,23 +65,4 @@ public static class AdminProjectEndpoints
         return Results.Created($"/api/projects/{project.Id}", new ProjectSummary(project.Id, project.Name));
     }
 
-    private static async Task<Guid?> GetAdminIdAsync(
-        HttpContext httpContext,
-        WeihnachtsfeierDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var tokenHash = ApiToken.Hash(token);
-        var now = DateTime.UtcNow;
-        return await dbContext.ProjektAdminSitzungen.AsNoTracking()
-            .Where(session => session.TokenHash == tokenHash &&
-                session.WiderrufenAmUtc == null && session.LaeuftAbAmUtc > now)
-            .Select(session => (Guid?)session.ProjektAdminId)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
 }
