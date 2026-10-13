@@ -10,7 +10,7 @@ COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.AdminClient/ WeihnachtsfeierBIT/Weihn
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/ WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/ WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/
 RUN dotnet publish WeihnachtsfeierBIT/WeihnachtsfeierBit.AdminClient/WeihnachtsfeierBit.AdminClient.csproj \
-    --configuration Release --no-restore --output /app/publish
+    --configuration Release --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

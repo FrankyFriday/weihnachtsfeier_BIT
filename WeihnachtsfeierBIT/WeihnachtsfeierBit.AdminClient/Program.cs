@@ -54,6 +54,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAdminAuthenticationEndpoints();
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapDefaultEndpoints();

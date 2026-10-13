@@ -7,10 +7,11 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/WeihnachtsfeierBit.Framework/framework.css" />
     <link rel="stylesheet" href="admin-workspace.css" />
+    <ImportMap />
     <HeadOutlet />
 </head>
 <body>
     <Routes @rendermode="InteractiveServer" />
-    <script src="_framework/blazor.server.js"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 </html>
