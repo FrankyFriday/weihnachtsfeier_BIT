@@ -3,11 +3,8 @@
 @inject NavigationManager Navigation
 @inject ProjectShowLinksState ShowLinksState
 
-<section class="project-show-links @(Compact ? "project-show-links-compact" : null)">
-    @if (!Compact)
-    {
-        <PageHeading Eyebrow="PROJEKT" Title="Verknüpfte Shows" Description="Shows aus der gemeinsamen Bibliothek zuordnen, lösen oder öffnen." />
-    }
+<section class="project-show-links">
+    <PageHeading Eyebrow="PROJEKT" Title="Verknüpfte Shows" Description="Shows aus der gemeinsamen Bibliothek zuordnen, lösen oder öffnen." />
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <FrameworkNotice Message="@ErrorMessage" />
@@ -31,20 +28,7 @@
     }
     else if (_projectShows.Length == 0)
     {
-        @if (!Compact)
-        {
-            <EmptyState Title="Keine verknüpften Shows" Description="Verknüpfe eine Show aus dem Workspace-Katalog." />
-        }
-    }
-    else if (Compact)
-    {
-        @foreach (var show in _projectShows)
-        {
-            <div class="sidebar-show-row" @key="show.Id">
-                <FrameworkLink Href="@ShowUrl(show.Id)" Label="@show.Name" Variant="text" />
-                <FrameworkButton Label="Entfernen" Variant="text" OnClick="@(() => UnlinkShowAsync(show.Id))" />
-            </div>
-        }
+        <EmptyState Title="Keine verknüpften Shows" Description="Verknüpfe eine Show aus dem Workspace-Katalog." />
     }
     else
     {
@@ -66,7 +50,6 @@
 
 @code {
     [Parameter] public Guid ProjectId { get; set; }
-    [Parameter] public bool Compact { get; set; }
 
     private ProjectShow[] _projectShows = [];
     private AdminShow[] _allShows = [];

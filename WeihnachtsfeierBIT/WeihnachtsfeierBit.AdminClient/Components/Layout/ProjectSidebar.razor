@@ -26,7 +26,7 @@
                         <span class="sidebar-label">AKTUELLES PROJEKT</span>
                         <strong>@CurrentProject.Name</strong>
                         <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)">Übersicht</a>
-                        <ProjectShowLinks ProjectId="CurrentProject.Id" Compact="true" />
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Verknüpfte Shows</a>
                         <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Teilnehmer</a>
                         <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams &amp; Auswertung</a>
                         <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")">Einstellungen</a>

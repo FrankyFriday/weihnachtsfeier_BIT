@@ -40,7 +40,6 @@ builder.Services.AddWeihnachtsfeierFramework(client =>
 var app = builder.Build();
 
 app.UsePathBase("/admin");
-app.UseRouting();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -49,12 +48,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseRouting();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAdminAuthenticationEndpoints();
-app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapDefaultEndpoints();

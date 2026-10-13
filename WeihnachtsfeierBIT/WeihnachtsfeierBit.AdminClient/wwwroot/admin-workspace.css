@@ -50,13 +50,8 @@
 
 .sidebar-project-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #197b67; }
 .sidebar-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar-show-link { min-height: 30px; padding-left: 28px; color: #657276; font-size: 12px; }
 .sidebar-muted { padding: 4px 10px; color: #788487; font-size: 12px; }
-.sidebar-show-row { display: flex; align-items: center; gap: 4px; padding-left: 6px; }
-.sidebar-show-row .framework-link { min-width: 0; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar-show-row .framework-button { min-height: 30px; padding: 4px 6px; font-size: 11px; }
 .project-show-links { display: grid; gap: 14px; }
-.project-show-links-compact { gap: 4px; margin-block: 6px; }
 .project-show-links .project-grid { margin-top: 8px; }
 .project-show-links .framework-select { margin-top: 6px; }
 

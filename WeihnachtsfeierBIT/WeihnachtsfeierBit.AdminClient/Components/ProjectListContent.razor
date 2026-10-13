@@ -8,10 +8,7 @@
                 <PageHeading Eyebrow="ADMINISTRATION" Title="Deine Projekte" Description="Verwalte Projekte und ihre allgemeinen Einstellungen." />
                 <FrameworkButton Label="Neues Projekt" OnClick="ToggleCreate" />
             </div>
-            @if (_showCreate)
-            {
-                <ProjectCreateForm OnCreate="CreateProjectAsync" OnCancel="ToggleCreate" IsCreating="_creating" />
-            }
+            <ProjectCreateForm IsOpen="_showCreate" OnCreate="CreateProjectAsync" OnCancel="ToggleCreate" IsCreating="_creating" />
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
                 <FrameworkNotice Message="@ErrorMessage" />
@@ -22,7 +19,11 @@
             }
             else if (_projects.Length == 0)
             {
-                <EmptyState Title="Noch keine Projekte" Description="Lege dein erstes Projekt an, um mit der Verwaltung zu beginnen." />
+                <EmptyState Title="Noch keine Projekte" Description="Lege dein erstes Projekt an, um mit der Verwaltung zu beginnen.">
+                    <ChildContent>
+                        <FrameworkButton Label="Neues Projekt anlegen" OnClick="ToggleCreate" />
+                    </ChildContent>
+                </EmptyState>
             }
             else
             {
