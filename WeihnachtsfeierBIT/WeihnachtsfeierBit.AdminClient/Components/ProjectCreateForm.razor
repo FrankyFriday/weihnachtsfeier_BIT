@@ -6,7 +6,7 @@
         }
         <div class="form-group">
             <label for="new-project-name">Projektname</label>
-            <input id="new-project-name" @bind="_name" required maxlength="120" placeholder="z. B. Weihnachtsfeier 2026" />
+            <input id="new-project-name" @bind="_name" @bind:event="oninput" required maxlength="120" placeholder="z. B. Weihnachtsfeier 2026" />
         </div>
         <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnCancel" />
@@ -35,6 +35,8 @@
 
     private async Task CreateAsync()
     {
+        if (IsCreating) return;
+
         var name = _name.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
         {

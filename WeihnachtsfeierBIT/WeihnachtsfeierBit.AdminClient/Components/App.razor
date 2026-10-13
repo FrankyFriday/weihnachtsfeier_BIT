@@ -1,3 +1,4 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -8,7 +9,7 @@
     <link rel="stylesheet" href="_content/WeihnachtsfeierBit.Framework/framework.css" />
     <link rel="stylesheet" href="admin-workspace.css" />
     <ImportMap />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 <body>
     <Routes @rendermode="InteractiveServer" />
