@@ -1,0 +1,17 @@
+<header class="framework-page-heading">
+    @if (!string.IsNullOrWhiteSpace(Eyebrow))
+    {
+        <span class="framework-eyebrow">@Eyebrow</span>
+    }
+    <h1>@Title</h1>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p>@Description</p>
+    }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Description { get; set; }
+}

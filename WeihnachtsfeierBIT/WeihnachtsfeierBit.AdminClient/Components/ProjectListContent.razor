@@ -1,0 +1,83 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <FrameworkPage>
+            <div class="overview-toolbar">
+                <PageHeading Eyebrow="ADMINISTRATION" Title="Deine Projekte" Description="Verwalte Projekte und ihre allgemeinen Einstellungen." />
+                <FrameworkButton Label="Neues Projekt" OnClick="ToggleCreate" />
+            </div>
+            <ProjectCreateForm IsOpen="_showCreate" OnCreate="CreateProjectAsync" OnCancel="ToggleCreate" IsCreating="_creating" />
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <FrameworkNotice Message="@ErrorMessage" />
+            }
+            @if (IsLoading)
+            {
+                <FrameworkLoading Message="Projekte werden geladen ..." />
+            }
+            else if (_projects.Length == 0)
+            {
+                <EmptyState Title="Noch keine Projekte" Description="Lege dein erstes Projekt an, um mit der Verwaltung zu beginnen.">
+                    <ChildContent>
+                        <FrameworkButton Label="Neues Projekt anlegen" OnClick="ToggleCreate" />
+                    </ChildContent>
+                </EmptyState>
+            }
+            else
+            {
+                <div class="project-grid">
+                    @foreach (var project in _projects)
+                    {
+                        <Card Class="project-card" @key="project.Id">
+                            <ChildContent><h2>@project.Name</h2></ChildContent>
+                            <FooterContent>
+                                <FrameworkLink Href="@($"{Navigation.BaseUri}projects/{project.Id}")" Label="Projekt öffnen" Variant="text" />
+                            </FooterContent>
+                        </Card>
+                    }
+                </div>
+            }
+        </FrameworkPage>
+    </Authorized>
+    <NotAuthorized>
+        <FrameworkPage>
+            <PageHeading Eyebrow="ADMINISTRATION" Title="Projektverwaltung" Description="Melde dich an oder erstelle ein Admin-Konto." />
+            <div class="overview-auth-actions">
+                <FrameworkLink Href="login" Label="Anmelden" Variant="primary" />
+                <FrameworkLink Href="register" Label="Admin-Konto erstellen" />
+            </div>
+        </FrameworkPage>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private ProjectSummary[] _projects = [];
+    private bool _showCreate;
+    private bool _creating;
+
+    protected override async Task OnInitializedAsync() =>
+        await LoadAuthenticatedAsync(async token => _projects = await ProjectApiClient.GetAdminProjectsAsync(token));
+
+    private void ToggleCreate() => _showCreate = !_showCreate;
+
+    private async Task CreateProjectAsync(string name)
+    {
+        _creating = true;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var project = await ProjectApiClient.CreateProjectAsync(token, name);
+                _projects = await ProjectApiClient.GetAdminProjectsAsync(token);
+                _showCreate = false;
+                Navigation.NavigateTo($"{Navigation.BaseUri}projects/{project.Id}");
+            });
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+}

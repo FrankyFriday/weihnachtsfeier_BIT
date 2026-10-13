@@ -1,0 +1,104 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    <div class="overview-toolbar">
+        <PageHeading Eyebrow="WORKSPACE" Title="Shows" Description="Wiederverwendbare Shows verwalten und Projekten zuordnen." />
+        <FrameworkButton Label="Show erstellen" OnClick="ToggleCreate" />
+    </div>
+    @if (_showCreate)
+    {
+        <form class="project-create-form" @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+            <h2>Neue Show</h2>
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <FrameworkNotice Message="@_formError" />
+            }
+            <label for="show-name">Showname</label>
+            <input id="show-name" @bind="_name" required maxlength="120" />
+            <div class="framework-button-row">
+                <FrameworkButton Label="Show erstellen" BusyLabel="Wird erstellt ..." Type="submit" Busy="@_creating" Disabled="@_creating" />
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="ToggleCreate" />
+            </div>
+        </form>
+    }
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Shows werden geladen ..." />
+    }
+    else if (_shows.Length == 0)
+    {
+        <EmptyState Title="Noch keine Shows" Description="Erstelle eine Show und verknüpfe sie anschließend mit einem oder mehreren Projekten." />
+    }
+    else
+    {
+        <div class="project-grid">
+            @foreach (var show in _shows)
+            {
+                <Card Class="project-card" @key="show.Id">
+                    <ChildContent>
+                        <h2>@show.Name</h2>
+                        <p>@ProjectCountLabel(show.ProjectCount)</p>
+                    </ChildContent>
+                    <FooterContent>
+                        <FrameworkLink Href="@EditorUrl(show.Id)" Label="Show bearbeiten" Variant="text" />
+                    </FooterContent>
+                </Card>
+            }
+        </div>
+    }
+</FrameworkPage>
+
+@code {
+    private AdminShow[] _shows = [];
+    private string _name = string.Empty;
+    private string? _formError;
+    private bool _showCreate;
+    private bool _creating;
+
+    protected override async Task OnInitializedAsync() =>
+        await LoadAuthenticatedAsync(async token => _shows = await ProjectApiClient.GetAdminShowsAsync(token));
+
+    private void ToggleCreate() => _showCreate = !_showCreate;
+
+    private async Task CreateAsync()
+    {
+        var name = _name.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
+        {
+            _formError = "Der Showname muss zwischen 1 und 120 Zeichen lang sein.";
+            return;
+        }
+
+        _formError = null;
+        _creating = true;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var show = await ProjectApiClient.CreateAdminShowAsync(token, name);
+                _shows = [.. _shows, show];
+                _showCreate = false;
+                _name = string.Empty;
+                Navigation.NavigateTo(EditorUrl(show.Id));
+            });
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private string EditorUrl(Guid showId) => $"{Navigation.BaseUri}shows/{showId}";
+
+    private static string ProjectCountLabel(int count) => count switch
+    {
+        0 => "Noch keinem Projekt zugeordnet",
+        1 => "Mit 1 Projekt verknüpft",
+        _ => $"Mit {count} Projekten verknüpft"
+    };
+}

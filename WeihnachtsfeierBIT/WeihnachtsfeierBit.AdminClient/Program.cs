@@ -2,13 +2,16 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using WeihnachtsfeierBit.AdminClient;
 using WeihnachtsfeierBit.AdminClient.Components;
 using WeihnachtsfeierBit.AdminClient.Endpoints;
+using WeihnachtsfeierBit.Framework;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services.AddRazorComponents();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<ProjectShowLinksState>();
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -28,6 +31,11 @@ builder.Services.AddHttpClient<AdminApiClient>(client =>
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
     client.BaseAddress = new Uri(apiBaseUrl);
 });
+builder.Services.AddWeihnachtsfeierFramework(client =>
+{
+    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+    client.BaseAddress = new Uri(apiBaseUrl);
+});
 
 var app = builder.Build();
 
@@ -40,13 +48,15 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseRouting();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAdminAuthenticationEndpoints();
 app.MapStaticAssets();
-app.MapRazorComponents<App>();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 app.MapDefaultEndpoints();
 
 app.Run();

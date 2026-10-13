@@ -18,6 +18,8 @@ docker compose up --build -d
 
 Zum Stoppen im Solution-Verzeichnis `docker compose down` ausführen. Das PostgreSQL-Volume bleibt dabei erhalten. Ausführliche Befehle stehen in [Entwicklung und Betrieb](docs/development-and-operations.md).
 
+Im Admin-Panel werden zunächst Projekte angelegt. Shows sind globale, benannte Abläufe: Sie werden im Workspace-Menüpunkt „Shows“ erstellt und anschließend mit einem oder mehreren Projekten verknüpft. Das Entfernen eines Projektlinks löscht die Show nicht. Der Show-Editor ist aktuell ein leerer Platzhalter; Bearbeitung von Slides folgt separat. Details stehen in [Produktvision und Rollen](docs/product-and-roles.md), [Datenmodell](docs/data-model.md) und [API und Berechtigungen](docs/api-and-auth.md).
+
 ## Dokumentation
 
 - [Dokumentationsübersicht](docs/index.md)

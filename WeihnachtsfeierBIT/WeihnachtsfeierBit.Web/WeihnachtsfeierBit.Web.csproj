@@ -4,14 +4,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BuildCompressedStaticWebAssets>false</BuildCompressedStaticWebAssets>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WeihnachtsfeierBit.ServiceDefaults\WeihnachtsfeierBit.ServiceDefaults.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.ServiceDefaults\WeihnachtsfeierBit.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.Framework\WeihnachtsfeierBit.Framework.csproj" />
   </ItemGroup>
 
 </Project>

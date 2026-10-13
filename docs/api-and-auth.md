@@ -10,6 +10,14 @@ Routen liegen in `WeihnachtsfeierBit.ApiService/Endpoints/`, Authentifizierung u
 | `POST /api/admin-sessions` | öffentlich, rate-limited | Global anmelden; Body `{ "username", "password" }`; keine Projekt-ID. |
 | `DELETE /api/admin-sessions/current` | Bearer-Token | Globale Adminsession widerrufen. |
 
+Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitgliedschaften, verwaltet:
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/admin/shows` | Admin-Bearer-Token | Globale Shows samt Anzahl verknüpfter Projekte auflisten. |
+| `POST /api/admin/shows` | Admin-Bearer-Token | Show global anlegen; Body `{ "name": "..." }`. |
+| `GET /api/admin/shows/{showId}` | Admin-Bearer-Token | Eine globale Show laden. |
+
 Registrierung, Login und Teilnehmernummern-Login sind auf zehn Requests pro IP und Minute begrenzt.
 
 ## Projektzugriff
@@ -19,7 +27,7 @@ Geschützte Projektendpunkte verwenden `/api/projects/{projectId}` und `Authoriz
 | Rolle | Rechte |
 | --- | --- |
 | Teilnehmer mit aktiver Sitzung dieses Projekts | Projekt, eigenes Profil, Teams, Shows und Slides lesen; eigene Sitzungen ansehen/widerrufen. |
-| Admin mit aktiver globaler Sitzung und Membership im Projekt | Projekt-/Teilnehmer-/Team-/Show-/Slide-CRUD sowie Admin- und Sitzungspflege. |
+| Admin mit aktiver globaler Sitzung und Membership im Projekt | Projekt-/Teilnehmer-/Team-CRUD, Show-Projekt-Verknüpfungen und Slide-CRUD sowie Admin- und Sitzungspflege. Globale Show-Metadaten verwaltet ein Admin mit aktiver Sitzung unabhängig vom Projekt. |
 
 Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitgliedschaft. Ein Admin-Token kann für mehrere Memberships verwendet werden; ohne Membership gibt es für das Projekt `401`. Ungültige/fehlende Sessions liefern `401`; gültige Teilnehmer ohne Adminrecht erhalten bei Schreibzugriff `403`.
 
@@ -46,12 +54,12 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 
 ## Fachliche Endpunkte
 
-Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/participants/me`, `/teams`, `/shows`, `/shows/{showId}/slides`.
+Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `/teams`, `/shows`, `/shows/{showId}/slides`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
 
-Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Shows `POST /shows`, `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`.
+Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
 
-Verschachtelte IDs werden gegen Projekt und Show geprüft. Das Datenmodell unterstützt wiederverwendbare Shows, aber ein API-Endpunkt zum Verknüpfen einer vorhandenen Show mit einem weiteren Projekt fehlt noch.
+Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{projectId}/overview` liefert Projektname sowie Show-, Teilnehmer- und Teamanzahl aggregiert in einer Antwort.
 
 ## Noch nicht umgesetzt
 
-Es gibt noch keine Projektanlage oder Projektverwaltung im Adminclient. Memberships lassen sich aktuell nur über die API an bereits vorhandene Projekte hängen. Teilnehmernummern sind vorhersehbar und derzeit allein ausreichend für den Teilnehmerlogin; das ist für einen privaten Prototyp gedacht, kein starker öffentlicher Identitätsnachweis. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+Der Adminclient kann Projekte sowie Show-Projekt-Verknüpfungen verwalten. Der Show-Editor, Teilnehmer-Schreiboberflächen, Teilnehmerclient, Antworten und Leinwand-Dashboard sind noch nicht umgesetzt. Teilnehmernummern sind vorhersehbar und derzeit allein ausreichend für den Teilnehmerlogin; das ist für einen privaten Prototyp gedacht, kein starker öffentlicher Identitätsnachweis. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.

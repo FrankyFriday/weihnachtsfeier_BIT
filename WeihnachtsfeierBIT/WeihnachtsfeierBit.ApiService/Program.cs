@@ -17,6 +17,7 @@ builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
 
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddScoped<ProjectAccessService>();
+builder.Services.AddScoped<AdminSessionAccessService>();
 builder.Services.AddScoped<ProjectAuthenticationService>();
 builder.Services.AddRateLimiter(options =>
 {

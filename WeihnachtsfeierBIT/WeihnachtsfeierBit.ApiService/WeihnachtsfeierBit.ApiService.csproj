@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\WeihnachtsfeierBit.ServiceDefaults\WeihnachtsfeierBit.ServiceDefaults.csproj" />
     <ProjectReference Include="..\WeihnachtsfeierBit.Data\WeihnachtsfeierBit.Data.csproj" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.Framework\WeihnachtsfeierBit.Framework.csproj" />
   </ItemGroup>
 
   <ItemGroup>

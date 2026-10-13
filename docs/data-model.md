@@ -13,8 +13,8 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team optional. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer. |
 | `Team` | Gehört zu einem Projekt und enthält aktuell einen Punktestand. |
-| `Show` | Wiederverwendbarer Ablauf mit geordneten Slides. |
-| `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. |
+| `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
+| `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. Eine Show kann null, einem oder mehreren Projekten zugeordnet sein. |
 | `Slide` | Show-ID, Position und konkrete Untertypen Poll, Announcement, Quiz oder Ranking. |
 
 Passwörter werden mit PBKDF2 gehasht. API-Tokens werden zufällig generiert; persistiert wird ausschließlich ihr SHA-256-Hash.
@@ -37,6 +37,10 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 Ein Admin-Konto ist projektunabhängig. Berechtigungen entstehen ausschließlich durch einen Datensatz in `ProjektAdminProjekt`; ein Admin kann damit mehrere Projekte verwalten. Entfernen einer Membership löscht nicht das globale Konto.
 
 Teilnehmer und Teilnehmernummern gehören zu genau einem Projekt. Eine aktive Sitzung gilt als gültig, wenn sie nicht widerrufen und noch nicht abgelaufen ist. Adminsitzungen sind global und können über Memberships auf mehrere Projekte zugreifen.
+
+## Shows und Projekte
+
+Eine Show wird global erstellt und kann zunächst ohne Projektverknüpfung existieren. `ShowProjektZuo` gewährt dem Projekt Zugriff auf diese Show. Eine Verknüpfung zu lösen entfernt nur den Join-Datensatz; die Show und ihre Slides bleiben bestehen. Der Showname ist auf 120 Zeichen begrenzt. Die Migration `AddGlobalShowName` setzt für bestehende Shows den Defaultnamen `Neue Show`.
 
 ## Migrationen
 

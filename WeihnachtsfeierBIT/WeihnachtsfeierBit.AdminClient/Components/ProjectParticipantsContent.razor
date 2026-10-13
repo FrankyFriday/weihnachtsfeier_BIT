@@ -1,0 +1,45 @@
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <PageHeading Eyebrow="PROJEKT" Title="Teilnehmer" Description="Teilnehmer und ihre Teamzuordnung in diesem Projekt." />
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Teilnehmer werden geladen ..." />
+    }
+    else if (_participants.Length == 0)
+    {
+        <EmptyState Title="Noch keine Teilnehmer" Description="Für dieses Projekt sind noch keine Teilnehmer angelegt." />
+    }
+    else
+    {
+        <StandardDataTable Items="_participants" Columns="_columns" KeySelector="ParticipantKey" />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ParticipantSummary[] _participants = [];
+    private DataTableColumn<ParticipantSummary>[] _columns = [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+        var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+        await Task.WhenAll(participantsTask, teamsTask);
+        var teams = await teamsTask;
+        _participants = await participantsTask;
+        _columns =
+        [
+            new("Nummer", participant => participant.Number.ToString()),
+            new("Name", participant => string.IsNullOrWhiteSpace(participant.Name) ? "Unbenannt" : participant.Name),
+            new("Team", participant => teams.FirstOrDefault(team => team.Id == participant.TeamId)?.DisplayName ?? "Nicht zugewiesen")
+        ];
+    });
+
+    private static object ParticipantKey(ParticipantSummary participant) => participant.Id;
+}

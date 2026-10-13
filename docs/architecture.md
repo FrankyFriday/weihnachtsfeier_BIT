@@ -5,7 +5,8 @@
 | Projekt | Verantwortung |
 | --- | --- |
 | `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Projektberechtigungen und EF-Core-Migrationen beim Start |
-| `WeihnachtsfeierBit.AdminClient` | Separater serverseitiger Blazor-Client für globalen Admin-Login, Registrierung, Logout und Dashboard |
+| `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, Workspace-Sidebar, globaler Show-Bibliothek und projektspezifischen Show-Verknüpfungen |
+| `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client und gemeinsam genutzten Verträgen; enthält keine Admin-/Projektseiten |
 | `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient |
 | `WeihnachtsfeierBit.Data` | EF-Core-Entities, PostgreSQL-Mappings und Migrationen |
 | `WeihnachtsfeierBit.ServiceDefaults` | Aspire Service Discovery, Health Checks, Resilience und Telemetrie |
@@ -34,10 +35,11 @@ flowchart LR
 - Authentifizierung und Projektfilter: `WeihnachtsfeierBit.ApiService/Auth/`
 - Request-/Response-Verträge: `WeihnachtsfeierBit.ApiService/Contracts/`
 - Entities und Mapping: `WeihnachtsfeierBit.Data/`
-- Adminoberfläche und API-Adapter: `WeihnachtsfeierBit.AdminClient/`
+- Admin-Routen, Fachansichten, Sidebar und Adminformulare: `WeihnachtsfeierBit.AdminClient/`
+- Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
 - Testclient und Proxy: `WeihnachtsfeierBit.Web/Program.cs`
 
-Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Weitere Oberflächen wie Teilnehmerclient und Leinwand-Dashboard sollen später eigenständige Clients sein.
+Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Weitere Oberflächen wie Teilnehmerclient und Leinwand-Dashboard sollen später eigenständige Clients sein und können dieselbe Framework-Bibliothek verwenden.
 
 ## Produktgrenzen
 

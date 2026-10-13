@@ -3,14 +3,16 @@ WORKDIR /src
 
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/*.csproj WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/*.csproj WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/
+COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/*.csproj WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/*.csproj WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/
 RUN dotnet restore WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/WeihnachtsfeierBit.ApiService.csproj
 
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/ WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/ WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/
+COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/ WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/ WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/
 RUN dotnet publish WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/WeihnachtsfeierBit.ApiService.csproj \
-    --configuration Release --no-restore --output /app/publish
+    --configuration Release --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

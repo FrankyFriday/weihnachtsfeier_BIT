@@ -1,0 +1,49 @@
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und aktueller Punktestand dieses Projekts." />
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Teams werden geladen ..." />
+    }
+    else if (_teams.Length == 0)
+    {
+        <EmptyState Title="Noch keine Teams" Description="Für dieses Projekt sind noch keine Teams angelegt." />
+    }
+    else
+    {
+        <StandardDataTable Items="_teams" Columns="_columns" KeySelector="TeamKey" />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamSummary[] _teams = [];
+    private DataTableColumn<TeamSummary>[] _columns = [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+        var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+        await Task.WhenAll(teamsTask, participantsTask);
+        var participants = await participantsTask;
+        _teams = (await teamsTask).OrderByDescending(team => team.Points).ThenBy(team => team.DisplayName).ToArray();
+        var participantCounts = participants.Where(participant => participant.TeamId is not null)
+            .GroupBy(participant => participant.TeamId!.Value)
+            .ToDictionary(group => group.Key, group => group.Count());
+        _columns =
+        [
+            new("Rang", team => (_teams.ToList().IndexOf(team) + 1).ToString()),
+            new("Team", team => team.DisplayName),
+            new("Teilnehmer", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
+            new("Punkte", team => team.Points.ToString())
+        ];
+    });
+
+    private static object TeamKey(TeamSummary team) => team.Id;
+}

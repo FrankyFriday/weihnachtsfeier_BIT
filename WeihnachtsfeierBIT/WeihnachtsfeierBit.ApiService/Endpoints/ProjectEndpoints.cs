@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.Data;
+using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
 
@@ -15,16 +16,17 @@ public static class ProjectEndpoints
             .AddEndpointFilter<RequireProjectAdminFilter>();
 
         reader.MapGet("", GetProjectAsync).WithName("GetProject");
+        reader.MapGet("/overview", GetProjectOverviewAsync).WithName("GetProjectOverview");
         admin.MapPut("", UpdateProjectAsync).WithName("UpdateProject");
         admin.MapDelete("", DeleteProjectAsync).WithName("DeleteProject");
 
         reader.MapGet("/participants/me", GetCurrentParticipantAsync).WithName("GetCurrentParticipant");
         reader.MapGet("/teams", GetTeamsAsync).WithName("GetTeams");
-        reader.MapGet("/shows", GetShowsAsync).WithName("GetShows");
         reader.MapGet("/shows/{showId:guid}/slides", ShowSlideEndpoints.GetSlidesAsync).WithName("GetSlides");
 
         ParticipantEndpoints.Map(admin);
         TeamEndpoints.Map(admin);
+        ProjectShowEndpoints.Map(reader, admin);
         ShowSlideEndpoints.Map(admin);
 
         return endpoints;
@@ -42,6 +44,23 @@ public static class ProjectEndpoints
         return project is null ? Results.NotFound() : Results.Ok(project);
     }
 
+    private static async Task<IResult> GetProjectOverviewAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var overview = await dbContext.Projekte.AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => new ProjectOverviewResponse(
+                project.Id,
+                project.Name,
+                dbContext.ShowProjektZuos.Count(link => link.ProjektId == project.Id),
+                dbContext.Teilnehmer.Count(participant => participant.ProjektId == project.Id),
+                dbContext.Teams.Count(team => team.ProjektId == project.Id)))
+            .FirstOrDefaultAsync(cancellationToken);
+        return overview is null ? Results.NotFound() : Results.Ok(overview);
+    }
+
     private static async Task<IResult> UpdateProjectAsync(
         Guid projectId,
         RenameProjectRequest request,
@@ -51,7 +70,7 @@ public static class ProjectEndpoints
         var name = request.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
         {
-            return Results.BadRequest(new ApiError("Der Projektname muss zwischen 1 und 120 Zeichen lang sein."));
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Der Projektname muss zwischen 1 und 120 Zeichen lang sein."));
         }
 
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
@@ -110,18 +129,5 @@ public static class ProjectEndpoints
             .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte))
             .ToListAsync(cancellationToken);
         return Results.Ok(teams);
-    }
-
-    private static async Task<IResult> GetShowsAsync(
-        Guid projectId,
-        WeihnachtsfeierDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        var shows = await dbContext.ShowProjektZuos.AsNoTracking()
-            .Where(link => link.ProjektId == projectId)
-            .OrderBy(link => link.ShowId)
-            .Select(link => new ShowResponse(link.ShowId))
-            .ToListAsync(cancellationToken);
-        return Results.Ok(shows);
     }
 }

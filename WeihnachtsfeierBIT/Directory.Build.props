@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <DisableStaticWebAssetsCompression>true</DisableStaticWebAssetsCompression>
+    <BuildCompressedStaticWebAssets>false</BuildCompressedStaticWebAssets>
+  </PropertyGroup>
+
+  <Target Name="ApplyCompressionNegotiation" />
+  <Target Name="BuildCompressedStaticWebAssets" />
+</Project>

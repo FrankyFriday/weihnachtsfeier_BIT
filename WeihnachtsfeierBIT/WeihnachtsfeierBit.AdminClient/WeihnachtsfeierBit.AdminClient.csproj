@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WeihnachtsfeierBit.ServiceDefaults\WeihnachtsfeierBit.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.Framework\WeihnachtsfeierBit.Framework.csproj" />
+	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0-preview.*" />
   </ItemGroup>
 
 </Project>

@@ -22,6 +22,9 @@ public static class AuthenticationEndpoints
         endpoints.MapDelete("/api/admin-sessions/current", LogoutAdminAsync)
             .WithName("LogoutAdmin");
 
+        endpoints.MapAdminProjectEndpoints();
+        endpoints.MapAdminShowEndpoints();
+
         projects.MapPost("/{projectId:guid}/participant-sessions", LoginParticipantAsync)
             .RequireRateLimiting("authentication")
             .WithName("LoginParticipant");

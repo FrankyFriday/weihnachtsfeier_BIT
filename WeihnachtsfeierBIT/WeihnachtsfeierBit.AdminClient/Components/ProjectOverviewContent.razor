@@ -1,0 +1,60 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Projekt wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    else if (_overview is not null)
+    {
+        <PageHeading Eyebrow="PROJEKTÜBERSICHT" Title="@_overview.Name" Description="Dein Eventbereich mit Shows, Teilnehmern und Teams." />
+        <section class="project-summary-grid" aria-label="Projektbereiche">
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Shows</span>
+                    <strong>@_overview.ShowCount</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("shows")" Label="Show-Bibliothek öffnen" Variant="text" /></FooterContent>
+            </Card>
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Teilnehmer</span>
+                    <strong>@_overview.ParticipantCount</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("participants")" Label="Teilnehmer verwalten" Variant="text" /></FooterContent>
+            </Card>
+            <Card Class="project-summary-card">
+                <ChildContent>
+                    <span>Teams</span>
+                    <strong>@_overview.TeamCount</strong>
+                </ChildContent>
+                <FooterContent><FrameworkLink Href="@ProjectUrl("teams")" Label="Auswertung ansehen" Variant="text" /></FooterContent>
+            </Card>
+        </section>
+        <Card Class="project-settings-prompt">
+            <ChildContent>
+                <h2>Projekt verwalten</h2>
+                <p>Allgemeine Informationen und Einstellungen des Projekts.</p>
+            </ChildContent>
+            <FooterContent><FrameworkLink Href="@ProjectUrl("settings")" Label="Einstellungen öffnen" /></FooterContent>
+        </Card>
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ProjectOverviewResponse? _overview;
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        _overview = await ProjectApiClient.GetProjectOverviewAsync(token, ProjectId);
+    });
+
+    private string ProjectUrl(string section) => $"{Navigation.BaseUri}projects/{ProjectId}/{section}";
+}

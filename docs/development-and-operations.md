@@ -1,5 +1,37 @@
 # Entwicklung und Betrieb
 
+## Vollständiges Update und Validierung
+
+Wenn Docker verfügbar ist und der lokale Stack gestartet werden soll, bevorzugt dieses Skript vom Repository-Root aus:
+
+```powershell
+.\scripts\update-and-validate.ps1
+```
+
+Unter macOS und Linux:
+
+```bash
+bash scripts/update-and-validate.sh
+```
+
+Das Skript führt zuerst die Lightweight-Validierung aus. Nur wenn sie erfolgreich ist, baut es alle Images neu, startet den vollständigen Compose-Stack und prüft, dass alle konfigurierten Services laufen. Es sammelt keine Runtime-Logs und ersetzt keine abschließenden Browser- oder Funktionstests; diese führt der Entwickler aus. Der API-Start kann ausstehende EF-Migrationen auf die vorhandene Datenbank anwenden. Das Skript löscht das PostgreSQL-Volume nicht.
+
+## Leichtgewichtige Validierung
+
+Vom Repository-Root aus unter Windows:
+
+```powershell
+.\scripts\validate.ps1
+```
+
+Unter macOS und Linux:
+
+```bash
+bash scripts/validate.sh
+```
+
+Beide Skripte führen dieselben Prüfungen aus: den Build der gesamten Solution und die Validierung der Compose-Konfiguration. Sie führen beide Prüfungen auch dann aus, wenn eine fehlschlägt, und liefern bei mindestens einem Fehler einen Exitcode ungleich null. Voraussetzung sind das .NET 10 SDK und Docker Compose v2. Für die Standardvalidierung reichen diese Skripte; sie starten keine Container und sammeln keine Runtime-Logs. Abschließende Browser- und Funktionstests führt der Entwickler aus.
+
 ## Docker Desktop
 
 Voraussetzungen: .NET 10 SDK und Docker Desktop mit Linux-Containern. Aus dem Repository-Root:

@@ -1,0 +1,8 @@
+@page "/shows/{ShowId:guid}"
+
+<PageTitle>Show bearbeiten | Admin</PageTitle>
+<ShowEditorContent ShowId="ShowId" />
+
+@code {
+    [Parameter] public Guid ShowId { get; set; }
+}

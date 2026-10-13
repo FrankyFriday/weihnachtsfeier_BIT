@@ -1,5 +1,6 @@
 using WeihnachtsfeierBit.Web;
 using WeihnachtsfeierBit.Web.Components;
+using WeihnachtsfeierBit.Framework;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,10 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddOutputCache();
+builder.Services.AddWeihnachtsfeierFramework(client =>
+{
+    client.BaseAddress = new(builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice");
+});
 
 var adminClientAddress = builder.Configuration["AdminClientBaseUrl"]
     ?? builder.Configuration["services:adminclient:http:0"]
@@ -22,7 +27,11 @@ builder.Services.AddReverseProxy().LoadFromMemory(
     {
         RouteId = "admin-client",
         ClusterId = "admin-client",
-        Match = new RouteMatch { Path = "/admin/{**catch-all}" }
+        Match = new RouteMatch { Path = "/admin/{**catch-all}" },
+        Transforms =
+        [
+            new Dictionary<string, string> { ["RequestHeaderOriginalHost"] = "true" }
+        ]
     }
 ],
 [
@@ -72,6 +81,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.UseOutputCache();
