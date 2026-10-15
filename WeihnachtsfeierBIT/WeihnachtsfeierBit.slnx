@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="WeihnachtsfeierBit.ApiService/WeihnachtsfeierBit.ApiService.csproj" />
   <Project Path="WeihnachtsfeierBit.AdminClient/WeihnachtsfeierBit.AdminClient.csproj" />
+  <Project Path="WeihnachtsfeierBit.ParticipantClient/WeihnachtsfeierBit.ParticipantClient.csproj" />
   <Project Path="WeihnachtsfeierBit.AppHost/WeihnachtsfeierBit.AppHost.csproj" />
   <Project Path="WeihnachtsfeierBit.Data/WeihnachtsfeierBit.Data.csproj" />
   <Project Path="WeihnachtsfeierBit.Framework/WeihnachtsfeierBit.Framework.csproj" />

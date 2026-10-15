@@ -41,6 +41,17 @@ services:
       - apiservice
     restart: unless-stopped
 
+  participantclient:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.ParticipantClient/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ApiBaseUrl: http://apiservice:8080
+    depends_on:
+      - apiservice
+    restart: unless-stopped
+
   webfrontend:
     build:
       context: ..
@@ -49,11 +60,13 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ApiBaseUrl: http://apiservice:8080
       AdminClientBaseUrl: http://adminclient:8080
+      ParticipantClientBaseUrl: http://participantclient:8080
     ports:
       - "8080:8080"
     depends_on:
       - apiservice
       - adminclient
+      - participantclient
     restart: unless-stopped
 
 volumes:

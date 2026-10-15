@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Hubs;
 using WeihnachtsfeierBit.Data;
+using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.ApiService.Services;
 
@@ -9,10 +10,6 @@ public interface IGameStateNotifier
 {
     Task NotifyProjectChangedAsync(Guid projectId, CancellationToken cancellationToken = default);
 }
-
-public sealed record ParticipantState(Guid Id, int Number, string? Name);
-public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
-public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);
 
 public sealed class GameStateNotifier(
     IServiceScopeFactory scopeFactory,

@@ -112,6 +112,36 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<ParticipantSessionResponse> LoginParticipantAsync(Guid projectId, int number, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/projects/{projectId}/participant-sessions")
+        {
+            Content = JsonContent.Create(new { number })
+        };
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSessionResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Sitzung zurückgegeben.");
+    }
+
+    public async Task<ParticipantSummary> GetMyProfileAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/participants/me", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Profil zurückgegeben.");
+    }
+
+    public async Task<ParticipantSummary> UpdateMyNameAsync(string accessToken, Guid projectId, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/me", accessToken, new UpdateParticipantRequest(name, null, null));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine aktualisierten Profildaten zurückgegeben.");
+    }
+
     public async Task<ParticipantSummary[]> GetParticipantsAsync(
         string accessToken,
         Guid projectId,
@@ -298,6 +328,7 @@ public sealed record ProjectShow(Guid Id, string Name);
 public sealed record AdminShow(Guid Id, string Name, int ProjectCount);
 public sealed record CreateGlobalShowRequest(string Name);
 public sealed record LinkShowRequest(Guid ShowId);
+public record ParticipantSessionResponse(Guid SessionId, string AccessToken, DateTime ExpiresAtUtc, string Role, Guid? ProjectId, string DisplayName);
 public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);
 public sealed record UpdateParticipantRequest(string? Name, Guid? TeamId, int? Number);
@@ -309,3 +340,6 @@ public sealed record TeamSummary(Guid Id, string DisplayName, string Color, int 
 public sealed record CreateTeamRequest(string DisplayName, string Color);
 public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);
 public sealed record SlideSummary(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
+public sealed record ParticipantState(Guid Id, int Number, string? Name);
+public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
+public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);

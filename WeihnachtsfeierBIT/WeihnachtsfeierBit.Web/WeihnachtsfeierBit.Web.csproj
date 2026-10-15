@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
     <ProjectReference Include="..\WeihnachtsfeierBit.ServiceDefaults\WeihnachtsfeierBit.ServiceDefaults.csproj" />
     <ProjectReference Include="..\WeihnachtsfeierBit.Framework\WeihnachtsfeierBit.Framework.csproj" />
   </ItemGroup>

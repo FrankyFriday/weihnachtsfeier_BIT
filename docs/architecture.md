@@ -6,8 +6,9 @@
 | --- | --- |
 | `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Projektberechtigungen und EF-Core-Migrationen beim Start |
 | `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, Workspace-Sidebar, globaler Show-Bibliothek und projektspezifischen Show-Verknüpfungen |
+| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` mit Nummern-Login, mobilem/desktop-optimiertem Team-Dashboard und SignalR Live-Anbindung |
 | `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client und gemeinsam genutzten Verträgen; enthält keine Admin-/Projektseiten |
-| `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient |
+| `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient und `/play` an den ParticipantClient |
 | `WeihnachtsfeierBit.Data` | EF-Core-Entities, PostgreSQL-Mappings und Migrationen |
 | `WeihnachtsfeierBit.ServiceDefaults` | Aspire Service Discovery, Health Checks, Resilience und Telemetrie |
 | `WeihnachtsfeierBit.AppHost` | Lokale Aspire-Orchestrierung |
@@ -16,9 +17,12 @@
 flowchart LR
     Browser -->|/| TestClient
     Browser -->|/admin/*| TestClient
+    Browser -->|/play/*| TestClient
     TestClient -->|YARP| AdminClient
+    TestClient -->|YARP| ParticipantClient
     TestClient --> API
     AdminClient --> API
+    ParticipantClient --> API
     API --> PostgreSQL
 ```
 
@@ -30,14 +34,15 @@ flowchart LR
 
 ## Codepfade
 
-- API-Komposition: `WeihnachtsfeierBit.ApiService/Program.cs`
+- API-Komposition & SignalR Hubs: `WeihnachtsfeierBit.ApiService/Program.cs` (`GameStateHub` unter `/hubs/gamestate`)
 - Routenmodule: `WeihnachtsfeierBit.ApiService/Endpoints/`
 - Authentifizierung und Projektfilter: `WeihnachtsfeierBit.ApiService/Auth/`
 - Request-/Response-Verträge: `WeihnachtsfeierBit.ApiService/Contracts/`
 - Entities und Mapping: `WeihnachtsfeierBit.Data/`
 - Admin-Routen, Fachansichten, Sidebar und Adminformulare: `WeihnachtsfeierBit.AdminClient/`
+- Teilnehmer-Client (`/play/{projectId}`): `WeihnachtsfeierBit.ParticipantClient/`
 - Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
-- Testclient und Proxy: `WeihnachtsfeierBit.Web/Program.cs`
+- Testclient und Proxy: `WeihnachtsfeierBit.Web/`
 
 Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Weitere Oberflächen wie Teilnehmerclient und Leinwand-Dashboard sollen später eigenständige Clients sein und können dieselbe Framework-Bibliothek verwenden.
 
