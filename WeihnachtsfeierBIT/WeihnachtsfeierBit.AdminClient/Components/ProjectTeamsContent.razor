@@ -1,18 +1,32 @@
 @inherits AuthenticatedComponentBase
 
 <FrameworkPage>
-    <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und aktueller Punktestand dieses Projekts." />
+    <div class="overview-toolbar">
+        <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und aktueller Punktestand dieses Projekts." />
+        <FrameworkButton Label="Neues Team" OnClick="OpenCreateModal" />
+    </div>
+
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <FrameworkNotice Message="@ErrorMessage" />
     }
+
+    @if (!string.IsNullOrEmpty(_actionError))
+    {
+        <FrameworkNotice Message="@_actionError" />
+    }
+
     @if (IsLoading)
     {
         <FrameworkLoading Message="Teams werden geladen ..." />
     }
     else if (_teams.Length == 0)
     {
-        <EmptyState Title="Noch keine Teams" Description="Für dieses Projekt sind noch keine Teams angelegt." />
+        <EmptyState Title="Noch keine Teams" Description="Für dieses Projekt sind noch keine Teams angelegt.">
+            <ChildContent>
+                <FrameworkButton Label="Erstes Team anlegen" OnClick="OpenCreateModal" />
+            </ChildContent>
+        </EmptyState>
     }
     else
     {
@@ -20,30 +34,250 @@
     }
 </FrameworkPage>
 
+<FrameworkModal IsOpen="_showCreateModal" Title="Neues Team anlegen" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="CreateTeamAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <div class="form-group">
+            <label for="new-team-name">Teamname</label>
+            <input id="new-team-name" @bind="_teamName" required maxlength="80" placeholder="z. B. Die Elfe" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="new-team-color">Farbe</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <input id="new-team-color" type="color" @bind="_teamColor" style="width: 42px; height: 38px; padding: 2px; cursor: pointer;" />
+                <input type="text" @bind="_teamColor" maxlength="32" placeholder="#197b67" style="flex: 1;" />
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                @foreach (var color in _presetColors)
+                {
+                    <button type="button" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid @(_teamColor == color ? "#000" : "transparent"); background-color: @color; cursor: pointer;" OnClick="() => SelectColor(color)"></button>
+                }
+            </div>
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Team anlegen" BusyLabel="Wird angelegt ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
+
+<FrameworkModal IsOpen="_showEditModal" Title="Team bearbeiten" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="UpdateTeamAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <div class="form-group">
+            <label for="edit-team-name">Teamname</label>
+            <input id="edit-team-name" @bind="_teamName" required maxlength="80" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="edit-team-color">Farbe</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <input id="edit-team-color" type="color" @bind="_teamColor" style="width: 42px; height: 38px; padding: 2px; cursor: pointer;" />
+                <input type="text" @bind="_teamColor" maxlength="32" style="flex: 1;" />
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                @foreach (var color in _presetColors)
+                {
+                    <button type="button" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid @(_teamColor == color ? "#000" : "transparent"); background-color: @color; cursor: pointer;" OnClick="() => SelectColor(color)"></button>
+                }
+            </div>
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="edit-team-points">Punktestand</label>
+            <input id="edit-team-points" type="number" min="0" @bind="_teamPoints" required />
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Speichern" BusyLabel="Wird gespeichert ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
+
 @code {
     [Parameter] public Guid ProjectId { get; set; }
 
     private TeamSummary[] _teams = [];
     private DataTableColumn<TeamSummary>[] _columns = [];
+    private string? _actionError;
+    private string? _modalError;
 
-    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    private bool _showCreateModal;
+    private bool _showEditModal;
+    private bool _saving;
+
+    private Guid? _editingTeamId;
+    private string _teamName = string.Empty;
+    private string _teamColor = "#197b67";
+    private int _teamPoints;
+
+    private readonly string[] _presetColors = ["#197b67", "#2563eb", "#d97706", "#dc2626", "#9333ea", "#059669", "#4f46e5", "#c026d3"];
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
     {
-        var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
-        var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
-        await Task.WhenAll(teamsTask, participantsTask);
-        var participants = await participantsTask;
-        _teams = (await teamsTask).OrderByDescending(team => team.Points).ThenBy(team => team.DisplayName).ToArray();
-        var participantCounts = participants.Where(participant => participant.TeamId is not null)
-            .GroupBy(participant => participant.TeamId!.Value)
-            .ToDictionary(group => group.Key, group => group.Count());
-        _columns =
-        [
-            new("Rang", team => (_teams.ToList().IndexOf(team) + 1).ToString()),
-            new("Team", team => team.DisplayName),
-            new("Teilnehmer", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
-            new("Punkte", team => team.Points.ToString())
-        ];
-    });
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _actionError = null;
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+            await Task.WhenAll(teamsTask, participantsTask);
+            var participants = await participantsTask;
+            _teams = (await teamsTask).OrderByDescending(team => team.Points).ThenBy(team => team.DisplayName).ToArray();
+            var participantCounts = participants.Where(participant => participant.TeamId is not null)
+                .GroupBy(participant => participant.TeamId!.Value)
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            _columns =
+            [
+                new("Rang", team => (_teams.ToList().IndexOf(team) + 1).ToString()),
+                new("Team", team => team.DisplayName),
+                new("Teilnehmer", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
+                new("Punkte", team => team.Points.ToString()),
+                new("Aktionen", team => @<div class="framework-button-row">
+                    <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(team)" />
+                    <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => DeleteTeamAsync(team)" />
+                </div>)
+            ];
+        });
+    }
+
+    private void SelectColor(string color) => _teamColor = color;
+
+    private void OpenCreateModal()
+    {
+        _editingTeamId = null;
+        _teamName = string.Empty;
+        _teamColor = "#197b67";
+        _teamPoints = 0;
+        _modalError = null;
+        _showCreateModal = true;
+        _showEditModal = false;
+    }
+
+    private void OpenEditModal(TeamSummary team)
+    {
+        _editingTeamId = team.Id;
+        _teamName = team.DisplayName;
+        _teamColor = team.Color;
+        _teamPoints = team.Points;
+        _modalError = null;
+        _showCreateModal = false;
+        _showEditModal = true;
+    }
+
+    private void CloseModals()
+    {
+        _showCreateModal = false;
+        _showEditModal = false;
+        _modalError = null;
+    }
+
+    private async Task CreateTeamAsync()
+    {
+        if (_saving) return;
+        var name = _teamName.Trim();
+        var color = _teamColor.Trim();
+
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 80)
+        {
+            _modalError = "Der Teamname muss zwischen 1 und 80 Zeichen lang sein.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(color) || color.Length > 32)
+        {
+            _modalError = "Bitte wähle eine gültige Farbe.";
+            return;
+        }
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.CreateTeamAsync(token, ProjectId, name, color);
+                CloseModals();
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task UpdateTeamAsync()
+    {
+        if (_saving || _editingTeamId is null) return;
+        var name = _teamName.Trim();
+        var color = _teamColor.Trim();
+
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 80)
+        {
+            _modalError = "Der Teamname muss zwischen 1 und 80 Zeichen lang sein.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(color) || color.Length > 32)
+        {
+            _modalError = "Bitte wähle eine gültige Farbe.";
+            return;
+        }
+
+        if (_teamPoints < 0)
+        {
+            _modalError = "Der Punktestand darf nicht negativ sein.";
+            return;
+        }
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateTeamAsync(token, ProjectId, _editingTeamId.Value, name, color, _teamPoints);
+                CloseModals();
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteTeamAsync(TeamSummary team)
+    {
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.DeleteTeamAsync(token, ProjectId, team.Id);
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
 
     private static object TeamKey(TeamSummary team) => team.Id;
 }

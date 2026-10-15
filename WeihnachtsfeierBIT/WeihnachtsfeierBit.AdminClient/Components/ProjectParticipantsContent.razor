@@ -1,45 +1,485 @@
 @inherits AuthenticatedComponentBase
 
 <FrameworkPage>
-    <PageHeading Eyebrow="PROJEKT" Title="Teilnehmer" Description="Teilnehmer und ihre Teamzuordnung in diesem Projekt." />
+    <div class="overview-toolbar">
+        <PageHeading Eyebrow="PROJEKT" Title="Teilnehmer" Description="Teilnehmer verwalten, Nummern generieren und Teamzuordnung steuern." />
+        <div class="framework-button-row">
+            <FrameworkButton Label="Teilnehmer anlegen" OnClick="OpenCreateModal" />
+            <FrameworkButton Label="Nummern generieren" Variant="secondary" OnClick="OpenGenerateModal" />
+            <FrameworkButton Label="Zufällig verteilen" Variant="secondary" OnClick="OpenRandomizeModal" />
+        </div>
+    </div>
+
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <FrameworkNotice Message="@ErrorMessage" />
     }
+
+    @if (!string.IsNullOrEmpty(_actionNotice))
+    {
+        <FrameworkNotice Message="@_actionNotice" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionError))
+    {
+        <FrameworkNotice Message="@_actionError" />
+    }
+
     @if (IsLoading)
     {
         <FrameworkLoading Message="Teilnehmer werden geladen ..." />
     }
     else if (_participants.Length == 0)
     {
-        <EmptyState Title="Noch keine Teilnehmer" Description="Für dieses Projekt sind noch keine Teilnehmer angelegt." />
+        <EmptyState Title="Noch keine Teilnehmer" Description="Für dieses Projekt sind noch keine Teilnehmer angelegt. Erstelle einzelne Teilnehmer oder generiere automatisch Nummern.">
+            <ChildContent>
+                <div class="framework-button-row">
+                    <FrameworkButton Label="Teilnehmer anlegen" OnClick="OpenCreateModal" />
+                    <FrameworkButton Label="Nummern generieren" Variant="secondary" OnClick="OpenGenerateModal" />
+                </div>
+            </ChildContent>
+        </EmptyState>
     }
     else
     {
-        <StandardDataTable Items="_participants" Columns="_columns" KeySelector="ParticipantKey" />
+        <div style="margin-bottom: 16px; display: flex; gap: 10px; align-items: center;">
+            <label for="team-filter" style="font-weight: 600; font-size: 13px;">Filter nach Team:</label>
+            <select id="team-filter" value="@_filterTeam" @onchange="OnFilterChanged" style="padding: 6px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                <option value="all">Alle Teilnehmer (@_participants.Length)</option>
+                <option value="unassigned">Ohne Team (@_participants.Count(p => p.TeamId == null))</option>
+                @foreach (var team in _teams)
+                {
+                    <option value="@team.Id.ToString()">@team.DisplayName (@_participants.Count(p => p.TeamId == team.Id))</option>
+                }
+            </select>
+        </div>
+
+        <StandardDataTable Items="FilteredParticipants" Columns="_columns" KeySelector="ParticipantKey" />
     }
 </FrameworkPage>
+
+<FrameworkModal IsOpen="_showCreateModal" Title="Teilnehmer anlegen" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="CreateParticipantAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <div class="form-group">
+            <label for="new-participant-number">Teilnehmernummer</label>
+            <input id="new-participant-number" type="number" min="1" @bind="_participantNumber" required placeholder="z. B. 12" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="new-participant-name">Name (optional)</label>
+            <input id="new-participant-name" @bind="_participantName" maxlength="120" placeholder="z. B. Max Mustermann" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="new-participant-team">Team (optional)</label>
+            <select id="new-participant-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                <option value="">Kein Team (unzugeordnet)</option>
+                @foreach (var team in _teams)
+                {
+                    <option value="@team.Id.ToString()">@team.DisplayName</option>
+                }
+            </select>
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Teilnehmer anlegen" BusyLabel="Wird angelegt ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
+
+<FrameworkModal IsOpen="_showEditModal" Title="Teilnehmer bearbeiten" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="UpdateParticipantAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <div class="form-group">
+            <label for="edit-participant-number">Teilnehmernummer</label>
+            <input id="edit-participant-number" type="number" min="1" @bind="_participantNumber" required />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="edit-participant-name">Name (optional)</label>
+            <input id="edit-participant-name" @bind="_participantName" maxlength="120" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="edit-participant-team">Team (optional)</label>
+            <select id="edit-participant-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                <option value="">Kein Team (unzugeordnet)</option>
+                @foreach (var team in _teams)
+                {
+                    <option value="@team.Id.ToString()">@team.DisplayName</option>
+                }
+            </select>
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Speichern" BusyLabel="Wird gespeichert ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
+
+<FrameworkModal IsOpen="_showGenerateModal" Title="Nummern automatisch generieren" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="GenerateParticipantsAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <div class="form-group">
+            <label for="gen-digits">Stellenzahl der Nummern</label>
+            <select id="gen-digits" @bind="_genDigits" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                <option value="2">2-stellig (10 bis 99)</option>
+                <option value="3">3-stellig (100 bis 999)</option>
+                <option value="4">4-stellig (1000 bis 9999)</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="gen-count">Anzahl neuer Teilnehmer</label>
+            <input id="gen-count" type="number" min="1" max="500" @bind="_genCount" required />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+            <label for="gen-team">Direkt einem Team zuweisen (optional)</label>
+            <select id="gen-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                <option value="">Kein Team (unzugeordnet)</option>
+                @foreach (var team in _teams)
+                {
+                    <option value="@team.Id.ToString()">@team.DisplayName</option>
+                }
+            </select>
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Generieren" BusyLabel="Wird generiert ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
+
+<FrameworkModal IsOpen="_showRandomizeModal" Title="Zufällig auf Teams verteilen" OnClose="CloseModals">
+    <form class="project-create-form" @onsubmit="RandomizeTeamsAsync" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" />
+        }
+        <p style="margin: 0 0 12px; font-size: 14px; color: #394448;">
+            Die Teilnehmer werden zufällig durchgemischt und gleichmäßig auf alle bestehenden Teams aufgeteilt.
+        </p>
+        <div class="form-group">
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; font-weight: normal;">
+                <input type="radio" name="randomizeScope" checked="@_onlyUnassigned" @onchange="() => _onlyUnassigned = true" />
+                Nur unzugeordnete Teilnehmer verteilen
+            </label>
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; font-weight: normal; margin-top: 8px;">
+                <input type="radio" name="randomizeScope" checked="@(!_onlyUnassigned)" @onchange="() => _onlyUnassigned = false" />
+                Alle Teilnehmer neu durchmischen und verteilen
+            </label>
+        </div>
+        <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
+            <FrameworkButton Label="Gleichmäßig verteilen" BusyLabel="Wird verteilt ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
+        </div>
+    </form>
+</FrameworkModal>
 
 @code {
     [Parameter] public Guid ProjectId { get; set; }
 
     private ParticipantSummary[] _participants = [];
+    private TeamSummary[] _teams = [];
     private DataTableColumn<ParticipantSummary>[] _columns = [];
 
-    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    private string _filterTeam = "all";
+    private string? _actionNotice;
+    private string? _actionError;
+    private string? _modalError;
+
+    private bool _showCreateModal;
+    private bool _showEditModal;
+    private bool _showGenerateModal;
+    private bool _showRandomizeModal;
+    private bool _saving;
+
+    private Guid? _editingParticipantId;
+    private int _participantNumber = 10;
+    private string _participantName = string.Empty;
+    private string _participantTeamIdString = string.Empty;
+
+    private int _genDigits = 2;
+    private int _genCount = 10;
+    private bool _onlyUnassigned = true;
+
+    private ParticipantSummary[] FilteredParticipants => _filterTeam switch
     {
-        var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
-        var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
-        await Task.WhenAll(participantsTask, teamsTask);
-        var teams = await teamsTask;
-        _participants = await participantsTask;
-        _columns =
-        [
-            new("Nummer", participant => participant.Number.ToString()),
-            new("Name", participant => string.IsNullOrWhiteSpace(participant.Name) ? "Unbenannt" : participant.Name),
-            new("Team", participant => teams.FirstOrDefault(team => team.Id == participant.TeamId)?.DisplayName ?? "Nicht zugewiesen")
-        ];
-    });
+        "all" => _participants,
+        "unassigned" => _participants.Where(p => p.TeamId == null).ToArray(),
+        _ when Guid.TryParse(_filterTeam, out var teamId) => _participants.Where(p => p.TeamId == teamId).ToArray(),
+        _ => _participants
+    };
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _actionError = null;
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            await Task.WhenAll(participantsTask, teamsTask);
+            _teams = await teamsTask;
+            _participants = (await participantsTask).OrderBy(p => p.Number).ToArray();
+
+            _columns =
+            [
+                new("Nummer", p => p.Number.ToString()),
+                new("Name", p => string.IsNullOrWhiteSpace(p.Name) ? "Unbenannt" : p.Name),
+                new("Team", p => @<select value="@(p.TeamId?.ToString() ?? "")" @onchange="(e) => OnRowTeamChangedAsync(p, e.Value?.ToString())" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd7d3;">
+                    <option value="">Kein Team</option>
+                    @foreach (var team in _teams)
+                    {
+                        <option value="@team.Id.ToString()">@team.DisplayName</option>
+                    }
+                </select>),
+                new("Aktionen", p => @<div class="framework-button-row">
+                    <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(p)" />
+                    <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => DeleteParticipantAsync(p)" />
+                </div>)
+            ];
+        });
+    }
+
+    private void OnFilterChanged(ChangeEventArgs e) => _filterTeam = e.Value?.ToString() ?? "all";
+
+    private void OnModalTeamSelected(ChangeEventArgs e) => _participantTeamIdString = e.Value?.ToString() ?? string.Empty;
+
+    private void OpenCreateModal()
+    {
+        _editingParticipantId = null;
+        _participantNumber = GetNextSuggestedNumber();
+        _participantName = string.Empty;
+        _participantTeamIdString = string.Empty;
+        _modalError = null;
+        _showCreateModal = true;
+        _showEditModal = false;
+        _showGenerateModal = false;
+        _showRandomizeModal = false;
+    }
+
+    private void OpenEditModal(ParticipantSummary participant)
+    {
+        _editingParticipantId = participant.Id;
+        _participantNumber = participant.Number;
+        _participantName = participant.Name ?? string.Empty;
+        _participantTeamIdString = participant.TeamId?.ToString() ?? string.Empty;
+        _modalError = null;
+        _showCreateModal = false;
+        _showEditModal = true;
+        _showGenerateModal = false;
+        _showRandomizeModal = false;
+    }
+
+    private void OpenGenerateModal()
+    {
+        _genDigits = 2;
+        _genCount = 10;
+        _participantTeamIdString = string.Empty;
+        _modalError = null;
+        _showCreateModal = false;
+        _showEditModal = false;
+        _showGenerateModal = true;
+        _showRandomizeModal = false;
+    }
+
+    private void OpenRandomizeModal()
+    {
+        _onlyUnassigned = true;
+        _modalError = null;
+        _showCreateModal = false;
+        _showEditModal = false;
+        _showGenerateModal = false;
+        _showRandomizeModal = true;
+    }
+
+    private void CloseModals()
+    {
+        _showCreateModal = false;
+        _showEditModal = false;
+        _showGenerateModal = false;
+        _showRandomizeModal = false;
+        _modalError = null;
+    }
+
+    private int GetNextSuggestedNumber()
+    {
+        if (_participants.Length == 0) return 10;
+        var maxNum = _participants.Max(p => p.Number);
+        return maxNum < 10 ? 10 : maxNum + 1;
+    }
+
+    private async Task CreateParticipantAsync()
+    {
+        if (_saving) return;
+        if (_participantNumber <= 0)
+        {
+            _modalError = "Die Teilnehmernummer muss positiv sein.";
+            return;
+        }
+
+        Guid? teamId = Guid.TryParse(_participantTeamIdString, out var tid) ? tid : null;
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.CreateParticipantAsync(token, ProjectId, _participantNumber, _participantName, teamId);
+                CloseModals();
+                _actionNotice = $"Teilnehmer #{_participantNumber} wurde erfolgreich angelegt.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task UpdateParticipantAsync()
+    {
+        if (_saving || _editingParticipantId is null) return;
+        if (_participantNumber <= 0)
+        {
+            _modalError = "Die Teilnehmernummer muss positiv sein.";
+            return;
+        }
+
+        Guid? teamId = Guid.TryParse(_participantTeamIdString, out var tid) ? tid : null;
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateParticipantAsync(token, ProjectId, _editingParticipantId.Value, _participantNumber, _participantName, teamId);
+                CloseModals();
+                _actionNotice = "Teilnehmerdaten wurden aktualisiert.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task OnRowTeamChangedAsync(ParticipantSummary participant, string? newTeamIdString)
+    {
+        _actionError = null;
+        _actionNotice = null;
+        Guid? newTeamId = Guid.TryParse(newTeamIdString, out var tid) ? tid : null;
+        if (participant.TeamId == newTeamId) return;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateParticipantAsync(token, ProjectId, participant.Id, participant.Number, participant.Name, newTeamId);
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task GenerateParticipantsAsync()
+    {
+        if (_saving) return;
+        if (_genCount is <= 0 or > 500)
+        {
+            _modalError = "Anzahl muss zwischen 1 und 500 liegen.";
+            return;
+        }
+
+        Guid? teamId = Guid.TryParse(_participantTeamIdString, out var tid) ? tid : null;
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var result = await ProjectApiClient.GenerateParticipantsAsync(token, ProjectId, _genCount, _genDigits, teamId);
+                CloseModals();
+                _actionNotice = $"Es wurden {result.CreatedCount} neue {_genDigits}-stellige Teilnehmer generiert.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RandomizeTeamsAsync()
+    {
+        if (_saving) return;
+
+        _saving = true;
+        _modalError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var result = await ProjectApiClient.RandomizeTeamsAsync(token, ProjectId, _onlyUnassigned);
+                CloseModals();
+                _actionNotice = $"Es wurden {result.AssignedCount} Teilnehmer gleichmäßig auf die Teams verteilt.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteParticipantAsync(ParticipantSummary participant)
+    {
+        _actionError = null;
+        _actionNotice = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.DeleteParticipantAsync(token, ProjectId, participant.Id);
+                _actionNotice = $"Teilnehmer #{participant.Number} wurde gelöscht.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
 
     private static object ParticipantKey(ParticipantSummary participant) => participant.Id;
 }
