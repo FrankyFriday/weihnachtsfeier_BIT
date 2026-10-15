@@ -10,6 +10,10 @@ public sealed record SessionResponse(Guid SessionId, string AccessToken, DateTim
 public sealed record ParticipantResponse(Guid Id, int Number, string? Name, Guid? TeamId);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);
 public sealed record UpdateParticipantRequest(string? Name, Guid? TeamId, int? Number);
+public sealed record GenerateParticipantsRequest(int Count, int Digits, Guid? TeamId);
+public sealed record GenerateParticipantsResponse(int CreatedCount, ParticipantResponse[] Participants);
+public sealed record RandomizeTeamsRequest(bool OnlyUnassigned);
+public sealed record RandomizeTeamsResponse(int AssignedCount);
 public sealed record TeamResponse(Guid Id, string DisplayName, string Color, int Points);
 public sealed record CreateTeamRequest(string DisplayName, string Color);
 public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);

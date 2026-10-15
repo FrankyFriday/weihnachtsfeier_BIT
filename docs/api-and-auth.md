@@ -56,7 +56,7 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 
 Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `/teams`, `/shows`, `/shows/{showId}/slides`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
 
-Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
+Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `POST /participants/generate` (automatische 2-, 3- oder 4-stellige Nummern-Generierung), `POST /participants/randomize-teams` (gleichmäßige Zufallsverteilung auf Teams), `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
 
 Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{projectId}/overview` liefert Projektname sowie Show-, Teilnehmer- und Teamanzahl aggregiert in einer Antwort.
 

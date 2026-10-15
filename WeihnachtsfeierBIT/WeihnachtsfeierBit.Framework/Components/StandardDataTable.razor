@@ -16,7 +16,17 @@
                 <tr @key="KeySelector?.Invoke(item)">
                     @foreach (var column in Columns)
                     {
-                        <td>@column.Value(item)</td>
+                        var cellValue = column.Value(item);
+                        <td>
+                            @if (cellValue is RenderFragment fragment)
+                            {
+                                @fragment
+                            }
+                            else
+                            {
+                                @cellValue
+                            }
+                        </td>
                     }
                 </tr>
             }
