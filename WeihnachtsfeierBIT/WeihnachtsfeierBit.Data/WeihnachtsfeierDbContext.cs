@@ -12,6 +12,9 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
+    public DbSet<GameInstance> GameInstances => Set<GameInstance>();
+    public DbSet<TeamInstance> TeamInstances => Set<TeamInstance>();
+    public DbSet<TeilnehmerInstance> TeilnehmerInstances => Set<TeilnehmerInstance>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -72,6 +75,45 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .WithMany(teilnehmer => teilnehmer.Sitzungen)
             .HasForeignKey(sitzung => sitzung.TeilnehmerId)
             .OnDelete(DeleteBehavior.Cascade);
+        sitzungen.HasOne(sitzung => sitzung.GameInstance)
+            .WithMany(gi => gi.Sitzungen)
+            .HasForeignKey(sitzung => sitzung.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var gameInstances = modelBuilder.Entity<GameInstance>();
+        gameInstances.Property(gi => gi.AccessCode).HasMaxLength(6);
+        gameInstances.HasIndex(gi => gi.AccessCode);
+        gameInstances.HasIndex(gi => new { gi.ProjektId, gi.IsActive });
+        gameInstances.HasOne(gi => gi.Projekt)
+            .WithMany()
+            .HasForeignKey(gi => gi.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var teamInstances = modelBuilder.Entity<TeamInstance>();
+        teamInstances.HasIndex(ti => new { ti.GameInstanceId, ti.TeamId }).IsUnique();
+        teamInstances.HasOne(ti => ti.GameInstance)
+            .WithMany(gi => gi.TeamInstances)
+            .HasForeignKey(ti => ti.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        teamInstances.HasOne(ti => ti.Team)
+            .WithMany()
+            .HasForeignKey(ti => ti.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var teilnehmerInstances = modelBuilder.Entity<TeilnehmerInstance>();
+        teilnehmerInstances.HasIndex(tni => new { tni.GameInstanceId, tni.TeilnehmerId }).IsUnique();
+        teilnehmerInstances.HasOne(tni => tni.GameInstance)
+            .WithMany(gi => gi.TeilnehmerInstances)
+            .HasForeignKey(tni => tni.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        teilnehmerInstances.HasOne(tni => tni.Teilnehmer)
+            .WithMany()
+            .HasForeignKey(tni => tni.TeilnehmerId)
+            .OnDelete(DeleteBehavior.Cascade);
+        teilnehmerInstances.HasOne(tni => tni.Team)
+            .WithMany()
+            .HasForeignKey(tni => tni.TeamId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Teilnehmer>()
             .HasIndex(teilnehmer => new { teilnehmer.ProjektId, teilnehmer.Nummer })

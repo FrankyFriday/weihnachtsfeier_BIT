@@ -38,6 +38,27 @@
 
 .sidebar-link:hover,
 .sidebar-link.active { background: #e8f3ef; color: #105c4d; }
+
+.active-session-badge {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    font-weight: 700;
+}
+
+.active-session-badge:hover, .active-session-badge.active {
+    background: #bae6fd !important;
+    color: #0284c7 !important;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #0284c7;
+    display: inline-block;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
 .sidebar-current-project { padding-top: 18px; border-top: 1px solid #dce5e2; }
 
 .sidebar-current-project strong {

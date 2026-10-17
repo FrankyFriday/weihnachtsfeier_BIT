@@ -58,6 +58,9 @@ public sealed class ProjectAuthenticationService(
         string? userAgent,
         CancellationToken cancellationToken)
     {
+        var activeInstance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId && gi.IsActive, cancellationToken);
+
         var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
             item => item.ProjektId == projectId && item.Nummer == number,
             cancellationToken);
@@ -71,6 +74,76 @@ public sealed class ProjectAuthenticationService(
         var session = new Sitzung
         {
             TeilnehmerId = participant.Id,
+            GameInstanceId = activeInstance?.Id,
+            TokenHash = ApiToken.Hash(rawToken),
+            ErstelltAmUtc = now,
+            LetzteAktivitaetAmUtc = now,
+            LaeuftAbAmUtc = now.Add(ParticipantSessionLifetime),
+            UserAgent = NormalizeUserAgent(userAgent)
+        };
+        dbContext.Sitzungen.Add(session);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (new SessionResponse(session.Id, rawToken, session.LaeuftAbAmUtc, "participant", projectId,
+            participant.Name ?? $"Teilnehmer {participant.Nummer}"), null);
+    }
+
+    public async Task<(SessionResponse? Session, string? Error)> LoginParticipantByCodeAsync(
+        string code,
+        int number,
+        string? userAgent,
+        CancellationToken cancellationToken)
+    {
+        var cleanCode = code.Trim();
+        var activeInstance = await dbContext.GameInstances
+            .Include(gi => gi.Projekt)
+            .FirstOrDefaultAsync(gi => gi.IsActive && gi.AccessCode == cleanCode, cancellationToken);
+
+        if (activeInstance is null)
+        {
+            return (null, "Ungültiger oder abgelaufener Session-Code.");
+        }
+
+        var projectId = activeInstance.ProjektId;
+        var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
+            item => item.ProjektId == projectId && item.Nummer == number,
+            cancellationToken);
+
+        if (participant is null)
+        {
+            // Auto-create participant if number doesn't exist in project yet
+            participant = new Teilnehmer
+            {
+                ProjektId = projectId,
+                Projekt = activeInstance.Projekt,
+                Nummer = number,
+                Name = null
+            };
+            dbContext.Teilnehmer.Add(participant);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        // Ensure TeilnehmerInstance exists for this GameInstance
+        var instanceLink = await dbContext.TeilnehmerInstances.FirstOrDefaultAsync(
+            tni => tni.GameInstanceId == activeInstance.Id && tni.TeilnehmerId == participant.Id,
+            cancellationToken);
+
+        if (instanceLink is null)
+        {
+            dbContext.TeilnehmerInstances.Add(new TeilnehmerInstance
+            {
+                GameInstance = activeInstance,
+                Teilnehmer = participant,
+                TeamId = participant.TeamId
+            });
+        }
+
+        var rawToken = ApiToken.Create();
+        var now = DateTime.UtcNow;
+        var session = new Sitzung
+        {
+            TeilnehmerId = participant.Id,
+            GameInstanceId = activeInstance.Id,
             TokenHash = ApiToken.Hash(rawToken),
             ErstelltAmUtc = now,
             LetzteAktivitaetAmUtc = now,

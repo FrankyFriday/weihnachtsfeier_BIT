@@ -1,0 +1,183 @@
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    <div class="overview-toolbar">
+        <PageHeading Eyebrow="PROJEKT" Title="Play-Sessions" Description="Verwalte Spielsitzungen (GameInstances) und deren 6-stellige Codes." />
+        <FrameworkButton Label="Neue Session starten" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionNotice))
+    {
+        <FrameworkNotice Message="@_actionNotice" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionError))
+    {
+        <FrameworkNotice Message="@_actionError" />
+    }
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Play-Sessions werden geladen ..." />
+    }
+    else
+    {
+        @if (_activeInstance is not null)
+        {
+            <Card Class="project-card" Style="margin-bottom: 24px; border: 2px solid #0284c7; background: #f0f9ff;">
+                <ChildContent>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">AKTIVE PLAY-SESSION</span>
+                            <h2 style="font-size: 32px; font-weight: 800; margin: 4px 0; color: #0369a1; letter-spacing: 2px;">
+                                Code: @_activeInstance.AccessCode
+                            </h2>
+                            <p style="margin: 0; color: #556265; font-size: 13px;">Gestartet am @_activeInstance.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr</p>
+                        </div>
+                        <div class="framework-button-row">
+                            <FrameworkButton Label="Session-Dashboard öffnen" Variant="primary" OnClick="OpenDashboard" />
+                            <FrameworkButton Label="Session beenden" Variant="danger" OnClick="() => EndSessionAsync(_activeInstance.Id)" Busy="@_ending" Disabled="@_ending" />
+                        </div>
+                    </div>
+                </ChildContent>
+            </Card>
+        }
+
+        @if (_instances.Length == 0)
+        {
+            <EmptyState Title="Noch keine Play-Sessions" Description="Starte deine erste Play-Session, um einen 6-stelligen Code für die Teilnehmer zu erzeugen.">
+                <ChildContent>
+                    <FrameworkButton Label="Erste Session starten" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
+                </ChildContent>
+            </EmptyState>
+        }
+        else
+        {
+            <h3>Session-Historie</h3>
+            <StandardDataTable Items="_instances" Columns="_columns" KeySelector="InstanceKey" />
+        }
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private GameInstanceSummary[] _instances = [];
+    private GameInstanceSummary? _activeInstance;
+    private DataTableColumn<GameInstanceSummary>[] _columns = [];
+
+    private string? _actionNotice;
+    private string? _actionError;
+    private bool _starting;
+    private bool _ending;
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _actionError = null;
+            _instances = await ProjectApiClient.GetGameInstancesAsync(token, ProjectId);
+            _activeInstance = _instances.FirstOrDefault(i => i.IsActive);
+
+            _columns =
+            [
+                new("Status", i => i.IsActive ? "Aktiv" : "Beendet"),
+                new("Code", i => i.AccessCode ?? "-"),
+                new("Gestartet am", i => i.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")),
+                new("Beendet am", i => i.EndedAtUtc.HasValue ? i.EndedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "-"),
+                new("Aktionen", i => @<div class="framework-button-row">
+                    @if (i.IsActive)
+                    {
+                        <FrameworkButton Label="Dashboard" Variant="secondary" OnClick="OpenDashboard" />
+                        <FrameworkButton Label="Beendet" Variant="danger" OnClick="() => EndSessionAsync(i.Id)" />
+                    }
+                    else
+                    {
+                        <FrameworkButton Label="Fortführen (Reaktivieren)" Variant="secondary" OnClick="() => ResumeSessionAsync(i.Id)" />
+                    }
+                </div>)
+            ];
+        });
+    }
+
+    private void OpenDashboard() => Navigation.NavigateTo($"{Navigation.BaseUri}projects/{ProjectId}/session-dashboard");
+
+    private async Task StartNewSessionAsync()
+    {
+        if (_starting) return;
+        _starting = true;
+        _actionNotice = null;
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var newInst = await ProjectApiClient.StartGameInstanceAsync(token, ProjectId);
+                _actionNotice = $"Neue Play-Session mit Code {newInst.AccessCode} gestartet.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    private async Task EndSessionAsync(Guid instanceId)
+    {
+        if (_ending) return;
+        _ending = true;
+        _actionNotice = null;
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.EndGameInstanceAsync(token, ProjectId, instanceId);
+                _actionNotice = "Die Session wurde beendet.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _ending = false;
+        }
+    }
+
+    private async Task ResumeSessionAsync(Guid instanceId)
+    {
+        _actionNotice = null;
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var res = await ProjectApiClient.ResumeGameInstanceAsync(token, ProjectId, instanceId);
+                _actionNotice = $"Session reaktiviert mit neuem Code {res.AccessCode}.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private static object InstanceKey(GameInstanceSummary i) => i.Id;
+}

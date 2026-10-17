@@ -14,9 +14,9 @@ public sealed record GenerateParticipantsRequest(int Count, int Digits, Guid? Te
 public sealed record GenerateParticipantsResponse(int CreatedCount, ParticipantResponse[] Participants);
 public sealed record RandomizeTeamsRequest(bool OnlyUnassigned);
 public sealed record RandomizeTeamsResponse(int AssignedCount);
-public sealed record TeamResponse(Guid Id, string DisplayName, string Color, int Points);
+public sealed record TeamResponse(Guid Id, string DisplayName, string Color);
 public sealed record CreateTeamRequest(string DisplayName, string Color);
-public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);
+public sealed record UpdateTeamRequest(string DisplayName, string Color);
 public sealed record ShowResponse(Guid Id, string Name);
 public sealed record AdminShowResponse(Guid Id, string Name, int ProjectCount);
 public sealed record CreateShowRequest(string Name);
@@ -26,3 +26,12 @@ public sealed record SlideResponse(Guid Id, Guid ShowId, string Type, int Positi
 public sealed record SessionSummary(Guid Id, Guid UserId, DateTime CreatedAtUtc, DateTime LastActivityAtUtc, DateTime ExpiresAtUtc, string? UserAgent);
 public sealed record ApiError(string Message);
 public sealed record CreateTestEntryRequest(string? Name);
+
+public sealed record GameInstanceResponse(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc);
+public sealed record TeamInstanceResponse(Guid TeamId, string DisplayName, string Color, int Points);
+public sealed record GameInstanceDetailResponse(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc, TeamInstanceResponse[] Teams);
+public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
+public sealed record LoginByCodeRequest(string Code, int Number);
+public sealed record UpdateTeamInstancePointsRequest(int Points);
+public sealed record TeilnehmerInstanceResponse(Guid Id, Guid GameInstanceId, Guid TeilnehmerId, int Number, string? Name, Guid? TeamId);
+public sealed record UpdateSessionParticipantTeamRequest(Guid? TeamId);

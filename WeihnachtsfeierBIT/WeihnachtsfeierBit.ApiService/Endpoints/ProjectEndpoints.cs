@@ -29,6 +29,7 @@ public static class ProjectEndpoints
         TeamEndpoints.Map(admin);
         ProjectShowEndpoints.Map(reader, admin);
         ShowSlideEndpoints.Map(admin);
+        GameInstanceEndpoints.Map(reader, admin);
 
         return endpoints;
     }
@@ -158,7 +159,7 @@ public static class ProjectEndpoints
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(team => team.ProjektId == projectId)
             .OrderBy(team => team.DisplayName)
-            .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte))
+            .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color))
             .ToListAsync(cancellationToken);
         return Results.Ok(teams);
     }

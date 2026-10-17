@@ -35,6 +35,8 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
+| `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`; verknüpft die Sitzung mit der aktiven `GameInstance`. |
+| `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
 | `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`; Teilnehmernummer ist alleiniger Kennzeichner. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
 | `GET /api/projects/{projectId}/me/sessions` | Teilnehmer | Eigene Sessions anzeigen. |
@@ -64,4 +66,4 @@ Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{p
 
 ## Noch nicht umgesetzt
 
-Der Adminclient kann Projekte sowie Show-Projekt-Verknüpfungen verwalten. Der Show-Editor, Teilnehmer-Schreiboberflächen, Teilnehmerclient, Antworten und Leinwand-Dashboard sind noch nicht umgesetzt. Teilnehmernummern sind vorhersehbar und derzeit allein ausreichend für den Teilnehmerlogin; das ist für einen privaten Prototyp gedacht, kein starker öffentlicher Identitätsnachweis. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+Der Adminclient kann Projekte, Play-Sessions (`GameInstance`), Teams, Teilnehmer sowie Show-Projekt-Verknüpfungen verwalten. Der Teilnehmerclient unter `/play/{code}` erlaubt 6-stellige Code-Logins, Profilnamenseingabe und Live-Dashboard-Ansichten. Der Show-Editor, Antwortabgabe für Slides und das Leinwand-Dashboard sind noch nicht umgesetzt. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.

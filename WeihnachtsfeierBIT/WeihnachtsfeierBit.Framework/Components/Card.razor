@@ -1,4 +1,4 @@
-<article class="framework-card @Class">
+<article class="framework-card @Class" style="@Style" @attributes="AdditionalAttributes">
     @if (HeaderContent is not null)
     {
         <header class="framework-card-header">@HeaderContent</header>
@@ -14,7 +14,9 @@
 
 @code {
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
     [Parameter] public RenderFragment? HeaderContent { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
 }

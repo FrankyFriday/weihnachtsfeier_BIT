@@ -11,8 +11,11 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive Zuordnungszeitpunkt. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team optional. |
-| `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer. |
-| `Team` | Gehört zu einem Projekt und enthält aktuell einen Punktestand. |
+| `GameInstance` | Spielsitzung eines Projekts (Entwurf, Aktiv mit 6-stelligem Code oder Beendet). Immer nur eine aktive GameInstance pro Projekt. |
+| `TeamInstance` | Speichert den Punktestand eines Teams spezifisch für eine `GameInstance`. |
+| `TeilnehmerInstance` | Speichert die Team-Zuordnung eines Teilnehmers in einer bestimmten `GameInstance`. |
+| `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
+| `Team` | Gehört zu einem Projekt und bildet das Stammdaten-Team (DisplayName, Color). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
 | `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. Eine Show kann null, einem oder mehreren Projekten zugeordnet sein. |
 | `Slide` | Show-ID, Position und konkrete Untertypen Poll, Announcement, Quiz oder Ranking. |

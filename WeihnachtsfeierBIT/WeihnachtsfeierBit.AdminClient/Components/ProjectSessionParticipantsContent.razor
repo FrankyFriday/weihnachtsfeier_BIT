@@ -1,0 +1,106 @@
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <div class="overview-toolbar">
+        <PageHeading Eyebrow="SESSION TEILNEHMER" Title="Teilnehmer & Teamzuordnung" Description="Teilnehmer und ihre Teamzuordnung speziell für diese Spielsitzung anpassen." />
+        <div class="framework-button-row">
+            <FrameworkButton Label="Session-Dashboard" Variant="secondary" OnClick="OpenDashboard" />
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionNotice))
+    {
+        <FrameworkNotice Message="@_actionNotice" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionError))
+    {
+        <FrameworkNotice Message="@_actionError" />
+    }
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Session-Teilnehmer werden geladen ..." />
+    }
+    else if (_participants.Length == 0)
+    {
+        <EmptyState Title="Noch keine Teilnehmer in dieser Session" Description="In diesem Projekt wurden noch keine Teilnehmer angelegt. Lege zuerst Teilnehmer in den Projekt-Stammdaten an." />
+    }
+    else
+    {
+        <StandardDataTable Items="_participants" Columns="_columns" KeySelector="ParticipantKey" />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid InstanceId { get; set; }
+    @inject NavigationManager Navigation
+
+    private TeilnehmerInstanceSummary[] _participants = [];
+    private TeamSummary[] _projectTeams = [];
+    private DataTableColumn<TeilnehmerInstanceSummary>[] _columns = [];
+
+    private string? _actionNotice;
+    private string? _actionError;
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _actionError = null;
+            var participantsTask = ProjectApiClient.GetGameInstanceParticipantsAsync(token, ProjectId, InstanceId);
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            await Task.WhenAll(participantsTask, teamsTask);
+
+            _participants = await participantsTask;
+            _projectTeams = await teamsTask;
+
+            _columns =
+            [
+                new("Nummer", p => p.Number.ToString()),
+                new("Name", p => string.IsNullOrWhiteSpace(p.Name) ? "Unbenannt" : p.Name),
+                new("Session-Team", p => @<select value="@(p.TeamId?.ToString() ?? "")" @onchange="(e) => OnRowTeamChangedAsync(p, e.Value?.ToString())" style="padding: 6px 10px; border-radius: 5px; border: 1px solid #cbd7d3;">
+                    <option value="">Kein Team (unzugeordnet)</option>
+                    @foreach (var team in _projectTeams)
+                    {
+                        <option value="@team.Id.ToString()">@team.DisplayName</option>
+                    }
+                </select>)
+            ];
+        });
+    }
+
+    private void OpenDashboard() => Navigation.NavigateTo($"{Navigation.BaseUri}projects/{ProjectId}/sessions/{InstanceId}/dashboard");
+
+    private async Task OnRowTeamChangedAsync(TeilnehmerInstanceSummary participant, string? newTeamIdString)
+    {
+        _actionError = null;
+        _actionNotice = null;
+        Guid? newTeamId = Guid.TryParse(newTeamIdString, out var tid) ? tid : null;
+        if (participant.TeamId == newTeamId) return;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateSessionParticipantTeamAsync(token, ProjectId, InstanceId, participant.TeilnehmerId, newTeamId);
+                _actionNotice = $"Teamzuordnung für Teilnehmer #{participant.Number} aktualisiert.";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private static object ParticipantKey(TeilnehmerInstanceSummary p) => p.Id;
+}

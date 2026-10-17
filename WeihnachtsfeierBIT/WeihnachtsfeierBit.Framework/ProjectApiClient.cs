@@ -251,10 +251,9 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         Guid teamId,
         string displayName,
         string color,
-        int points,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/teams/{teamId}", accessToken, new UpdateTeamRequest(displayName, color, points));
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/teams/{teamId}", accessToken, new UpdateTeamRequest(displayName, color));
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<TeamSummary>(cancellationToken)
@@ -282,6 +281,128 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<SlideSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<ResolveCodeResponse> ResolveCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/game-instances/by-code/{code.Trim()}");
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ResolveCodeResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Code-Auflösung zurückgegeben.");
+    }
+
+    public async Task<ParticipantSessionResponse> LoginByCodeAsync(string code, int number, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/participant-sessions/by-code")
+        {
+            Content = JsonContent.Create(new { code = code.Trim(), number })
+        };
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSessionResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Sitzung zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary[]> GetGameInstancesAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<GameInstanceDetailSummary?> GetActiveGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/active", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceDetailSummary>(cancellationToken);
+    }
+
+    public async Task<GameInstanceSummary> StartGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine neue GameInstance zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary> EndGameInstanceAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/end", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine aktualisierte GameInstance zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary> ResumeGameInstanceAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/resume", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine reaktivierte GameInstance zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary> CreateDraftGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/draft", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Entwurf zurückgegeben.");
+    }
+
+    public async Task<GameInstanceDetailSummary> GetGameInstanceDetailAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/{instanceId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceDetailSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Session-Details zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary> StartGameInstanceByIdAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/start", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine gestartete Session zurückgegeben.");
+    }
+
+    public async Task<TeilnehmerInstanceSummary[]> GetGameInstanceParticipantsAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/{instanceId}/participants", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<TeilnehmerInstanceSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task UpdateSessionParticipantTeamAsync(string accessToken, Guid projectId, Guid instanceId, Guid participantId, Guid? teamId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/game-instances/{instanceId}/participants/{participantId}/team", accessToken, new { teamId });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<TeamInstanceSummary> UpdateTeamInstancePointsAsync(
+        string accessToken,
+        Guid projectId,
+        Guid instanceId,
+        Guid teamId,
+        int points,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/game-instances/{instanceId}/teams/{teamId}/points", accessToken, new { points });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<TeamInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine aktualisierten TeamPunkte zurückgegeben.");
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
@@ -336,10 +457,15 @@ public sealed record GenerateParticipantsRequest(int Count, int Digits, Guid? Te
 public sealed record GenerateParticipantsResponse(int CreatedCount, ParticipantSummary[] Participants);
 public sealed record RandomizeTeamsRequest(bool OnlyUnassigned);
 public sealed record RandomizeTeamsResponse(int AssignedCount);
-public sealed record TeamSummary(Guid Id, string DisplayName, string Color, int Points);
+public sealed record TeamSummary(Guid Id, string DisplayName, string Color);
 public sealed record CreateTeamRequest(string DisplayName, string Color);
-public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);
+public sealed record UpdateTeamRequest(string DisplayName, string Color);
 public sealed record SlideSummary(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
 public sealed record ParticipantState(Guid Id, int Number, string? Name);
 public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
 public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);
+public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
+public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc);
+public sealed record TeamInstanceSummary(Guid TeamId, string DisplayName, string Color, int Points);
+public sealed record GameInstanceDetailSummary(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc, TeamInstanceSummary[] Teams);
+public sealed record TeilnehmerInstanceSummary(Guid Id, Guid GameInstanceId, Guid TeilnehmerId, int Number, string? Name, Guid? TeamId);

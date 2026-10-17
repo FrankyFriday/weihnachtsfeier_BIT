@@ -8,6 +8,10 @@ public sealed class Sitzung
 
     public Teilnehmer Teilnehmer { get; set; } = null!;
 
+    public Guid? GameInstanceId { get; set; }
+
+    public GameInstance? GameInstance { get; set; }
+
     public required string TokenHash { get; set; }
 
     public DateTime ErstelltAmUtc { get; set; } = DateTime.UtcNow;

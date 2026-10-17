@@ -29,6 +29,10 @@ public static class AuthenticationEndpoints
             .RequireRateLimiting("authentication")
             .WithName("LoginParticipant");
 
+        endpoints.MapPost("/api/participant-sessions/by-code", LoginParticipantByCodeAsync)
+            .RequireRateLimiting("authentication")
+            .WithName("LoginParticipantByCode");
+
         var reader = projects.MapGroup("/{projectId:guid}")
             .AddEndpointFilter<RequireProjectAccessFilter>();
         reader.MapDelete("/participant-sessions/current", LogoutParticipantAsync)
@@ -84,6 +88,19 @@ public static class AuthenticationEndpoints
             projectId, request.Number, httpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
         return result.Session is null
             ? Results.Unauthorized()
+            : Results.Ok(result.Session);
+    }
+
+    private static async Task<IResult> LoginParticipantByCodeAsync(
+        LoginByCodeRequest request,
+        ProjectAuthenticationService authentication,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var result = await authentication.LoginParticipantByCodeAsync(
+            request.Code, request.Number, httpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
+        return result.Session is null
+            ? Results.BadRequest(new ApiError(result.Error ?? "Login fehlgeschlagen."))
             : Results.Ok(result.Session);
     }
 

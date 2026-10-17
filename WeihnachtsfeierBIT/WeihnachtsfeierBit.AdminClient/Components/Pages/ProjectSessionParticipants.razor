@@ -1,0 +1,9 @@
+@page "/projects/{ProjectId:guid}/sessions/{InstanceId:guid}/participants"
+
+<PageTitle>Session-Teilnehmer | Admin</PageTitle>
+<ProjectSessionParticipantsContent ProjectId="ProjectId" InstanceId="InstanceId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid InstanceId { get; set; }
+}

@@ -1,21 +1,14 @@
 @page "/"
-@page "/{ProjectId:guid}"
+@page "/{CodeOrParam}"
 @inject ProjectApiClient ProjectApiClient
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
 @implements IAsyncDisposable
 
-<PageTitle>@(_project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
+<PageTitle>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
 
 <div class="play-container">
-    @if (ProjectId == Guid.Empty)
-    {
-        <div class="mobile-card">
-            <h2>Projekt auswählen</h2>
-            <p>Bitte rufe die Adresse mit einer gültigen Projekt-ID auf, z. B. <code>/play/PROJEKT-ID</code>.</p>
-        </div>
-    }
-    else if (_isLoading)
+    @if (_isLoading)
     {
         <div class="mobile-card text-center">
             <div class="spinner"></div>
@@ -27,8 +20,17 @@
         <div class="mobile-card">
             <div class="mobile-card-header">
                 <span class="mobile-eyebrow">TEILNEHMER-LOGIN</span>
-                <h1>@(_project?.Name ?? "Willkommen!")</h1>
-                <p>Gib deine persönliche Teilnehmernummer ein, um deinem Team beizutreten.</p>
+                <h1>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Willkommen!")</h1>
+                <p>
+                    @if (_resolvedSession is not null)
+                    {
+                        <span>Gib deine Teilnehmernummer ein, um der Session (Code: <strong>@_resolvedSession.Code</strong>) beizutreten.</span>
+                    }
+                    else
+                    {
+                        <span>Gib den 6-stelligen Session-Code des Spielleiters ein.</span>
+                    }
+                </p>
             </div>
 
             @if (!string.IsNullOrEmpty(_errorMessage))
@@ -36,22 +38,40 @@
                 <div class="mobile-alert error">@_errorMessage</div>
             }
 
-            <form @onsubmit="LoginAsync" @onsubmit:preventDefault="true" class="mobile-form">
-                <div class="mobile-field">
-                    <label for="participant-number">Deine Nummer</label>
-                    <input id="participant-number" type="number" min="1" class="mobile-input large-text" @bind="_participantNumberInput" placeholder="z. B. 12" required />
-                </div>
-                <button type="submit" class="mobile-button primary" disabled="@_isSubmitting">
-                    @(_isSubmitting ? "Melde an ..." : "Anmelden & Beitreten")
-                </button>
-            </form>
+            @if (_resolvedSession is null)
+            {
+                <form @onsubmit="CheckCodeAsync" @onsubmit:preventDefault="true" class="mobile-form">
+                    <div class="mobile-field">
+                        <label for="session-code">6-stelliger Session-Code</label>
+                        <input id="session-code" type="text" maxlength="6" class="mobile-input large-text" @bind="_sessionCodeInput" placeholder="z. B. 482910" required />
+                    </div>
+                    <button type="submit" class="mobile-button primary" disabled="@_isSubmitting">
+                        @(_isSubmitting ? "Prüfe Code ..." : "Session-Code prüfen")
+                    </button>
+                </form>
+            }
+            else
+            {
+                <form @onsubmit="LoginByCodeAsync" @onsubmit:preventDefault="true" class="mobile-form">
+                    <div class="mobile-field">
+                        <label for="participant-number">Deine Teilnehmernummer</label>
+                        <input id="participant-number" type="number" min="1" class="mobile-input large-text" @bind="_participantNumberInput" placeholder="z. B. 12" required />
+                    </div>
+                    <div class="framework-button-row" style="display: flex; gap: 10px; margin-top: 8px;">
+                        <button type="button" class="mobile-button secondary" style="flex: 1;" @onclick="ResetCode">Code ändern</button>
+                        <button type="submit" class="mobile-button primary" style="flex: 2;" disabled="@_isSubmitting">
+                            @(_isSubmitting ? "Melde an ..." : "Anmelden & Beitreten")
+                        </button>
+                    </div>
+                </form>
+            }
         </div>
     }
     else
     {
         <header class="play-header">
             <div>
-                <span class="mobile-eyebrow">@_project?.Name</span>
+                <span class="mobile-eyebrow">@(_resolvedSession?.ProjectName ?? _project?.Name)</span>
                 <h2>Teilnehmer #@_participant?.Number</h2>
             </div>
             <div class="connection-status @(_isConnected ? "online" : "offline")">
@@ -157,7 +177,11 @@
 </div>
 
 @code {
-    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public string? CodeOrParam { get; set; }
+
+    private Guid ProjectId { get; set; }
+    private string? _sessionCodeInput;
+    private ResolveCodeResponse? _resolvedSession;
 
     private string? _accessToken;
     private ParticipantSummary? _participant;
@@ -185,20 +209,27 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ProjectId == Guid.Empty)
-        {
-            _isLoading = false;
-            return;
-        }
-
+        _isLoading = true;
         try
         {
-            var projectTask = ProjectApiClient.GetProjectAsync(string.Empty, ProjectId);
-            _project = await projectTask;
+            if (!string.IsNullOrEmpty(CodeOrParam))
+            {
+                var cleanParam = CodeOrParam.Trim();
+                if (cleanParam.Length == 6 && int.TryParse(cleanParam, out _))
+                {
+                    _sessionCodeInput = cleanParam;
+                    await ResolveCodeInternalAsync(cleanParam);
+                }
+                else if (Guid.TryParse(cleanParam, out var projId))
+                {
+                    ProjectId = projId;
+                    _project = await ProjectApiClient.GetProjectAsync(string.Empty, ProjectId);
+                }
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // Project might require auth or not found
+            _errorMessage = ex.Message;
         }
         finally
         {
@@ -206,16 +237,50 @@
         }
     }
 
-    private async Task LoginAsync()
+    private async Task CheckCodeAsync()
     {
-        if (_isSubmitting || ProjectId == Guid.Empty) return;
+        if (_isSubmitting || string.IsNullOrWhiteSpace(_sessionCodeInput)) return;
 
         _errorMessage = null;
         _isSubmitting = true;
         try
         {
-            var session = await ProjectApiClient.LoginParticipantAsync(ProjectId, _participantNumberInput);
+            await ResolveCodeInternalAsync(_sessionCodeInput.Trim());
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task ResolveCodeInternalAsync(string code)
+    {
+        _resolvedSession = await ProjectApiClient.ResolveCodeAsync(code);
+        ProjectId = _resolvedSession.ProjektId;
+    }
+
+    private void ResetCode()
+    {
+        _resolvedSession = null;
+        _sessionCodeInput = string.Empty;
+        _errorMessage = null;
+    }
+
+    private async Task LoginByCodeAsync()
+    {
+        if (_isSubmitting || _resolvedSession is null) return;
+
+        _errorMessage = null;
+        _isSubmitting = true;
+        try
+        {
+            var session = await ProjectApiClient.LoginByCodeAsync(_resolvedSession.Code, _participantNumberInput);
             _accessToken = session.AccessToken;
+            ProjectId = session.ProjectId ?? _resolvedSession.ProjektId;
             _isLoggedIn = true;
 
             await LoadProfileAsync();

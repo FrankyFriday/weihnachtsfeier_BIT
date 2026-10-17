@@ -2,7 +2,7 @@
 
 <FrameworkPage>
     <div class="overview-toolbar">
-        <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und aktueller Punktestand dieses Projekts." />
+        <PageHeading Eyebrow="PROJEKT STAMMDATEN" Title="Teams" Description="Stammdaten-Teams dieses Projekts verwalten." />
         <FrameworkButton Label="Neues Team" OnClick="OpenCreateModal" />
     </div>
 
@@ -22,7 +22,7 @@
     }
     else if (_teams.Length == 0)
     {
-        <EmptyState Title="Noch keine Teams" Description="Für dieses Projekt sind noch keine Teams angelegt.">
+        <EmptyState Title="Noch keine Teams" Description="Für dieses Projekt sind noch keine Stammdaten-Teams angelegt.">
             <ChildContent>
                 <FrameworkButton Label="Erstes Team anlegen" OnClick="OpenCreateModal" />
             </ChildContent>
@@ -87,10 +87,6 @@
                 }
             </div>
         </div>
-        <div class="form-group" style="margin-top: 12px;">
-            <label for="edit-team-points">Punktestand</label>
-            <input id="edit-team-points" type="number" min="0" @bind="_teamPoints" required />
-        </div>
         <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
             <FrameworkButton Label="Speichern" BusyLabel="Wird gespeichert ..." Type="submit" Busy="@_saving" Disabled="@_saving" Variant="primary" />
@@ -113,7 +109,6 @@
     private Guid? _editingTeamId;
     private string _teamName = string.Empty;
     private string _teamColor = "#197b67";
-    private int _teamPoints;
 
     private readonly string[] _presetColors = ["#197b67", "#2563eb", "#d97706", "#dc2626", "#9333ea", "#059669", "#4f46e5", "#c026d3"];
 
@@ -128,17 +123,16 @@
             var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
             await Task.WhenAll(teamsTask, participantsTask);
             var participants = await participantsTask;
-            _teams = (await teamsTask).OrderByDescending(team => team.Points).ThenBy(team => team.DisplayName).ToArray();
+            _teams = (await teamsTask).OrderBy(team => team.DisplayName).ToArray();
             var participantCounts = participants.Where(participant => participant.TeamId is not null)
                 .GroupBy(participant => participant.TeamId!.Value)
                 .ToDictionary(group => group.Key, group => group.Count());
 
             _columns =
             [
-                new("Rang", team => (_teams.ToList().IndexOf(team) + 1).ToString()),
                 new("Team", team => team.DisplayName),
-                new("Teilnehmer", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
-                new("Punkte", team => team.Points.ToString()),
+                new("Farbe", team => @<span style="@($"display:inline-block;width:16px;height:16px;border-radius:50%;background-color:{team.Color};")"></span>),
+                new("Teilnehmer (Stammdaten)", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
                 new("Aktionen", team => @<div class="framework-button-row">
                     <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(team)" />
                     <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => DeleteTeamAsync(team)" />
@@ -154,7 +148,6 @@
         _editingTeamId = null;
         _teamName = string.Empty;
         _teamColor = "#197b67";
-        _teamPoints = 0;
         _modalError = null;
         _showCreateModal = true;
         _showEditModal = false;
@@ -165,7 +158,6 @@
         _editingTeamId = team.Id;
         _teamName = team.DisplayName;
         _teamColor = team.Color;
-        _teamPoints = team.Points;
         _modalError = null;
         _showCreateModal = false;
         _showEditModal = true;
@@ -235,19 +227,13 @@
             return;
         }
 
-        if (_teamPoints < 0)
-        {
-            _modalError = "Der Punktestand darf nicht negativ sein.";
-            return;
-        }
-
         _saving = true;
         _modalError = null;
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.UpdateTeamAsync(token, ProjectId, _editingTeamId.Value, name, color, _teamPoints);
+                await ProjectApiClient.UpdateTeamAsync(token, ProjectId, _editingTeamId.Value, name, color);
                 CloseModals();
                 await LoadDataAsync();
             });
