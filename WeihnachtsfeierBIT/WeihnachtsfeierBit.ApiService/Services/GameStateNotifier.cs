@@ -25,10 +25,10 @@ public sealed class GameStateNotifier(
         if (project is null) return;
 
         var activeInstance = await dbContext.GameInstances.AsNoTracking()
-            .Include(gi => gi.TeamInstances)
+            .Include(gi => gi.TeamScores)
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId && gi.IsActive, cancellationToken);
 
-        var teamInstancePoints = activeInstance?.TeamInstances.ToDictionary(ti => ti.TeamId, ti => ti.Punkte) ?? new Dictionary<Guid, int>();
+        var scoreMap = activeInstance?.TeamScores.ToDictionary(ts => ts.TeamId, ts => ts.Points) ?? new Dictionary<Guid, int>();
 
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(t => t.ProjektId == projectId)
@@ -39,7 +39,7 @@ public sealed class GameStateNotifier(
             .Select(t => new
             {
                 Team = t,
-                Points = teamInstancePoints.GetValueOrDefault(t.Id, 0)
+                Points = scoreMap.GetValueOrDefault(t.Id, 0)
             })
             .OrderByDescending(t => t.Points)
             .ThenBy(t => t.Team.DisplayName)

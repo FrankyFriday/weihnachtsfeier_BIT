@@ -123,21 +123,6 @@ public sealed class ProjectAuthenticationService(
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        // Ensure TeilnehmerInstance exists for this GameInstance
-        var instanceLink = await dbContext.TeilnehmerInstances.FirstOrDefaultAsync(
-            tni => tni.GameInstanceId == activeInstance.Id && tni.TeilnehmerId == participant.Id,
-            cancellationToken);
-
-        if (instanceLink is null)
-        {
-            dbContext.TeilnehmerInstances.Add(new TeilnehmerInstance
-            {
-                GameInstance = activeInstance,
-                Teilnehmer = participant,
-                TeamId = participant.TeamId
-            });
-        }
-
         var rawToken = ApiToken.Create();
         var now = DateTime.UtcNow;
         var session = new Sitzung

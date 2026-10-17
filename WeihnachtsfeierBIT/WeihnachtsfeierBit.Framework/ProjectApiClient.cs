@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace WeihnachtsfeierBit.Framework;
 
-public sealed class ProjectApiClient(HttpClient httpClient)
+public class ProjectApiClient(HttpClient httpClient)
 {
     public async Task<ProjectSummary[]> GetAdminProjectsAsync(string accessToken, CancellationToken cancellationToken = default)
     {
@@ -12,64 +12,6 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ProjectSummary[]>(cancellationToken) ?? [];
-    }
-
-    public async Task<ProjectSummary> CreateProjectAsync(string accessToken, string name, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, "/api/admin/projects", accessToken, new CreateProjectRequest(name));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ProjectSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat kein Projekt zurückgegeben.");
-    }
-
-    public async Task<ProjectResponse> GetProjectAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ProjectResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Projektdaten zurückgegeben.");
-    }
-
-    public async Task<ProjectOverviewResponse> GetProjectOverviewAsync(
-        string accessToken,
-        Guid projectId,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/overview", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ProjectOverviewResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Projektübersicht zurückgegeben.");
-    }
-
-    public async Task<ProjectResponse> RenameProjectAsync(
-        string accessToken,
-        Guid projectId,
-        string name,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}", accessToken, new RenameProjectRequest(name));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ProjectResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine aktualisierten Projektdaten zurückgegeben.");
-    }
-
-    public async Task DeleteProjectAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
-
-    public async Task<ProjectShow[]> GetShowsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/shows", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ProjectShow[]>(cancellationToken) ?? [];
     }
 
     public async Task<AdminShow[]> GetAdminShowsAsync(string accessToken, CancellationToken cancellationToken = default)
@@ -80,48 +22,22 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<AdminShow[]>(cancellationToken) ?? [];
     }
 
-    public async Task<AdminShow> CreateAdminShowAsync(string accessToken, string name, CancellationToken cancellationToken = default)
+    public async Task<ProjectResponse> GetProjectAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, "/api/admin/shows", accessToken, new CreateGlobalShowRequest(name));
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}", accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
+        return await response.Content.ReadFromJsonAsync<ProjectResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Projekt zurückgegeben.");
     }
 
-    public async Task<AdminShow> GetAdminShowAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
+    public async Task<ProjectOverviewResponse> GetProjectOverviewAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/shows/{showId}", accessToken);
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/overview", accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
-    }
-
-    public async Task LinkShowAsync(string accessToken, Guid projectId, Guid showId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/shows", accessToken, new LinkShowRequest(showId));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
-
-    public async Task UnlinkShowAsync(string accessToken, Guid projectId, Guid showId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/shows/{showId}", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
-
-    public async Task<ParticipantSessionResponse> LoginParticipantAsync(Guid projectId, int number, CancellationToken cancellationToken = default)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/projects/{projectId}/participant-sessions")
-        {
-            Content = JsonContent.Create(new { number })
-        };
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<ParticipantSessionResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Sitzung zurückgegeben.");
+        return await response.Content.ReadFromJsonAsync<ProjectOverviewResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Projekt-Übersicht zurückgegeben.");
     }
 
     public async Task<ParticipantSummary> GetMyProfileAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
@@ -133,19 +49,16 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat kein Profil zurückgegeben.");
     }
 
-    public async Task<ParticipantSummary> UpdateMyNameAsync(string accessToken, Guid projectId, string name, CancellationToken cancellationToken = default)
+    public async Task<ParticipantSummary> UpdateMyNameAsync(string accessToken, Guid projectId, string? name, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/me", accessToken, new UpdateParticipantRequest(name, null, null));
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/me", accessToken, new { name });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ParticipantSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine aktualisierten Profildaten zurückgegeben.");
+            ?? throw new InvalidOperationException("Die API hat kein aktualisiertes Profil zurückgegeben.");
     }
 
-    public async Task<ParticipantSummary[]> GetParticipantsAsync(
-        string accessToken,
-        Guid projectId,
-        CancellationToken cancellationToken = default)
+    public async Task<ParticipantSummary[]> GetParticipantsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/participants", accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -157,8 +70,8 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         string accessToken,
         Guid projectId,
         int number,
-        string? name,
-        Guid? teamId,
+        string? name = null,
+        Guid? teamId = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/participants", accessToken, new CreateParticipantRequest(number, name, teamId));
@@ -168,13 +81,41 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keinen Teilnehmer zurückgegeben.");
     }
 
+    public async Task<GenerateParticipantsResponse> GenerateParticipantsAsync(
+        string accessToken,
+        Guid projectId,
+        int count,
+        int digits = 2,
+        Guid? teamId = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/participants/generate", accessToken, new GenerateParticipantsRequest(count, digits, teamId));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GenerateParticipantsResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine generierten Teilnehmer zurückgegeben.");
+    }
+
+    public async Task<RandomizeTeamsResponse> RandomizeTeamsAsync(
+        string accessToken,
+        Guid projectId,
+        bool onlyUnassigned = false,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/participants/randomize-teams", accessToken, new RandomizeTeamsRequest(onlyUnassigned));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RandomizeTeamsResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Ergebnis für die Zufallsverteilung zurückgegeben.");
+    }
+
     public async Task<ParticipantSummary> UpdateParticipantAsync(
         string accessToken,
         Guid projectId,
         Guid participantId,
-        int? number,
-        string? name,
-        Guid? teamId,
+        int? number = null,
+        string? name = null,
+        Guid? teamId = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/{participantId}", accessToken, new UpdateParticipantRequest(name, teamId, number));
@@ -193,34 +134,6 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/participants/{participantId}", accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-    }
-
-    public async Task<GenerateParticipantsResponse> GenerateParticipantsAsync(
-        string accessToken,
-        Guid projectId,
-        int count,
-        int digits,
-        Guid? teamId,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/participants/generate", accessToken, new GenerateParticipantsRequest(count, digits, teamId));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<GenerateParticipantsResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat kein Ergebnis der Generierung zurückgegeben.");
-    }
-
-    public async Task<RandomizeTeamsResponse> RandomizeTeamsAsync(
-        string accessToken,
-        Guid projectId,
-        bool onlyUnassigned,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/participants/randomize-teams", accessToken, new RandomizeTeamsRequest(onlyUnassigned));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<RandomizeTeamsResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat kein Ergebnis der Zufallsverteilung zurückgegeben.");
     }
 
     public async Task<TeamSummary[]> GetTeamsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
@@ -271,18 +184,6 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task<SlideSummary[]> GetSlidesAsync(
-        string accessToken,
-        Guid projectId,
-        Guid showId,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/shows/{showId}/slides", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<SlideSummary[]>(cancellationToken) ?? [];
-    }
-
     public async Task<ResolveCodeResponse> ResolveCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/game-instances/by-code/{code.Trim()}");
@@ -321,6 +222,15 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<GameInstanceDetailSummary>(cancellationToken);
     }
 
+    public async Task<GameInstanceDetailSummary> GetGameInstanceDetailAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/{instanceId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceDetailSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Session-Details zurückgegeben.");
+    }
+
     public async Task<GameInstanceSummary> StartGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances", accessToken);
@@ -339,58 +249,7 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keine aktualisierte GameInstance zurückgegeben.");
     }
 
-    public async Task<GameInstanceSummary> ResumeGameInstanceAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/resume", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine reaktivierte GameInstance zurückgegeben.");
-    }
-
-    public async Task<GameInstanceSummary> CreateDraftGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/draft", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keinen Entwurf zurückgegeben.");
-    }
-
-    public async Task<GameInstanceDetailSummary> GetGameInstanceDetailAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/{instanceId}", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<GameInstanceDetailSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine Session-Details zurückgegeben.");
-    }
-
-    public async Task<GameInstanceSummary> StartGameInstanceByIdAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/start", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
-            ?? throw new InvalidOperationException("Die API hat keine gestartete Session zurückgegeben.");
-    }
-
-    public async Task<TeilnehmerInstanceSummary[]> GetGameInstanceParticipantsAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/game-instances/{instanceId}/participants", accessToken);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<TeilnehmerInstanceSummary[]>(cancellationToken) ?? [];
-    }
-
-    public async Task UpdateSessionParticipantTeamAsync(string accessToken, Guid projectId, Guid instanceId, Guid participantId, Guid? teamId, CancellationToken cancellationToken = default)
-    {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/game-instances/{instanceId}/participants/{participantId}/team", accessToken, new { teamId });
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-    }
-
-    public async Task<TeamInstanceSummary> UpdateTeamInstancePointsAsync(
+    public async Task<TeamScoreSummary> UpdateTeamScoreAsync(
         string accessToken,
         Guid projectId,
         Guid instanceId,
@@ -398,11 +257,84 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         int points,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/game-instances/{instanceId}/teams/{teamId}/points", accessToken, new { points });
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/game-instances/{instanceId}/teams/{teamId}/score", accessToken, new { points });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadFromJsonAsync<TeamInstanceSummary>(cancellationToken)
+        return await response.Content.ReadFromJsonAsync<TeamScoreSummary>(cancellationToken)
             ?? throw new InvalidOperationException("Die API hat keine aktualisierten TeamPunkte zurückgegeben.");
+    }
+
+    public async Task<AdminShow> GetAdminShowAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/shows/{showId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
+    }
+
+    public async Task<ProjectSummary> CreateProjectAsync(string accessToken, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "/api/projects", accessToken, new CreateProjectRequest(name));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Projekt zurückgegeben.");
+    }
+
+    public async Task<ProjectResponse> RenameProjectAsync(string accessToken, Guid projectId, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}", accessToken, new RenameProjectRequest(name));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await GetProjectAsync(accessToken, projectId, cancellationToken);
+    }
+
+    public async Task DeleteProjectAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<ProjectShow[]> GetShowsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/shows", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectShow[]>(cancellationToken) ?? [];
+    }
+
+    public async Task LinkShowAsync(string accessToken, Guid projectId, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/shows", accessToken, new LinkShowRequest(showId));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task UnlinkShowAsync(string accessToken, Guid projectId, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/shows/{showId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<AdminShow> CreateAdminShowAsync(string accessToken, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "/api/admin/shows", accessToken, new CreateGlobalShowRequest(name));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
+    }
+
+    public async Task<GameInstanceSummary> ResumeGameInstanceAsync(string accessToken, Guid projectId, Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instances/{instanceId}/resume", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine reaktivierte GameInstance zurückgegeben.");
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
@@ -466,6 +398,5 @@ public sealed record TeamState(Guid Id, string DisplayName, string Color, int Po
 public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);
 public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
 public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc);
-public sealed record TeamInstanceSummary(Guid TeamId, string DisplayName, string Color, int Points);
-public sealed record GameInstanceDetailSummary(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc, TeamInstanceSummary[] Teams);
-public sealed record TeilnehmerInstanceSummary(Guid Id, Guid GameInstanceId, Guid TeilnehmerId, int Number, string? Name, Guid? TeamId);
+public sealed record TeamScoreSummary(Guid TeamId, string DisplayName, string Color, int Points);
+public sealed record GameInstanceDetailSummary(Guid Id, Guid ProjektId, string? AccessCode, bool IsActive, DateTime CreatedAtUtc, DateTime? EndedAtUtc, TeamScoreSummary[] TeamScores);

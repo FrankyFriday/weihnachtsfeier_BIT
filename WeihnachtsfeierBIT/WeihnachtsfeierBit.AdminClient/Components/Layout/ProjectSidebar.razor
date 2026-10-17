@@ -22,39 +22,29 @@
                 }
                 else if (CurrentProject is not null)
                 {
-                    @if (SelectedInstanceId.HasValue)
-                    {
-                        <div class="sidebar-section sidebar-current-project" style="border-top:0;">
-                            <span class="sidebar-label">GEÖFFNETE SESSION</span>
-                            <a class="sidebar-link active-session-badge @(CurrentSubSection == "dashboard" ? "active" : null)" href="@SessionUrl(CurrentProject.Id, SelectedInstanceId.Value, "dashboard")">
-                                <span class="live-dot"></span>
-                                <span>Dashboard @(_activeInstance?.Id == SelectedInstanceId.Value && _activeInstance?.AccessCode != null ? $"({_activeInstance.AccessCode})" : "")</span>
-                            </a>
-                            <a class="sidebar-link @(CurrentSubSection == "teams" ? "active" : null)" href="@SessionUrl(CurrentProject.Id, SelectedInstanceId.Value, "teams")">Session-Teams</a>
-                            <a class="sidebar-link @(CurrentSubSection == "participants" ? "active" : null)" href="@SessionUrl(CurrentProject.Id, SelectedInstanceId.Value, "participants")">Session-Teilnehmer</a>
-                        </div>
-                    }
-                    else if (_activeInstance is not null)
-                    {
-                        <div class="sidebar-section sidebar-current-project" style="border-top:0;">
-                            <span class="sidebar-label">AKTIVE SESSION</span>
-                            <a class="sidebar-link active-session-badge @(CurrentSection == "session-dashboard" ? "active" : null)" href="@SessionUrl(CurrentProject.Id, _activeInstance.Id, "dashboard")">
-                                <span class="live-dot"></span>
-                                <span>Dashboard (@_activeInstance.AccessCode)</span>
-                            </a>
-                            <a class="sidebar-link" href="@SessionUrl(CurrentProject.Id, _activeInstance.Id, "teams")">Session-Teams</a>
-                            <a class="sidebar-link" href="@SessionUrl(CurrentProject.Id, _activeInstance.Id, "participants")">Session-Teilnehmer</a>
-                        </div>
-                    }
-
                     <div class="sidebar-section sidebar-current-project">
-                        <span class="sidebar-label">PROJEKT STAMMDATEN</span>
+                        <span class="sidebar-label">AKTUELLES PROJEKT</span>
                         <strong>@CurrentProject.Name</strong>
+
+                        @if (_activeInstance is not null)
+                        {
+                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                                <span class="live-dot"></span>
+                                <span>Play-Session (@_activeInstance.AccessCode)</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                                <span>Play-Session</span>
+                            </a>
+                        }
+
                         <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)">Übersicht</a>
-                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")">Alle Play-Sessions</a>
+                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Teilnehmer</a>
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams</a>
                         <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Verknüpfte Shows</a>
-                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Stammdaten-Teilnehmer</a>
-                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Stammdaten-Teams</a>
+                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")">Session-Historie</a>
                         <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")">Einstellungen</a>
                     </div>
                 }
@@ -84,11 +74,9 @@
 
     private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
     private Guid? CurrentShowId => GetShowId(Navigation.Uri);
-    private Guid? SelectedInstanceId => GetInstanceId(Navigation.Uri);
     private ProjectSummary? CurrentProject => _projects.FirstOrDefault(project => project.Id == CurrentProjectId);
     private AdminShow? CurrentShow => _shows.FirstOrDefault(show => show.Id == CurrentShowId);
     private string CurrentSection => GetProjectSection(Navigation.Uri);
-    private string CurrentSubSection => GetSessionSubSection(Navigation.Uri);
     private bool IsShowCatalog => Navigation.ToBaseRelativePath(Navigation.Uri).TrimEnd('/') == "shows";
     private bool IsProjectOverview => CurrentProjectId is null && CurrentShowId is null && !IsShowCatalog;
     private string WorkspaceShowsUrl => $"{Navigation.BaseUri}shows";
@@ -129,21 +117,12 @@
     private string ProjectUrl(Guid projectId, string? section = null) =>
         $"{Navigation.BaseUri}projects/{projectId}{(string.IsNullOrEmpty(section) ? string.Empty : $"/{section}")}";
 
-    private string SessionUrl(Guid projectId, Guid instanceId, string subSection) =>
-        $"{Navigation.BaseUri}projects/{projectId}/sessions/{instanceId}/{subSection}";
-
     private string ShowUrl(Guid showId) => $"{Navigation.BaseUri}shows/{showId}";
 
     private Guid? GetProjectId(string uri)
     {
         var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
         return segments.Length >= 2 && segments[0] == "projects" && Guid.TryParse(segments[1], out var id) ? id : null;
-    }
-
-    private Guid? GetInstanceId(string uri)
-    {
-        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length >= 4 && segments[0] == "projects" && segments[2] == "sessions" && Guid.TryParse(segments[3], out var instanceId) ? instanceId : null;
     }
 
     private Guid? GetShowId(string uri)
@@ -156,12 +135,6 @@
     {
         var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
         return segments.Length >= 3 && segments[0] == "projects" ? segments[2] : "overview";
-    }
-
-    private string GetSessionSubSection(string uri)
-    {
-        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length >= 5 && segments[0] == "projects" && segments[2] == "sessions" ? segments[4] : "dashboard";
     }
 
     public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;

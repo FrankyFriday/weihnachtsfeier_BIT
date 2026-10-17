@@ -28,7 +28,7 @@ public static class ProjectShowEndpoints
 
     private static async Task<IResult> LinkShowAsync(
         Guid projectId,
-        LinkShowToProjectRequest request,
+        LinkShowRequest request,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {

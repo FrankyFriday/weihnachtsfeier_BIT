@@ -11,7 +11,6 @@ public class GameInstance
     public DateTime? StartedAtUtc { get; set; }
     public DateTime? EndedAtUtc { get; set; }
 
-    public List<TeamInstance> TeamInstances { get; set; } = [];
-    public List<TeilnehmerInstance> TeilnehmerInstances { get; set; } = [];
+    public List<TeamScore> TeamScores { get; set; } = [];
     public List<Sitzung> Sitzungen { get; set; } = [];
 }

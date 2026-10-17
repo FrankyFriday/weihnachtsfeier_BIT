@@ -7,11 +7,10 @@
     }
     else if (_instance is null)
     {
-        <EmptyState Title="Session nicht gefunden" Description="Für die angeforderte Session wurden keine Daten gefunden. Starte eine neue Session oder wähle eine aus der Übersicht.">
-            <ChildContent>
-                <FrameworkButton Label="Alle Sessions anzeigen" OnClick="OpenSessionsPage" />
-            </ChildContent>
-        </EmptyState>
+        <div class="overview-toolbar">
+            <PageHeading Eyebrow="PLAY-SESSION" Title="Keine aktive Session" Description="Es ist aktuell keine Play-Session gestartet. Starte eine neue Session, um den 6-stelligen Code freizuschalten." />
+            <FrameworkButton Label="Neue Session jetzt starten" Variant="primary" OnClick="StartNewSessionAsync" Busy="@_processing" Disabled="@_processing" />
+        </div>
     }
     else
     {
@@ -19,15 +18,11 @@
             <div>
                 @if (_instance.IsActive)
                 {
-                    <PageHeading Eyebrow="LIVE SESSION" Title="@($"Code: {_instance.AccessCode}")" Description="Session ist live! Punkte der Teams können hier in Echtzeit verwaltet werden." />
-                }
-                else if (!_instance.EndedAtUtc.HasValue)
-                {
-                    <PageHeading Eyebrow="SESSION-VORBEREITUNG" Title="Entwurf (Noch nicht gestartet)" Description="Punkte und Teams für diese Session vorbereiten. Sobald du starten klickst, wird ein 6-stelliger Code erzeugt." />
+                    <PageHeading Eyebrow="LIVE PLAY-SESSION" Title="@($"Code: {_instance.AccessCode}")" Description="Session ist live! Punkte der Teams können hier in Echtzeit verwaltet werden." />
                 }
                 else
                 {
-                    <PageHeading Eyebrow="BEENDETE SESSION" Title="@($"Session vom {_instance.CreatedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}")" Description="Diese Session ist beendet. Reaktiviere sie bei Bedarf mit einem neuen Code." />
+                    <PageHeading Eyebrow="BEENDETE SESSION" Title="@($"Session vom {_instance.CreatedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}")" Description="Diese Session ist beendet." />
                 }
             </div>
 
@@ -36,13 +31,9 @@
                 {
                     <FrameworkButton Label="Session beenden" Variant="danger" OnClick="EndSessionAsync" Busy="@_processing" Disabled="@_processing" />
                 }
-                else if (!_instance.EndedAtUtc.HasValue)
-                {
-                    <FrameworkButton Label="Session jetzt starten" Variant="primary" OnClick="StartSessionAsync" Busy="@_processing" Disabled="@_processing" />
-                }
                 else
                 {
-                    <FrameworkButton Label="Session fortführen (Reaktivieren)" Variant="secondary" OnClick="ResumeSessionAsync" Busy="@_processing" Disabled="@_processing" />
+                    <FrameworkButton Label="Neue Session starten" Variant="primary" OnClick="StartNewSessionAsync" Busy="@_processing" Disabled="@_processing" />
                 }
             </div>
         </div>
@@ -63,14 +54,14 @@
         }
 
         <h3>Team-Punkte in dieser Session</h3>
-        @if (_instance.Teams.Length == 0)
+        @if (_instance.TeamScores.Length == 0)
         {
-            <EmptyState Title="Keine Teams in dieser Session" Description="In diesem Projekt existieren noch keine Teams. Lege zuerst Teams in den Projekt-Stammdaten an." />
+            <EmptyState Title="Keine Teams in dieser Session" Description="In diesem Projekt existieren noch keine Teams. Lege zuerst Teams in den Projekt-Teams an." />
         }
         else
         {
             <div class="project-grid">
-                @foreach (var team in _instance.Teams)
+                @foreach (var team in _instance.TeamScores)
                 {
                     <Card Class="project-card" Style="@($"border-top: 5px solid {team.Color};")" @key="team.TeamId">
                         <ChildContent>
@@ -122,15 +113,13 @@
         });
     }
 
-    private void OpenSessionsPage() => Navigation.NavigateTo($"{Navigation.BaseUri}projects/{ProjectId}/sessions");
-
-    private async Task ChangePointsAsync(TeamInstanceSummary team, int delta)
+    private async Task ChangePointsAsync(TeamScoreSummary team, int delta)
     {
         var newPoints = Math.Max(0, team.Points + delta);
         await SetPointsAsync(team, newPoints);
     }
 
-    private async Task OnPointsInputChangedAsync(TeamInstanceSummary team, string? input)
+    private async Task OnPointsInputChangedAsync(TeamScoreSummary team, string? input)
     {
         if (int.TryParse(input, out var points) && points >= 0)
         {
@@ -138,7 +127,7 @@
         }
     }
 
-    private async Task SetPointsAsync(TeamInstanceSummary team, int points)
+    private async Task SetPointsAsync(TeamScoreSummary team, int points)
     {
         if (_instance is null) return;
         _actionError = null;
@@ -146,7 +135,7 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                var res = await ProjectApiClient.UpdateTeamInstancePointsAsync(token, ProjectId, _instance.Id, team.TeamId, points);
+                await ProjectApiClient.UpdateTeamScoreAsync(token, ProjectId, _instance.Id, team.TeamId, points);
                 await LoadDataAsync();
             });
         }
@@ -156,17 +145,17 @@
         }
     }
 
-    private async Task StartSessionAsync()
+    private async Task StartNewSessionAsync()
     {
-        if (_instance is null || _processing) return;
+        if (_processing) return;
         _processing = true;
         _actionError = null;
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.StartGameInstanceByIdAsync(token, ProjectId, _instance.Id);
-                _noticeMessage = "Session wurde gestartet! Der 6-stellige Code ist jetzt aktiv.";
+                await ProjectApiClient.StartGameInstanceAsync(token, ProjectId);
+                _noticeMessage = "Neue Play-Session wurde gestartet! Der 6-stellige Code ist jetzt aktiv.";
                 await LoadDataAsync();
             });
         }
@@ -190,31 +179,7 @@
             await RunAuthenticatedAsync(async token =>
             {
                 await ProjectApiClient.EndGameInstanceAsync(token, ProjectId, _instance.Id);
-                _noticeMessage = "Die Session wurde beendet.";
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-        finally
-        {
-            _processing = false;
-        }
-    }
-
-    private async Task ResumeSessionAsync()
-    {
-        if (_instance is null || _processing) return;
-        _processing = true;
-        _actionError = null;
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.ResumeGameInstanceAsync(token, ProjectId, _instance.Id);
-                _noticeMessage = "Session wurde reaktiviert.";
+                _noticeMessage = "Die Play-Session wurde beendet.";
                 await LoadDataAsync();
             });
         }
