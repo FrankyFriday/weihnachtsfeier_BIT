@@ -159,7 +159,7 @@ public static class ProjectEndpoints
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(team => team.ProjektId == projectId)
             .OrderBy(team => team.DisplayName)
-            .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color))
+            .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte))
             .ToListAsync(cancellationToken);
         return Results.Ok(teams);
     }

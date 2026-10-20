@@ -13,7 +13,6 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
-    public DbSet<TeamScore> TeamScores => Set<TeamScore>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -80,23 +79,12 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .OnDelete(DeleteBehavior.Cascade);
 
         var gameInstances = modelBuilder.Entity<GameInstance>();
-        gameInstances.Property(gi => gi.AccessCode).HasMaxLength(6);
+        gameInstances.Property(gi => gi.AccessCode).HasMaxLength(6).IsRequired();
         gameInstances.HasIndex(gi => gi.AccessCode);
-        gameInstances.HasIndex(gi => new { gi.ProjektId, gi.IsActive });
+        gameInstances.HasIndex(gi => gi.ProjektId).IsUnique(); // At most ONE session per project
         gameInstances.HasOne(gi => gi.Projekt)
             .WithMany()
             .HasForeignKey(gi => gi.ProjektId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var teamScores = modelBuilder.Entity<TeamScore>();
-        teamScores.HasIndex(ts => new { ts.GameInstanceId, ts.TeamId }).IsUnique();
-        teamScores.HasOne(ts => ts.GameInstance)
-            .WithMany(gi => gi.TeamScores)
-            .HasForeignKey(ts => ts.GameInstanceId)
-            .OnDelete(DeleteBehavior.Cascade);
-        teamScores.HasOne(ts => ts.Team)
-            .WithMany()
-            .HasForeignKey(ts => ts.TeamId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()

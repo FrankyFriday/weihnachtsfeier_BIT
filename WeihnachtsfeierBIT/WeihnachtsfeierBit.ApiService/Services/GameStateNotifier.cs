@@ -24,32 +24,20 @@ public sealed class GameStateNotifier(
             .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
         if (project is null) return;
 
-        var activeInstance = await dbContext.GameInstances.AsNoTracking()
-            .Include(gi => gi.TeamScores)
-            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId && gi.IsActive, cancellationToken);
-
-        var scoreMap = activeInstance?.TeamScores.ToDictionary(ts => ts.TeamId, ts => ts.Points) ?? new Dictionary<Guid, int>();
-
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(t => t.ProjektId == projectId)
             .Include(t => t.Teilnehmer)
             .ToListAsync(cancellationToken);
 
         var orderedTeams = teams
-            .Select(t => new
-            {
-                Team = t,
-                Points = scoreMap.GetValueOrDefault(t.Id, 0)
-            })
-            .OrderByDescending(t => t.Points)
-            .ThenBy(t => t.Team.DisplayName)
+            .OrderByDescending(t => t.Punkte)
+            .ThenBy(t => t.DisplayName)
             .ToList();
 
         var teamStates = new List<TeamState>();
         for (var i = 0; i < orderedTeams.Count; i++)
         {
-            var item = orderedTeams[i];
-            var team = item.Team;
+            var team = orderedTeams[i];
             var members = team.Teilnehmer
                 .OrderBy(m => m.Nummer)
                 .Select(m => new ParticipantState(m.Id, m.Nummer, m.Name))
@@ -59,7 +47,7 @@ public sealed class GameStateNotifier(
                 team.Id,
                 team.DisplayName,
                 team.Color,
-                item.Points,
+                team.Punkte,
                 Rank: i + 1,
                 ParticipantCount: members.Length,
                 Members: members));

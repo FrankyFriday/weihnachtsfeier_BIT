@@ -70,7 +70,7 @@
 @code {
     private ProjectSummary[] _projects = [];
     private AdminShow[] _shows = [];
-    private GameInstanceDetailSummary? _activeInstance;
+    private GameInstanceSummary? _activeInstance;
 
     private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
     private Guid? CurrentShowId => GetShowId(Navigation.Uri);

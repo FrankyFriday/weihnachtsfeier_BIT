@@ -11,6 +11,7 @@ public static class TeamEndpoints
     {
         admin.MapPost("/teams", CreateTeamAsync).WithName("CreateTeam");
         admin.MapPut("/teams/{teamId:guid}", UpdateTeamAsync).WithName("UpdateTeam");
+        admin.MapPut("/teams/{teamId:guid}/points", UpdateTeamPointsAsync).WithName("UpdateTeamPoints");
         admin.MapDelete("/teams/{teamId:guid}", DeleteTeamAsync).WithName("DeleteTeam");
     }
 
@@ -39,6 +40,7 @@ public static class TeamEndpoints
         {
             DisplayName = displayName,
             Color = color,
+            Punkte = 0,
             ProjektId = projectId,
             Projekt = project
         };
@@ -46,7 +48,7 @@ public static class TeamEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Created($"/api/projects/{projectId}/teams/{team.Id}",
-            new TeamResponse(team.Id, team.DisplayName, team.Color));
+            new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
     }
 
     private static async Task<IResult> UpdateTeamAsync(
@@ -60,9 +62,9 @@ public static class TeamEndpoints
         var displayName = request.DisplayName?.Trim();
         var color = request.Color?.Trim();
         if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > 80 ||
-            string.IsNullOrWhiteSpace(color) || color.Length > 32)
+            string.IsNullOrWhiteSpace(color) || color.Length > 32 || request.Points < 0)
         {
-            return Results.BadRequest(new ApiError("Teamname oder Farbe ist ungültig."));
+            return Results.BadRequest(new ApiError("Teamname, Farbe oder Punktzahl ist ungültig."));
         }
 
         var team = await dbContext.Teams.FirstOrDefaultAsync(
@@ -74,9 +76,36 @@ public static class TeamEndpoints
 
         team.DisplayName = displayName;
         team.Color = color;
+        team.Punkte = request.Points;
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-        return Results.Ok(new TeamResponse(team.Id, team.DisplayName, team.Color));
+        return Results.Ok(new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
+    }
+
+    private static async Task<IResult> UpdateTeamPointsAsync(
+        Guid projectId,
+        Guid teamId,
+        UpdateTeamPointsRequest request,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        if (request.Points < 0)
+        {
+            return Results.BadRequest(new ApiError("Der Punktestand darf nicht negativ sein."));
+        }
+
+        var team = await dbContext.Teams.FirstOrDefaultAsync(
+            item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
+        if (team is null)
+        {
+            return Results.NotFound();
+        }
+
+        team.Punkte = request.Points;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+        return Results.Ok(new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
     }
 
     private static async Task<IResult> DeleteTeamAsync(

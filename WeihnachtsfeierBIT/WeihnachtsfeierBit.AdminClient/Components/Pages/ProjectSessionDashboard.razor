@@ -1,10 +1,9 @@
+@page "/projects/{ProjectId:guid}/session"
 @page "/projects/{ProjectId:guid}/session-dashboard"
-@page "/projects/{ProjectId:guid}/sessions/{InstanceId:guid}/dashboard"
 
-<PageTitle>Session-Dashboard | Admin</PageTitle>
-<ProjectSessionDashboardContent ProjectId="ProjectId" InstanceId="InstanceId" />
+<PageTitle>Play-Session | Admin</PageTitle>
+<ProjectSessionDashboardContent ProjectId="ProjectId" />
 
 @code {
     [Parameter] public Guid ProjectId { get; set; }
-    [Parameter] public Guid? InstanceId { get; set; }
 }

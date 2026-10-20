@@ -1,11 +1,1 @@
-namespace WeihnachtsfeierBit.Data;
-
-public class TeamScore
-{
-    public Guid Id { get; set; }
-    public Guid GameInstanceId { get; set; }
-    public required GameInstance GameInstance { get; set; }
-    public Guid TeamId { get; set; }
-    public required Team Team { get; set; }
-    public int Points { get; set; }
-}
+// Deprecated - removed

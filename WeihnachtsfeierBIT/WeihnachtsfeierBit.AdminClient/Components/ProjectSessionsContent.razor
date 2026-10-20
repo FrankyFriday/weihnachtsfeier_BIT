@@ -3,8 +3,15 @@
 
 <FrameworkPage>
     <div class="overview-toolbar">
-        <PageHeading Eyebrow="PROJEKT" Title="Play-Sessions" Description="Verwalte Spielsitzungen (GameInstances) und deren 6-stellige Codes." />
-        <FrameworkButton Label="Neue Session starten" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
+        <PageHeading Eyebrow="PROJEKT" Title="Play-Session" Description="Verwalte die aktive Anmelde-Session und ihren 6-stelligen Code." />
+        @if (_activeInstance is null)
+        {
+            <FrameworkButton Label="Session jetzt starten" Variant="primary" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
+        }
+        else
+        {
+            <FrameworkButton Label="Session beenden" Variant="danger" OnClick="EndSessionAsync" Busy="@_ending" Disabled="@_ending" />
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -24,7 +31,7 @@
 
     @if (IsLoading)
     {
-        <FrameworkLoading Message="Play-Sessions werden geladen ..." />
+        <FrameworkLoading Message="Session wird geladen ..." />
     }
     else
     {
@@ -42,25 +49,19 @@
                         </div>
                         <div class="framework-button-row">
                             <FrameworkButton Label="Session-Dashboard öffnen" Variant="primary" OnClick="OpenDashboard" />
-                            <FrameworkButton Label="Session beenden" Variant="danger" OnClick="() => EndSessionAsync(_activeInstance.Id)" Busy="@_ending" Disabled="@_ending" />
+                            <FrameworkButton Label="Session beenden" Variant="danger" OnClick="EndSessionAsync" Busy="@_ending" Disabled="@_ending" />
                         </div>
                     </div>
                 </ChildContent>
             </Card>
         }
-
-        @if (_instances.Length == 0)
-        {
-            <EmptyState Title="Noch keine Play-Sessions" Description="Starte deine erste Play-Session, um einen 6-stelligen Code für die Teilnehmer zu erzeugen.">
-                <ChildContent>
-                    <FrameworkButton Label="Erste Session starten" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
-                </ChildContent>
-            </EmptyState>
-        }
         else
         {
-            <h3>Session-Historie</h3>
-            <StandardDataTable Items="_instances" Columns="_columns" KeySelector="InstanceKey" />
+            <EmptyState Title="Aktuell keine aktive Session" Description="Starte eine Play-Session, um einen 6-stelligen Code zu generieren, mit dem sich die Teilnehmer auf ihren Geräten anmelden können.">
+                <ChildContent>
+                    <FrameworkButton Label="Play-Session starten" OnClick="StartNewSessionAsync" Busy="@_starting" Disabled="@_starting" />
+                </ChildContent>
+            </EmptyState>
         }
     }
 </FrameworkPage>
@@ -68,9 +69,7 @@
 @code {
     [Parameter] public Guid ProjectId { get; set; }
 
-    private GameInstanceSummary[] _instances = [];
     private GameInstanceSummary? _activeInstance;
-    private DataTableColumn<GameInstanceSummary>[] _columns = [];
 
     private string? _actionNotice;
     private string? _actionError;
@@ -84,31 +83,11 @@
         await LoadAuthenticatedAsync(async token =>
         {
             _actionError = null;
-            _instances = await ProjectApiClient.GetGameInstancesAsync(token, ProjectId);
-            _activeInstance = _instances.FirstOrDefault(i => i.IsActive);
-
-            _columns =
-            [
-                new("Status", i => i.IsActive ? "Aktiv" : "Beendet"),
-                new("Code", i => i.AccessCode ?? "-"),
-                new("Gestartet am", i => i.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")),
-                new("Beendet am", i => i.EndedAtUtc.HasValue ? i.EndedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "-"),
-                new("Aktionen", i => @<div class="framework-button-row">
-                    @if (i.IsActive)
-                    {
-                        <FrameworkButton Label="Dashboard" Variant="secondary" OnClick="OpenDashboard" />
-                        <FrameworkButton Label="Beendet" Variant="danger" OnClick="() => EndSessionAsync(i.Id)" />
-                    }
-                    else
-                    {
-                        <FrameworkButton Label="Fortführen (Reaktivieren)" Variant="secondary" OnClick="() => ResumeSessionAsync(i.Id)" />
-                    }
-                </div>)
-            ];
+            _activeInstance = await ProjectApiClient.GetActiveGameInstanceAsync(token, ProjectId);
         });
     }
 
-    private void OpenDashboard() => Navigation.NavigateTo($"{Navigation.BaseUri}projects/{ProjectId}/session-dashboard");
+    private void OpenDashboard() => Navigation.NavigateTo($"{Navigation.BaseUri}projects/{ProjectId}/session");
 
     private async Task StartNewSessionAsync()
     {
@@ -135,7 +114,7 @@
         }
     }
 
-    private async Task EndSessionAsync(Guid instanceId)
+    private async Task EndSessionAsync()
     {
         if (_ending) return;
         _ending = true;
@@ -145,7 +124,7 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.EndGameInstanceAsync(token, ProjectId, instanceId);
+                await ProjectApiClient.EndGameInstanceAsync(token, ProjectId);
                 _actionNotice = "Die Session wurde beendet.";
                 await LoadDataAsync();
             });
@@ -159,25 +138,4 @@
             _ending = false;
         }
     }
-
-    private async Task ResumeSessionAsync(Guid instanceId)
-    {
-        _actionNotice = null;
-        _actionError = null;
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                var res = await ProjectApiClient.ResumeGameInstanceAsync(token, ProjectId, instanceId);
-                _actionNotice = $"Session reaktiviert mit neuem Code {res.AccessCode}.";
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-    }
-
-    private static object InstanceKey(GameInstanceSummary i) => i.Id;
 }
