@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
@@ -33,6 +34,7 @@ public static class ParticipantEndpoints
         Guid projectId,
         CreateParticipantRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         if (request.Number <= 0 || request.Name?.Length > 120)
@@ -75,6 +77,7 @@ public static class ParticipantEndpoints
             return Results.Conflict(new ApiError("Diese Teilnehmernummer wird in diesem Projekt bereits verwendet."));
         }
 
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Created($"/api/projects/{projectId}/participants/{participant.Id}",
             new ParticipantResponse(participant.Id, participant.Nummer, participant.Name, participant.Team?.Id));
     }
@@ -84,6 +87,7 @@ public static class ParticipantEndpoints
         Guid participantId,
         UpdateParticipantRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         if (request.Name?.Length > 120 || request.Number is <= 0)
@@ -125,6 +129,7 @@ public static class ParticipantEndpoints
         participant.Name = request.Name?.Trim();
         participant.Team = team;
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Ok(new ParticipantResponse(participant.Id, participant.Nummer, participant.Name, participant.Team?.Id));
     }
 
@@ -132,6 +137,7 @@ public static class ParticipantEndpoints
         Guid projectId,
         Guid participantId,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
@@ -143,6 +149,7 @@ public static class ParticipantEndpoints
 
         dbContext.Teilnehmer.Remove(participant);
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.NoContent();
     }
 
@@ -150,6 +157,7 @@ public static class ParticipantEndpoints
         Guid projectId,
         GenerateParticipantsRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         if (request.Count is <= 0 or > 500)
@@ -222,6 +230,7 @@ public static class ParticipantEndpoints
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         var responses = createdParticipants
             .Select(p => new ParticipantResponse(p.Id, p.Nummer, p.Name, p.Team?.Id))
@@ -234,6 +243,7 @@ public static class ParticipantEndpoints
         Guid projectId,
         RandomizeTeamsRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
@@ -277,6 +287,7 @@ public static class ParticipantEndpoints
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Ok(new RandomizeTeamsResponse(participants.Count));
     }
 }

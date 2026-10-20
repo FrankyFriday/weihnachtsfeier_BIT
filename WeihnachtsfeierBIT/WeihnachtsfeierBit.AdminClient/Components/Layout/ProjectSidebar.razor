@@ -25,10 +25,26 @@
                     <div class="sidebar-section sidebar-current-project">
                         <span class="sidebar-label">AKTUELLES PROJEKT</span>
                         <strong>@CurrentProject.Name</strong>
+
+                        @if (_activeInstance is not null)
+                        {
+                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                                <span class="live-dot"></span>
+                                <span>Play-Session (@_activeInstance.AccessCode)</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                                <span>Play-Session</span>
+                            </a>
+                        }
+
                         <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)">Übersicht</a>
-                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Verknüpfte Shows</a>
                         <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Teilnehmer</a>
-                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams &amp; Auswertung</a>
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams</a>
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Verknüpfte Shows</a>
+                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")">Session-Historie</a>
                         <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")">Einstellungen</a>
                     </div>
                 }
@@ -54,6 +70,7 @@
 @code {
     private ProjectSummary[] _projects = [];
     private AdminShow[] _shows = [];
+    private GameInstanceSummary? _activeInstance;
 
     private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
     private Guid? CurrentShowId => GetShowId(Navigation.Uri);
@@ -67,6 +84,11 @@
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += OnLocationChanged;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
         await LoadAuthenticatedAsync(async token =>
         {
             var projectsTask = ProjectApiClient.GetAdminProjectsAsync(token);
@@ -74,26 +96,21 @@
             await Task.WhenAll(projectsTask, showsTask);
             _projects = await projectsTask;
             _shows = await showsTask;
+
+            if (CurrentProjectId is Guid projectId)
+            {
+                _activeInstance = await ProjectApiClient.GetActiveGameInstanceAsync(token, projectId);
+            }
+            else
+            {
+                _activeInstance = null;
+            }
         });
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(async () =>
     {
-        var projectId = CurrentProjectId;
-        var showId = CurrentShowId;
-        if ((projectId is Guid id && !_projects.Any(project => project.Id == id)) ||
-            (showId is Guid show && !_shows.Any(item => item.Id == show)))
-        {
-            await LoadAuthenticatedAsync(async token =>
-            {
-                var projectsTask = ProjectApiClient.GetAdminProjectsAsync(token);
-                var showsTask = ProjectApiClient.GetAdminShowsAsync(token);
-                await Task.WhenAll(projectsTask, showsTask);
-                _projects = await projectsTask;
-                _shows = await showsTask;
-            });
-        }
-
+        await LoadDataAsync();
         StateHasChanged();
     });
 

@@ -1,0 +1,9 @@
+@page "/projects/{ProjectId:guid}/session"
+@page "/projects/{ProjectId:guid}/session-dashboard"
+
+<PageTitle>Play-Session | Admin</PageTitle>
+<ProjectSessionDashboardContent ProjectId="ProjectId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+}

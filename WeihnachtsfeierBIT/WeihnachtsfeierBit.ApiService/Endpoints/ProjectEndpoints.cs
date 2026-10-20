@@ -21,6 +21,7 @@ public static class ProjectEndpoints
         admin.MapDelete("", DeleteProjectAsync).WithName("DeleteProject");
 
         reader.MapGet("/participants/me", GetCurrentParticipantAsync).WithName("GetCurrentParticipant");
+        reader.MapPut("/participants/me", UpdateCurrentParticipantNameAsync).WithName("UpdateCurrentParticipantName");
         reader.MapGet("/teams", GetTeamsAsync).WithName("GetTeams");
         reader.MapGet("/shows/{showId:guid}/slides", ShowSlideEndpoints.GetSlidesAsync).WithName("GetSlides");
 
@@ -28,6 +29,7 @@ public static class ProjectEndpoints
         TeamEndpoints.Map(admin);
         ProjectShowEndpoints.Map(reader, admin);
         ShowSlideEndpoints.Map(admin);
+        GameInstanceEndpoints.Map(reader, admin);
 
         return endpoints;
     }
@@ -116,6 +118,37 @@ public static class ProjectEndpoints
             .Select(item => new ParticipantResponse(item.Id, item.Nummer, item.Name, item.Team == null ? null : item.Team.Id))
             .FirstOrDefaultAsync(cancellationToken);
         return participant is null ? Results.NotFound() : Results.Ok(participant);
+    }
+
+    private static async Task<IResult> UpdateCurrentParticipantNameAsync(
+        HttpContext httpContext,
+        WeihnachtsfeierBit.ApiService.Contracts.UpdateParticipantRequest request,
+        WeihnachtsfeierDbContext dbContext,
+        WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (access.ParticipantId is not Guid participantId)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        if (request.Name?.Length > 120)
+        {
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Der Name darf höchstens 120 Zeichen lang sein."));
+        }
+
+        var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
+            item => item.Id == participantId && item.ProjektId == access.ProjectId, cancellationToken);
+        if (participant is null)
+        {
+            return Results.NotFound();
+        }
+
+        participant.Name = request.Name?.Trim();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(access.ProjectId, cancellationToken);
+        return Results.Ok(new ParticipantResponse(participant.Id, participant.Nummer, participant.Name, participant.TeamId));
     }
 
     private static async Task<IResult> GetTeamsAsync(

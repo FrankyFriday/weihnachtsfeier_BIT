@@ -15,6 +15,9 @@ builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("weihnachtsfeierdb")));
 
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier, WeihnachtsfeierBit.ApiService.Services.GameStateNotifier>();
+
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddScoped<ProjectAccessService>();
 builder.Services.AddScoped<AdminSessionAccessService>();
@@ -55,6 +58,8 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/", () => "API service is running. Navigate to /weatherforecast to see sample data.");
 
+app.MapHub<WeihnachtsfeierBit.ApiService.Hubs.GameStateHub>("/hubs/gamestate");
+GameInstanceEndpoints.MapPublic(app);
 app.MapAuthenticationEndpoints();
 app.MapProjectEndpoints();
 app.MapWeatherEndpoints();

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
@@ -10,6 +11,7 @@ public static class TeamEndpoints
     {
         admin.MapPost("/teams", CreateTeamAsync).WithName("CreateTeam");
         admin.MapPut("/teams/{teamId:guid}", UpdateTeamAsync).WithName("UpdateTeam");
+        admin.MapPut("/teams/{teamId:guid}/points", UpdateTeamPointsAsync).WithName("UpdateTeamPoints");
         admin.MapDelete("/teams/{teamId:guid}", DeleteTeamAsync).WithName("DeleteTeam");
     }
 
@@ -17,6 +19,7 @@ public static class TeamEndpoints
         Guid projectId,
         CreateTeamRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var displayName = request.DisplayName?.Trim();
@@ -43,6 +46,7 @@ public static class TeamEndpoints
         };
         dbContext.Teams.Add(team);
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Created($"/api/projects/{projectId}/teams/{team.Id}",
             new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
     }
@@ -52,6 +56,7 @@ public static class TeamEndpoints
         Guid teamId,
         UpdateTeamRequest request,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var displayName = request.DisplayName?.Trim();
@@ -73,6 +78,33 @@ public static class TeamEndpoints
         team.Color = color;
         team.Punkte = request.Points;
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+        return Results.Ok(new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
+    }
+
+    private static async Task<IResult> UpdateTeamPointsAsync(
+        Guid projectId,
+        Guid teamId,
+        UpdateTeamPointsRequest request,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        if (request.Points < 0)
+        {
+            return Results.BadRequest(new ApiError("Der Punktestand darf nicht negativ sein."));
+        }
+
+        var team = await dbContext.Teams.FirstOrDefaultAsync(
+            item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
+        if (team is null)
+        {
+            return Results.NotFound();
+        }
+
+        team.Punkte = request.Points;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Ok(new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte));
     }
 
@@ -80,6 +112,7 @@ public static class TeamEndpoints
         Guid projectId,
         Guid teamId,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var team = await dbContext.Teams.FirstOrDefaultAsync(
@@ -96,6 +129,7 @@ public static class TeamEndpoints
 
         dbContext.Teams.Remove(team);
         await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.NoContent();
     }
 }

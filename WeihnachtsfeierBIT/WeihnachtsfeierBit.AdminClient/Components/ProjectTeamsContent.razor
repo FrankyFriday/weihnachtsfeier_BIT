@@ -2,7 +2,7 @@
 
 <FrameworkPage>
     <div class="overview-toolbar">
-        <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und aktueller Punktestand dieses Projekts." />
+        <PageHeading Eyebrow="PROJEKT" Title="Teams &amp; Auswertung" Description="Teams und Punktestände dieses Projekts verwalten." />
         <FrameworkButton Label="Neues Team" OnClick="OpenCreateModal" />
     </div>
 
@@ -137,6 +137,7 @@
             [
                 new("Rang", team => (_teams.ToList().IndexOf(team) + 1).ToString()),
                 new("Team", team => team.DisplayName),
+                new("Farbe", team => @<span style="@($"display:inline-block;width:16px;height:16px;border-radius:50%;background-color:{team.Color};")"></span>),
                 new("Teilnehmer", team => participantCounts.GetValueOrDefault(team.Id).ToString()),
                 new("Punkte", team => team.Points.ToString()),
                 new("Aktionen", team => @<div class="framework-button-row">

@@ -17,12 +17,18 @@ public sealed record RandomizeTeamsResponse(int AssignedCount);
 public sealed record TeamResponse(Guid Id, string DisplayName, string Color, int Points);
 public sealed record CreateTeamRequest(string DisplayName, string Color);
 public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);
+public sealed record UpdateTeamPointsRequest(int Points);
 public sealed record ShowResponse(Guid Id, string Name);
 public sealed record AdminShowResponse(Guid Id, string Name, int ProjectCount);
 public sealed record CreateShowRequest(string Name);
+public sealed record LinkShowRequest(Guid ShowId);
 public sealed record LinkShowToProjectRequest(Guid ShowId);
 public sealed record SlideRequest(string Type, int Position, JsonElement Parameters);
 public sealed record SlideResponse(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
 public sealed record SessionSummary(Guid Id, Guid UserId, DateTime CreatedAtUtc, DateTime LastActivityAtUtc, DateTime ExpiresAtUtc, string? UserAgent);
 public sealed record ApiError(string Message);
 public sealed record CreateTestEntryRequest(string? Name);
+
+public sealed record GameInstanceResponse(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
+public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
+public sealed record LoginByCodeRequest(string Code, int Number);

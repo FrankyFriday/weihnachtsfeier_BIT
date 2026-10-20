@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\WeihnachtsfeierBit.ApiService\WeihnachtsfeierBit.ApiService.csproj" />
     <ProjectReference Include="..\WeihnachtsfeierBit.AdminClient\WeihnachtsfeierBit.AdminClient.csproj" />
+    <ProjectReference Include="..\WeihnachtsfeierBit.ParticipantClient\WeihnachtsfeierBit.ParticipantClient.csproj" />
     <ProjectReference Include="..\WeihnachtsfeierBit.Web\WeihnachtsfeierBit.Web.csproj" />
   </ItemGroup>
 

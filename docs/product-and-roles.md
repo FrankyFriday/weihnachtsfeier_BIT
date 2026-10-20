@@ -12,8 +12,8 @@ Die Teilnahme soll flexibel bleiben: Nicht jeder Gast muss ein Smartphone oder e
 
 | Rolle | Ziel | Heute |
 | --- | --- | --- |
-| Admin / Moderator | Projekte konfigurieren, Teilnehmer und Teams verwalten, Shows vorbereiten | Globale Admin-Konten, Projektanlage und -übersicht, Projekteinstellungen, Teilnehmer- und Teamverwaltung (inklusive automatischer 2-, 3- oder 4-stelliger Nummern-Generierung und zufälliger, gleichmäßiger Teamverteilung) sowie eine globale Show-Bibliothek existieren. Shows können unabhängig von Projekten angelegt und mit Projekten verknüpft oder daraus gelöst werden. Der Show-Editor ist derzeit ein leerer Platzhalter. |
-| Teilnehmer | Mit Nummer teilnehmen, Team/Profil sehen und Fragen beantworten | Projektgebundener Nummern-Login und widerrufbare Sessions existieren. Teilnehmerclient und Antworten fehlen. |
+| Admin / Moderator | Projekte konfigurieren, Teilnehmer und Teams verwalten, Shows vorbereiten | Globale Admin-Konten, Projektanlage und -übersicht, Projekteinstellungen, Teilnehmer- und Teamverwaltung (inklusive automatischer 2-, 3- oder 4-stelliger Nummern-Generierung und zufälliger, gleichmäßiger Teamverteilung), Play-Session-Verwaltung (`GameInstance`) mit 6-stelligen Codes, dynamischem Session-Dashboard in der Navigationsleiste sowie eine globale Show-Bibliothek existieren. |
+| Teilnehmer | Mit Nummer teilnehmen, Team/Profil sehen und Fragen beantworten | Teilnehmer-Login unter `/play/{code}` oder `/play` mit 6-stelligem Session-Code und Nummer im eigenständigen Projekt `WeihnachtsfeierBit.ParticipantClient`, mobiles/desktop-optimiertes Team-Dashboard (Teamname, Rang, Punkte aus `TeamInstance`, Profilname-Eingabe, Teammitglieder, Gesamtrangliste) mit Echtzeit-WebSockets via SignalR `GameStateHub` vorhanden. Antwortabgabe für Slides fehlt noch. |
 | Dashboard / Leinwand | Aktuelle Show-Slide und Eventinformationen groß anzeigen | Noch nicht implementiert. |
 
 ## Bereits vorhandene Grundlagen

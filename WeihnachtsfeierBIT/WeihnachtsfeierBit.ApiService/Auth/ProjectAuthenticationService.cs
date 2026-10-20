@@ -1,55 +1,81 @@
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.Data;
+using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.ApiService.Auth;
 
 public sealed class ProjectAuthenticationService(
     WeihnachtsfeierDbContext dbContext,
-    PasswordHasher passwordHasher)
+    IConfiguration configuration)
 {
-    private static readonly TimeSpan ParticipantSessionLifetime = TimeSpan.FromHours(12);
-    private static readonly TimeSpan AdminSessionLifetime = TimeSpan.FromHours(8);
+    private static readonly TimeSpan AdminSessionLifetime = TimeSpan.FromDays(7);
+    private static readonly TimeSpan ParticipantSessionLifetime = TimeSpan.FromDays(1);
+    private static readonly PasswordHasher PasswordHasher = new();
 
-    public async Task<(ProjektAdmin? Admin, SessionResponse? Session, string? Error)> RegisterAdminAccountAsync(
+    public async Task<(SessionResponse? Session, ProjektAdmin? Admin, string? Error)> RegisterAdminAccountAsync(
         CreateAdminAccountRequest request,
         string? userAgent,
         CancellationToken cancellationToken)
     {
-        var username = request.Username?.Trim() ?? string.Empty;
-        var validationError = ValidateAdmin(username, request.Password);
-        if (validationError is not null)
-        {
-            return (null, null, validationError);
-        }
+        var cleanUsername = request.Username.Trim();
+        var normalizedUsername = cleanUsername.ToUpperInvariant();
 
-        var normalizedUsername = NormalizeUsername(username);
         if (await dbContext.ProjektAdmins.AnyAsync(admin => admin.BenutzernameNormalisiert == normalizedUsername, cancellationToken))
         {
-            return (null, null, "Dieser Admin-Benutzername ist bereits vergeben.");
+            return (null, null, "Der Benutzername ist bereits vergeben.");
         }
 
         var admin = new ProjektAdmin
         {
-            Benutzername = username,
+            Benutzername = cleanUsername,
             BenutzernameNormalisiert = normalizedUsername,
-            PasswortHash = passwordHasher.Hash(request.Password)
+            PasswortHash = PasswordHasher.Hash(request.Password),
+            ErstelltAmUtc = DateTime.UtcNow
         };
-        var (adminSession, rawToken) = CreateAdminSession(admin, userAgent);
+
         dbContext.ProjektAdmins.Add(admin);
-        dbContext.ProjektAdminSitzungen.Add(adminSession);
-        try
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var (session, error) = await CreateAdminSessionAsync(admin, userAgent, cancellationToken);
+        return (session, admin, error);
+    }
+
+    public async Task<(ProjektAdmin? Admin, string? Error)> AttachAdminToProjectAsync(
+        Guid projectId,
+        AttachAdminToProjectRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cleanUsername = request.Username.Trim();
+        var normalizedUsername = cleanUsername.ToUpperInvariant();
+
+        var admin = await dbContext.ProjektAdmins.FirstOrDefaultAsync(
+            item => item.BenutzernameNormalisiert == normalizedUsername,
+            cancellationToken);
+
+        if (admin is null)
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            return (admin,
-                new SessionResponse(adminSession.Id, rawToken, adminSession.LaeuftAbAmUtc, "admin", null, admin.Benutzername), null);
+            return (null, "Es wurde kein Admin-Konto mit diesem Benutzernamen gefunden.");
         }
-        catch (DbUpdateException)
+
+        var exists = await dbContext.ProjektAdminProjekte.AnyAsync(
+            membership => membership.ProjektAdminId == admin.Id && membership.ProjektId == projectId,
+            cancellationToken);
+
+        if (exists)
         {
-            dbContext.Entry(admin).State = EntityState.Detached;
-            dbContext.Entry(adminSession).State = EntityState.Detached;
-            return (null, null, "Dieser Admin-Benutzername ist bereits vergeben.");
+            return (null, "Dieses Admin-Konto ist dem Projekt bereits zugeordnet.");
         }
+
+        dbContext.ProjektAdminProjekte.Add(new ProjektAdminProjekt
+        {
+            ProjektAdminId = admin.Id,
+            ProjektId = projectId,
+            HinzugefuegtAmUtc = DateTime.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return (admin, null);
     }
 
     public async Task<(SessionResponse? Session, string? Error)> LoginParticipantAsync(
@@ -58,6 +84,9 @@ public sealed class ProjectAuthenticationService(
         string? userAgent,
         CancellationToken cancellationToken)
     {
+        var activeInstance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
         var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
             item => item.ProjektId == projectId && item.Nummer == number,
             cancellationToken);
@@ -71,6 +100,60 @@ public sealed class ProjectAuthenticationService(
         var session = new Sitzung
         {
             TeilnehmerId = participant.Id,
+            GameInstanceId = activeInstance?.Id,
+            TokenHash = ApiToken.Hash(rawToken),
+            ErstelltAmUtc = now,
+            LetzteAktivitaetAmUtc = now,
+            LaeuftAbAmUtc = now.Add(ParticipantSessionLifetime),
+            UserAgent = NormalizeUserAgent(userAgent)
+        };
+        dbContext.Sitzungen.Add(session);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (new SessionResponse(session.Id, rawToken, session.LaeuftAbAmUtc, "participant", projectId,
+            participant.Name ?? $"Teilnehmer {participant.Nummer}"), null);
+    }
+
+    public async Task<(SessionResponse? Session, string? Error)> LoginParticipantByCodeAsync(
+        string code,
+        int number,
+        string? userAgent,
+        CancellationToken cancellationToken)
+    {
+        var cleanCode = code.Trim();
+        var activeInstance = await dbContext.GameInstances
+            .Include(gi => gi.Projekt)
+            .FirstOrDefaultAsync(gi => gi.AccessCode == cleanCode, cancellationToken);
+
+        if (activeInstance is null)
+        {
+            return (null, "Ungültiger oder abgelaufener Session-Code.");
+        }
+
+        var projectId = activeInstance.ProjektId;
+        var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
+            item => item.ProjektId == projectId && item.Nummer == number,
+            cancellationToken);
+
+        if (participant is null)
+        {
+            participant = new Teilnehmer
+            {
+                ProjektId = projectId,
+                Projekt = activeInstance.Projekt,
+                Nummer = number,
+                Name = null
+            };
+            dbContext.Teilnehmer.Add(participant);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var rawToken = ApiToken.Create();
+        var now = DateTime.UtcNow;
+        var session = new Sitzung
+        {
+            TeilnehmerId = participant.Id,
+            GameInstanceId = activeInstance.Id,
             TokenHash = ApiToken.Hash(rawToken),
             ErstelltAmUtc = now,
             LetzteAktivitaetAmUtc = now,
@@ -89,99 +172,84 @@ public sealed class ProjectAuthenticationService(
         string? userAgent,
         CancellationToken cancellationToken)
     {
-        var normalizedUsername = NormalizeUsername(request.Username ?? string.Empty);
+        var cleanUsername = request.Username.Trim();
+        var normalizedUsername = cleanUsername.ToUpperInvariant();
+
         var admin = await dbContext.ProjektAdmins.FirstOrDefaultAsync(
             item => item.BenutzernameNormalisiert == normalizedUsername,
             cancellationToken);
-        if (admin is null || string.IsNullOrEmpty(request.Password) || !passwordHasher.Verify(request.Password, admin.PasswortHash))
+
+        if (admin is null || !PasswordHasher.Verify(request.Password, admin.PasswortHash))
         {
-            return (null, "Benutzername, Passwort oder Projekt ist ungültig.");
+            return (null, "Benutzername oder Passwort ist falsch.");
         }
 
-        var created = CreateAdminSession(admin, userAgent);
-        dbContext.ProjektAdminSitzungen.Add(created.Entity);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return (new SessionResponse(created.Entity.Id, created.RawToken, created.Entity.LaeuftAbAmUtc, "admin", null, admin.Benutzername), null);
+        return await CreateAdminSessionAsync(admin, userAgent, cancellationToken);
     }
 
-    public async Task<(ProjektAdmin? Admin, string? Error)> AttachAdminToProjectAsync(
-        Guid projectId,
-        AttachAdminToProjectRequest request,
-        CancellationToken cancellationToken)
+    public async Task RevokeAdminSessionAsync(string rawToken, CancellationToken cancellationToken)
     {
-        var username = request.Username?.Trim() ?? string.Empty;
-        var admin = await dbContext.ProjektAdmins.FirstOrDefaultAsync(
-            item => item.BenutzernameNormalisiert == NormalizeUsername(username), cancellationToken);
-        if (admin is null)
+        var hash = ApiToken.Hash(rawToken);
+        var session = await dbContext.ProjektAdminSitzungen.FirstOrDefaultAsync(
+            item => item.TokenHash == hash,
+            cancellationToken);
+
+        if (session is null || session.WiderrufenAmUtc.HasValue)
         {
-            return (null, "Für diesen Benutzernamen existiert noch kein Admin-Konto.");
+            return;
         }
 
-        if (!await dbContext.Projekte.AnyAsync(project => project.Id == projectId, cancellationToken))
-        {
-            return (null, "Projekt wurde nicht gefunden.");
-        }
-
-        if (await dbContext.ProjektAdminProjekte.AnyAsync(
-            membership => membership.ProjektAdminId == admin.Id && membership.ProjektId == projectId,
-            cancellationToken))
-        {
-            return (null, "Dieses Admin-Konto ist bereits dem Projekt zugeordnet.");
-        }
-
-        dbContext.ProjektAdminProjekte.Add(new ProjektAdminProjekt
-        {
-            ProjektAdminId = admin.Id,
-            ProjektId = projectId
-        });
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            return (admin, null);
-        }
-        catch (DbUpdateException)
-        {
-            dbContext.Entry(admin).State = EntityState.Detached;
-            return (null, "Ein Admin mit diesem Benutzernamen existiert bereits.");
-        }
+        session.WiderrufenAmUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private (ProjektAdminSitzung Entity, string RawToken) CreateAdminSession(ProjektAdmin admin, string? userAgent)
+    public async Task RevokeParticipantSessionAsync(Guid projectId, string rawToken, CancellationToken cancellationToken)
+    {
+        var hash = ApiToken.Hash(rawToken);
+        var session = await dbContext.Sitzungen.FirstOrDefaultAsync(
+            item => item.TokenHash == hash && item.Teilnehmer.ProjektId == projectId,
+            cancellationToken);
+
+        if (session is null || session.WiderrufenAmUtc.HasValue)
+        {
+            return;
+        }
+
+        session.WiderrufenAmUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<(SessionResponse Session, string? Error)> CreateAdminSessionAsync(
+        ProjektAdmin admin,
+        string? userAgent,
+        CancellationToken cancellationToken)
     {
         var rawToken = ApiToken.Create();
         var now = DateTime.UtcNow;
-        return (new ProjektAdminSitzung
+        var adminSession = new ProjektAdminSitzung
         {
-            ProjektAdmin = admin,
+            ProjektAdminId = admin.Id,
             TokenHash = ApiToken.Hash(rawToken),
             ErstelltAmUtc = now,
             LetzteAktivitaetAmUtc = now,
             LaeuftAbAmUtc = now.Add(AdminSessionLifetime),
             UserAgent = NormalizeUserAgent(userAgent)
-        }, rawToken);
-    }
+        };
 
-    private static string NormalizeUsername(string? username) => username?.Trim().ToUpperInvariant() ?? string.Empty;
+        dbContext.ProjektAdminSitzungen.Add(adminSession);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (new SessionResponse(adminSession.Id, rawToken, adminSession.LaeuftAbAmUtc, "admin", null, admin.Benutzername), null);
+    }
 
     private static string? NormalizeUserAgent(string? userAgent)
     {
-        var normalized = userAgent?.Trim();
-        return string.IsNullOrEmpty(normalized) ? null : normalized[..Math.Min(normalized.Length, 512)];
-    }
-
-    private static string? ValidateAdmin(string? username, string? password)
-    {
-        var normalizedUsername = username?.Trim();
-        if (string.IsNullOrEmpty(normalizedUsername) || normalizedUsername.Length > 64)
+        if (string.IsNullOrWhiteSpace(userAgent))
         {
-            return "Der Admin-Benutzername muss zwischen 1 und 64 Zeichen lang sein.";
+            return null;
         }
 
-        if (string.IsNullOrWhiteSpace(password) || password.Length < 12 || password.Length > 256)
-        {
-            return "Das Admin-Passwort muss zwischen 12 und 256 Zeichen lang sein.";
-        }
-
-        return null;
+        var trimmed = userAgent.Trim();
+        return trimmed.Length > 512 ? trimmed[..512] : trimmed;
     }
 }

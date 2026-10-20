@@ -21,6 +21,10 @@ builder.Services.AddWeihnachtsfeierFramework(client =>
 var adminClientAddress = builder.Configuration["AdminClientBaseUrl"]
     ?? builder.Configuration["services:adminclient:http:0"]
     ?? "http://adminclient:8080";
+var participantClientAddress = builder.Configuration["ParticipantClientBaseUrl"]
+    ?? builder.Configuration["services:participantclient:http:0"]
+    ?? "http://participantclient:8080";
+
 builder.Services.AddReverseProxy().LoadFromMemory(
 [
     new RouteConfig
@@ -28,6 +32,16 @@ builder.Services.AddReverseProxy().LoadFromMemory(
         RouteId = "admin-client",
         ClusterId = "admin-client",
         Match = new RouteMatch { Path = "/admin/{**catch-all}" },
+        Transforms =
+        [
+            new Dictionary<string, string> { ["RequestHeaderOriginalHost"] = "true" }
+        ]
+    },
+    new RouteConfig
+    {
+        RouteId = "participant-client",
+        ClusterId = "participant-client",
+        Match = new RouteMatch { Path = "/play/{**catch-all}" },
         Transforms =
         [
             new Dictionary<string, string> { ["RequestHeaderOriginalHost"] = "true" }
@@ -41,6 +55,14 @@ builder.Services.AddReverseProxy().LoadFromMemory(
         Destinations = new Dictionary<string, DestinationConfig>
         {
             ["admin-client"] = new() { Address = adminClientAddress }
+        }
+    },
+    new ClusterConfig
+    {
+        ClusterId = "participant-client",
+        Destinations = new Dictionary<string, DestinationConfig>
+        {
+            ["participant-client"] = new() { Address = participantClientAddress }
         }
     }
 ]);

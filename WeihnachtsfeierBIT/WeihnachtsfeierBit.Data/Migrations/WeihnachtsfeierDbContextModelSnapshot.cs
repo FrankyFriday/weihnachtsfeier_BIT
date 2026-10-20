@@ -22,6 +22,33 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessCode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessCode");
+
+                    b.HasIndex("ProjektId")
+                        .IsUnique();
+
+                    b.ToTable("GameInstances");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -175,6 +202,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<DateTime>("ErstelltAmUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("GameInstanceId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("LaeuftAbAmUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -197,6 +227,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GameInstanceId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
@@ -342,6 +374,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("ranking");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
@@ -393,11 +436,18 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Sitzung", b =>
                 {
+                    b.HasOne("WeihnachtsfeierBit.Data.GameInstance", "GameInstance")
+                        .WithMany("Sitzungen")
+                        .HasForeignKey("GameInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Teilnehmer")
                         .WithMany("Sitzungen")
                         .HasForeignKey("TeilnehmerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("GameInstance");
 
                     b.Navigation("Teilnehmer");
                 });
@@ -439,6 +489,11 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Projekt");
 
                     b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
+                {
+                    b.Navigation("Sitzungen");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
