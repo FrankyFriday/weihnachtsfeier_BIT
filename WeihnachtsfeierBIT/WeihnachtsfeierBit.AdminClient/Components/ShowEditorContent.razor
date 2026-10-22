@@ -49,11 +49,23 @@
                                     <FrameworkButton Label="Slide löschen" Variant="danger" OnClick="() => DeleteSlideAsync(slide)" Busy="@(_busySlideId == slide.Id)" Disabled="@(_busySlideId is not null)" />
                                 </div>
                             </div>
-                            <label for="@($"slide-parameters-{slide.Id}")">Slide-Parameter (JSON)</label>
-                            <textarea id="@($"slide-parameters-{slide.Id}")"
-                                      @bind="slide.ParametersJson"
-                                      rows="6"
-                                      style="width: 100%; font-family: monospace; margin-top: 8px;"></textarea>
+                            @if (slide.Type == "announcement")
+                            {
+                                <div class="project-create-form">
+                                    <label for="@($"slide-title-{slide.Id}")">Titel</label>
+                                    <input id="@($"slide-title-{slide.Id}")" @bind="slide.AnnouncementTitle" maxlength="120" />
+                                    <label for="@($"slide-message-{slide.Id}")">Nachricht</label>
+                                    <textarea id="@($"slide-message-{slide.Id}")" @bind="slide.AnnouncementMessage" rows="5"></textarea>
+                                </div>
+                            }
+                            else
+                            {
+                                <label for="@($"slide-parameters-{slide.Id}")">Slide-Parameter (JSON)</label>
+                                <textarea id="@($"slide-parameters-{slide.Id}")"
+                                          @bind="slide.ParametersJson"
+                                          rows="6"
+                                          style="width: 100%; font-family: monospace; margin-top: 8px;"></textarea>
+                            }
                             @if (!string.IsNullOrEmpty(slide.ErrorMessage))
                             {
                                 <p class="text-danger" role="alert">@slide.ErrorMessage</p>
@@ -88,7 +100,7 @@
 
         _show = await showTask;
         _slides = (await slidesTask)
-            .Select(slide => new EditableSlide(slide.Id, slide.Type, slide.Position, slide.Parameters.GetRawText()))
+            .Select(slide => new EditableSlide(slide.Id, slide.Type, slide.Position, slide.Parameters))
             .OrderBy(slide => slide.Position)
             .ToArray();
     }
@@ -100,7 +112,9 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                var parameters = JsonSerializer.SerializeToElement(new { });
+                var parameters = _newSlideType == "announcement"
+                    ? JsonSerializer.SerializeToElement(new { title = string.Empty, message = string.Empty })
+                    : JsonSerializer.SerializeToElement(new { });
                 await ProjectApiClient.CreateAdminShowSlideAsync(
                     token,
                     ShowId,
@@ -118,15 +132,32 @@
     {
         slide.ErrorMessage = null;
         JsonElement parameters;
-        try
+        if (slide.Type == "announcement")
         {
-            using var document = JsonDocument.Parse(slide.ParametersJson);
-            parameters = document.RootElement.Clone();
+            if (string.IsNullOrWhiteSpace(slide.AnnouncementTitle) || string.IsNullOrWhiteSpace(slide.AnnouncementMessage))
+            {
+                slide.ErrorMessage = "Titel und Nachricht dürfen nicht leer sein.";
+                return;
+            }
+
+            parameters = JsonSerializer.SerializeToElement(new
+            {
+                title = slide.AnnouncementTitle.Trim(),
+                message = slide.AnnouncementMessage.Trim()
+            });
         }
-        catch (JsonException)
+        else
         {
-            slide.ErrorMessage = "Bitte gültiges JSON für die Slide-Parameter eingeben.";
-            return;
+            try
+            {
+                using var document = JsonDocument.Parse(slide.ParametersJson);
+                parameters = document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+                slide.ErrorMessage = "Bitte gültiges JSON für die Slide-Parameter eingeben.";
+                return;
+            }
         }
 
         _busySlideId = slide.Id;
@@ -211,12 +242,21 @@
         _ => type
     };
 
-    private sealed class EditableSlide(Guid id, string type, int position, string parametersJson)
+    private sealed class EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
         public Guid Id { get; } = id;
         public string Type { get; } = type;
         public int Position { get; set; } = position;
-        public string ParametersJson { get; set; } = parametersJson;
+        public string ParametersJson { get; set; } = parameters.GetRawText();
+        public string AnnouncementTitle { get; set; } = ReadAnnouncementParameter(parameters, "title");
+        public string AnnouncementMessage { get; set; } = ReadAnnouncementParameter(parameters, "message");
         public string? ErrorMessage { get; set; }
+
+        private static string ReadAnnouncementParameter(JsonElement parameters, string name) =>
+            parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString() ?? string.Empty
+                : string.Empty;
     }
 }
