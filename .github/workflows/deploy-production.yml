@@ -34,6 +34,7 @@ jobs:
             -p weihnachtsfeierbit \
             up -d --build --remove-orphans
           docker compose \
+            --env-file "$deploy_dir/.env" \
             -f "$deploy_dir/WeihnachtsfeierBIT/docker-compose.production.yml" \
             -p weihnachtsfeierbit \
             ps
