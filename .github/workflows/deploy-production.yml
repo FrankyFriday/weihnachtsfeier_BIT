@@ -29,6 +29,7 @@ jobs:
           git -C "$deploy_dir" pull --ff-only origin main
           test -s "$deploy_dir/.env"
           docker compose \
+            --env-file "$deploy_dir/.env" \
             -f "$deploy_dir/WeihnachtsfeierBIT/docker-compose.production.yml" \
             -p weihnachtsfeierbit \
             up -d --build --remove-orphans
