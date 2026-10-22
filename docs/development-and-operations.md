@@ -56,7 +56,9 @@ docker compose down
 
 ## Produktivbetrieb auf dem Server
 
-Der Produktions-Compose-Stack läuft getrennt vom Entwicklungsstack und veröffentlicht weder PostgreSQL noch API oder App direkt auf Host-Ports. Die Web-App hängt sich an das vorhandene externe Docker-Netzwerk `proxy`; im Nginx Proxy Manager ist als Ziel `http://weihnachtsfeierbit:8080` einzutragen. TLS sollte am Reverse Proxy terminiert werden. Admin- und Teilnehmerclient sind über `/admin` und `/play` erreichbar.
+Der Produktions-Compose-Stack hängt alle fünf Services an das vorhandene Docker-Netzwerk `proxy`. Er veröffentlicht weder PostgreSQL noch API oder App direkt auf Host-Ports. Im Nginx Proxy Manager für die gewünschte Domain einen Proxy Host mit Schema `http`, Forward Hostname `weihnachtsfeierbit` und Forward Port `8080` anlegen. TLS sollte am Reverse Proxy terminiert und „Force SSL“ aktiviert werden. Admin- und Teilnehmerclient sind unter derselben Website über `/admin` und `/play` erreichbar.
+
+Da PostgreSQL und API ebenfalls im gemeinsam genutzten Netzwerk `proxy` liegen, dürfen diesem Docker-Netzwerk nur vertrauenswürdige Container und Dienste beitreten. Das PostgreSQL-Port wird nicht am Host veröffentlicht; andere Container im Netzwerk können den DB-Port aber erreichen. Das Datenbankpasswort bleibt im zugriffsgeschützten Server-`.env`.
 
 Auf dem Server werden Docker Engine, Docker Compose v2, Git und das vorhandene externe Docker-Netzwerk `proxy` benötigt. Das .NET 10 SDK und PHP auf dem Host sind nicht erforderlich: Die Container-Images enthalten das .NET-Runtime-Image und werden aus den Dockerfiles gebaut. Das Repository enthält keine PHP-Anwendung; auf dem Server ist PHP nicht installiert, daher ist kein PHP-Update nötig. Die Dockerfiles verwenden `mcr.microsoft.com/dotnet/...:10.0`, sodass ein Image-Neubau den jeweils aktuellen verfügbaren .NET-10-Patchstand bezieht.
 
@@ -72,7 +74,7 @@ Das `.env` mit dem zufälligen Datenbankpasswort muss im Server-Checkout bleiben
 
 ### Automatisches Deployment
 
-`.github/workflows/deploy-production.yml` deployt bei jedem Push auf `main`. Da der Server nur unter einer privaten Adresse erreichbar ist, benötigt GitHub einen persistenten, selbst gehosteten Runner auf diesem Server. Dies gibt Workflows auf `main` Zugriff auf den Docker-Daemon des Servers; Änderungen an `main` müssen daher wie privilegierter Servercode behandelt werden. Den Runner im Repository unter **Settings → Actions → Runners → New self-hosted runner** für Linux x64 einrichten und ihm zusätzlich das Label `weihnachtsfeierbit-deploy` geben. Die Deployment-Action setzt außerdem den Server-Checkout unter `/home/frankyserver/dev/weihnachtsfeier_BIT` und dessen `.env` voraus.
+`.github/workflows/deploy-production.yml` deployt bei jedem Push auf `main`. Der selbst gehostete Runner muss auf dem Server laufen und das Label `weihnachtsfeierbit-deploy` tragen. Der Runner hat Zugriff auf den Docker-Daemon des Servers; Änderungen an `main` müssen daher wie privilegierter Servercode behandelt werden. Die Deployment-Action setzt den Server-Checkout unter `/home/frankyserver/dev/weihnachtsfeier_BIT` und dessen `.env` voraus.
 
 ## Migrationen
 
