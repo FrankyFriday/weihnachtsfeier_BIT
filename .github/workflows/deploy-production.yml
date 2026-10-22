@@ -1,0 +1,38 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weihnachtsfeierbit-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - weihnachtsfeierbit-deploy
+    steps:
+      - name: Update production stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_dir=/home/frankyserver/dev/weihnachtsfeier_BIT
+          git -C "$deploy_dir" pull --ff-only origin main
+          test -s "$deploy_dir/.env"
+          docker compose \
+            -f "$deploy_dir/WeihnachtsfeierBIT/docker-compose.production.yml" \
+            -p weihnachtsfeierbit \
+            up -d --build --remove-orphans
+          docker compose \
+            -f "$deploy_dir/WeihnachtsfeierBIT/docker-compose.production.yml" \
+            -p weihnachtsfeierbit \
+            ps

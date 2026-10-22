@@ -1,0 +1,81 @@
+name: weihnachtsfeierbit
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: weihnachtsfeierdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the deployment .env file}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d weihnachtsfeierdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  apiservice:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__weihnachtsfeierdb: Host=postgres;Port=5432;Database=weihnachtsfeierdb;Username=postgres;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  adminclient:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.AdminClient/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ApiBaseUrl: http://apiservice:8080
+    depends_on:
+      - apiservice
+    restart: unless-stopped
+
+  participantclient:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.ParticipantClient/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ApiBaseUrl: http://apiservice:8080
+    depends_on:
+      - apiservice
+    restart: unless-stopped
+
+  webfrontend:
+    build:
+      context: ..
+      dockerfile: WeihnachtsfeierBIT/WeihnachtsfeierBit.Web/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ApiBaseUrl: http://apiservice:8080
+      AdminClientBaseUrl: http://adminclient:8080
+      ParticipantClientBaseUrl: http://participantclient:8080
+    depends_on:
+      - apiservice
+      - adminclient
+      - participantclient
+    networks:
+      default: {}
+      proxy:
+        aliases:
+          - weihnachtsfeierbit
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+
+networks:
+  proxy:
+    external: true
