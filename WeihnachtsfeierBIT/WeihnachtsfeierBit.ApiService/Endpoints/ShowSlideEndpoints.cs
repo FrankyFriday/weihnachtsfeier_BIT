@@ -126,7 +126,7 @@ public static class ShowSlideEndpoints
             link => link.ProjektId == projectId && link.ShowId == showId, cancellationToken);
     }
 
-    private static (Slide? Slide, string? Error) CreateSlide(SlideRequest request, Show show)
+    internal static (Slide? Slide, string? Error) CreateSlide(SlideRequest request, Show show)
     {
         Slide? slide = request.Type?.Trim().ToLowerInvariant() switch
         {
@@ -145,7 +145,7 @@ public static class ShowSlideEndpoints
         return result.Error is null ? (slide, null) : (null, result.Error);
     }
 
-    private static (bool Success, string? Error) ApplyRequest(Slide slide, SlideRequest request)
+    internal static (bool Success, string? Error) ApplyRequest(Slide slide, SlideRequest request)
     {
         if (request.Position < 0)
         {
@@ -187,7 +187,7 @@ public static class ShowSlideEndpoints
             : parameters.Deserialize<T>(JsonOptions) ?? new T();
     }
 
-    private static SlideResponse ToResponse(Slide slide)
+    internal static SlideResponse ToResponse(Slide slide)
     {
         var (type, parameters) = slide switch
         {
