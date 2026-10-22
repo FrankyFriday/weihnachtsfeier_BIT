@@ -33,6 +33,8 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration. Ein neuer Untertyp muss in `Slide.cs` und im EF-Discriminator in `OnModelCreating` ergänzt werden. `SchemaVersion` ist für spätere JSON-Formatmigrationen vorgesehen.
 
+Der Show-Editor stellt für Announcement-Slides eigene Titel- und Nachrichtenfelder bereit; andere Slide-Typen können ihre typspezifischen Parameter direkt als JSON bearbeiten.
+
 ## Admin- und Teilnehmerzugriff
 
 Ein Admin-Konto ist projektunabhängig. Berechtigungen entstehen ausschließlich durch einen Datensatz in `ProjektAdminProjekt`; ein Admin kann damit mehrere Projekte verwalten. Entfernen einer Membership löscht nicht das globale Konto.
