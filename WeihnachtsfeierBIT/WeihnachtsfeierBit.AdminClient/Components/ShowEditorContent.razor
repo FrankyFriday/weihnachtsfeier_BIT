@@ -1,3 +1,4 @@
+@using System.Text.Json
 @inherits AuthenticatedComponentBase
 
 <FrameworkPage>
@@ -11,7 +12,60 @@
     }
     else if (_show is not null)
     {
-        <PageHeading Eyebrow="SHOW" Title="@_show.Name" Description="Der Show-Editor wird in einem separaten Schritt ergänzt." />
+        <div class="overview-toolbar">
+            <PageHeading Eyebrow="SHOW-EDITOR" Title="@_show.Name" Description="Slides verwalten, konfigurieren und in der Reihenfolge der Show sortieren." />
+        </div>
+
+        <div class="framework-button-row" style="margin-bottom: 24px;">
+            <label for="new-slide-type">Slide-Typ</label>
+            <select id="new-slide-type" @bind="_newSlideType">
+                <option value="announcement">Ankündigung</option>
+                <option value="poll">Abstimmung</option>
+                <option value="quiz">Quiz</option>
+                <option value="ranking">Zwischenstand</option>
+            </select>
+            <FrameworkButton Label="Slide hinzufügen" Variant="primary" OnClick="AddSlideAsync" Busy="@_adding" Disabled="@_adding" />
+        </div>
+
+        @if (_slides.Length == 0)
+        {
+            <EmptyState Title="Noch keine Slides" Description="Füge den ersten Slide hinzu, um die Show aufzubauen." />
+        }
+        else
+        {
+            <div class="project-grid">
+                @foreach (var slide in _slides.OrderBy(item => item.Position))
+                {
+                    <Card Class="project-card" @key="slide.Id">
+                        <ChildContent>
+                            <div class="overview-toolbar">
+                                <div>
+                                    <span class="eyebrow">SLIDE @(slide.Position + 1)</span>
+                                    <h2>@SlideTypeLabel(slide.Type)</h2>
+                                </div>
+                                <div class="framework-button-row">
+                                    <FrameworkButton Label="Nach oben" Variant="secondary" OnClick="() => MoveSlideAsync(slide, -1)" Disabled="@(_busySlideId is not null || slide.Position == 0)" />
+                                    <FrameworkButton Label="Nach unten" Variant="secondary" OnClick="() => MoveSlideAsync(slide, 1)" Disabled="@(_busySlideId is not null || slide.Position == _slides.Length - 1)" />
+                                    <FrameworkButton Label="Slide löschen" Variant="danger" OnClick="() => DeleteSlideAsync(slide)" Busy="@(_busySlideId == slide.Id)" Disabled="@(_busySlideId is not null)" />
+                                </div>
+                            </div>
+                            <label for="@($"slide-parameters-{slide.Id}")">Slide-Parameter (JSON)</label>
+                            <textarea id="@($"slide-parameters-{slide.Id}")"
+                                      @bind="slide.ParametersJson"
+                                      rows="6"
+                                      style="width: 100%; font-family: monospace; margin-top: 8px;"></textarea>
+                            @if (!string.IsNullOrEmpty(slide.ErrorMessage))
+                            {
+                                <p class="text-danger" role="alert">@slide.ErrorMessage</p>
+                            }
+                        </ChildContent>
+                        <FooterContent>
+                            <FrameworkButton Label="Änderungen speichern" Variant="primary" OnClick="() => SaveSlideAsync(slide)" Busy="@(_busySlideId == slide.Id)" Disabled="@(_busySlideId is not null)" />
+                        </FooterContent>
+                    </Card>
+                }
+            </div>
+        }
     }
 </FrameworkPage>
 
@@ -19,7 +73,150 @@
     [Parameter] public Guid ShowId { get; set; }
 
     private AdminShow? _show;
+    private EditableSlide[] _slides = [];
+    private string _newSlideType = "announcement";
+    private Guid? _busySlideId;
+    private bool _adding;
 
-    protected override async Task OnParametersSetAsync() =>
-        await LoadAuthenticatedAsync(async token => _show = await ProjectApiClient.GetAdminShowAsync(token, ShowId));
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);
+
+    private async Task LoadDataAsync(string token)
+    {
+        var showTask = ProjectApiClient.GetAdminShowAsync(token, ShowId);
+        var slidesTask = ProjectApiClient.GetAdminShowSlidesAsync(token, ShowId);
+        await Task.WhenAll(showTask, slidesTask);
+
+        _show = await showTask;
+        _slides = (await slidesTask)
+            .Select(slide => new EditableSlide(slide.Id, slide.Type, slide.Position, slide.Parameters.GetRawText()))
+            .OrderBy(slide => slide.Position)
+            .ToArray();
+    }
+
+    private async Task AddSlideAsync()
+    {
+        _adding = true;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var parameters = JsonSerializer.SerializeToElement(new { });
+                await ProjectApiClient.CreateAdminShowSlideAsync(
+                    token,
+                    ShowId,
+                    new SlideWriteRequest(_newSlideType, _slides.Length, parameters));
+                await LoadDataAsync(token);
+            });
+        }
+        finally
+        {
+            _adding = false;
+        }
+    }
+
+    private async Task SaveSlideAsync(EditableSlide slide)
+    {
+        slide.ErrorMessage = null;
+        JsonElement parameters;
+        try
+        {
+            using var document = JsonDocument.Parse(slide.ParametersJson);
+            parameters = document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            slide.ErrorMessage = "Bitte gültiges JSON für die Slide-Parameter eingeben.";
+            return;
+        }
+
+        _busySlideId = slide.Id;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateAdminShowSlideAsync(
+                    token,
+                    ShowId,
+                    slide.Id,
+                    new SlideWriteRequest(slide.Type, slide.Position, parameters));
+                await LoadDataAsync(token);
+            });
+        }
+        finally
+        {
+            _busySlideId = null;
+        }
+    }
+
+    private async Task MoveSlideAsync(EditableSlide slide, int direction)
+    {
+        var ordered = _slides.OrderBy(item => item.Position).ToList();
+        var currentIndex = ordered.IndexOf(slide);
+        var targetIndex = currentIndex + direction;
+        if (targetIndex < 0 || targetIndex >= ordered.Count)
+        {
+            return;
+        }
+
+        (ordered[currentIndex].Position, ordered[targetIndex].Position) =
+            (ordered[targetIndex].Position, ordered[currentIndex].Position);
+
+        _busySlideId = slide.Id;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                foreach (var item in new[] { ordered[currentIndex], ordered[targetIndex] })
+                {
+                    using var document = JsonDocument.Parse(item.ParametersJson);
+                    await ProjectApiClient.UpdateAdminShowSlideAsync(
+                        token,
+                        ShowId,
+                        item.Id,
+                        new SlideWriteRequest(item.Type, item.Position, document.RootElement.Clone()));
+                }
+
+                await LoadDataAsync(token);
+            });
+        }
+        finally
+        {
+            _busySlideId = null;
+        }
+    }
+
+    private async Task DeleteSlideAsync(EditableSlide slide)
+    {
+        _busySlideId = slide.Id;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.DeleteAdminShowSlideAsync(token, ShowId, slide.Id);
+                await LoadDataAsync(token);
+            });
+        }
+        finally
+        {
+            _busySlideId = null;
+        }
+    }
+
+    private static string SlideTypeLabel(string type) => type switch
+    {
+        "announcement" => "Ankündigung",
+        "poll" => "Abstimmung",
+        "quiz" => "Quiz",
+        "ranking" => "Zwischenstand",
+        _ => type
+    };
+
+    private sealed class EditableSlide(Guid id, string type, int position, string parametersJson)
+    {
+        public Guid Id { get; } = id;
+        public string Type { get; } = type;
+        public int Position { get; set; } = position;
+        public string ParametersJson { get; set; } = parametersJson;
+        public string? ErrorMessage { get; set; }
+    }
 }

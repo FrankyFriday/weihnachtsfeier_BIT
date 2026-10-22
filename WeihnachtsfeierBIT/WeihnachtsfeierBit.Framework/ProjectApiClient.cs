@@ -31,6 +31,55 @@ public class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
     }
 
+    public async Task<SlideSummary[]> GetAdminShowSlidesAsync(
+        string accessToken,
+        Guid showId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/shows/{showId}/slides", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SlideSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<SlideSummary> CreateAdminShowSlideAsync(
+        string accessToken,
+        Guid showId,
+        SlideWriteRequest slide,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/admin/shows/{showId}/slides", accessToken, slide);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SlideSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Slide zurückgegeben.");
+    }
+
+    public async Task<SlideSummary> UpdateAdminShowSlideAsync(
+        string accessToken,
+        Guid showId,
+        Guid slideId,
+        SlideWriteRequest slide,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/shows/{showId}/slides/{slideId}", accessToken, slide);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SlideSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen aktualisierten Slide zurückgegeben.");
+    }
+
+    public async Task DeleteAdminShowSlideAsync(
+        string accessToken,
+        Guid showId,
+        Guid slideId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/admin/shows/{showId}/slides/{slideId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<AdminShow> CreateAdminShowAsync(string accessToken, string name, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, "/api/admin/shows", accessToken, new CreateGlobalShowRequest(name));
@@ -366,6 +415,7 @@ public sealed record CreateTeamRequest(string DisplayName, string Color);
 public sealed record UpdateTeamRequest(string DisplayName, string Color, int Points);
 public sealed record UpdateTeamPointsRequest(int Points);
 public sealed record SlideSummary(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
+public sealed record SlideWriteRequest(string Type, int Position, JsonElement Parameters);
 public sealed record ParticipantState(Guid Id, int Number, string? Name);
 public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
 public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);

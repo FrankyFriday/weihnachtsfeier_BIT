@@ -17,6 +17,10 @@ Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitg
 | `GET /api/admin/shows` | Admin-Bearer-Token | Globale Shows samt Anzahl verknüpfter Projekte auflisten. |
 | `POST /api/admin/shows` | Admin-Bearer-Token | Show global anlegen; Body `{ "name": "..." }`. |
 | `GET /api/admin/shows/{showId}` | Admin-Bearer-Token | Eine globale Show laden. |
+| `GET /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Geordnete Slides einer globalen Show laden. |
+| `POST /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Slide mit Typ, Position und JSON-Parametern anlegen. |
+| `PUT /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Position und typspezifische JSON-Parameter aktualisieren. |
+| `DELETE /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Slide löschen. |
 
 Registrierung, Login und Teilnehmernummern-Login sind auf zehn Requests pro IP und Minute begrenzt.
 
@@ -66,4 +70,4 @@ Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{p
 
 ## Noch nicht umgesetzt
 
-Der Adminclient kann Projekte, Play-Sessions (`GameInstance`), Teams, Teilnehmer sowie Show-Projekt-Verknüpfungen verwalten. Der Teilnehmerclient unter `/play/{code}` erlaubt 6-stellige Code-Logins, Profilnamenseingabe und Live-Dashboard-Ansichten. Der Show-Editor, Antwortabgabe für Slides und das Leinwand-Dashboard sind noch nicht umgesetzt. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+Der Adminclient kann Projekte, Play-Sessions (`GameInstance`), Teams, Teilnehmer sowie Show-Projekt-Verknüpfungen verwalten. Der Show-Editor kann Slides anlegen, löschen, sortieren und deren JSON-Parameter bearbeiten. Der Teilnehmerclient unter `/play/{code}` erlaubt 6-stellige Code-Logins, Profilnamenseingabe und Live-Dashboard-Ansichten. Antwortabgabe für Slides und das Leinwand-Dashboard sind noch nicht umgesetzt. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.

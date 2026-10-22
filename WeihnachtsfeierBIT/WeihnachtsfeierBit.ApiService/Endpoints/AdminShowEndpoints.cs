@@ -13,6 +13,7 @@ public static class AdminShowEndpoints
         shows.MapGet("", GetShowsAsync).WithName("GetAdminShows");
         shows.MapPost("", CreateShowAsync).WithName("CreateAdminShow");
         shows.MapGet("/{showId:guid}", GetShowAsync).WithName("GetAdminShow");
+        AdminShowSlideEndpoints.Map(shows);
         return endpoints;
     }
 
