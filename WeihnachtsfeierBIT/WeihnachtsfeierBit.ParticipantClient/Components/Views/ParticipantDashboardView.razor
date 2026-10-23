@@ -31,7 +31,7 @@
                     {
                         <div style="padding: 12px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                             <div>
-                                <FrameworkBadge Text="@ev.SlideType.ToUpperInvariant()" Variant="@ev.SlideType" />
+                                <FrameworkBadge Text="@GetFriendlyTypeName(ev.SlideType)" Variant="@ev.SlideType" />
                                 <strong style="display: block; margin-top: 4px;">@ev.Title</strong>
                             </div>
                             <FrameworkButton Label="Öffnen" Variant="primary" OnClick="() => OnSelectPassiveEvent.InvokeAsync(ev)" />
@@ -145,4 +145,15 @@
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
 
     private int TotalTeamCount => AllTeams.Length;
+
+    private static string GetFriendlyTypeName(string type) => type.ToLowerInvariant() switch
+    {
+        "announcement" => "Ankündigung",
+        "poll" => "Abstimmung",
+        "quiz" => "Quiz",
+        "estimation" => "Schätzfrage",
+        "buzzer" => "Buzzer",
+        "ranking" => "Rangliste",
+        _ => "Event"
+    };
 }
