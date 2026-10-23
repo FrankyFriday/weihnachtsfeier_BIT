@@ -91,7 +91,7 @@ public class ProjectApiClient(HttpClient httpClient)
 
     public async Task<ProjectSummary> CreateProjectAsync(string accessToken, string name, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, "/api/projects", accessToken, new CreateProjectRequest(name));
+        using var request = CreateRequest(HttpMethod.Post, "/api/admin/projects", accessToken, new CreateProjectRequest(name));
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ProjectSummary>(cancellationToken)
