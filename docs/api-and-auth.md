@@ -19,6 +19,7 @@ Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitg
 | `GET /api/admin/shows/{showId}` | Admin-Bearer-Token | Eine globale Show laden. |
 | `GET /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Geordnete Slides einer globalen Show laden. |
 | `POST /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Slide mit Typ, Position und JSON-Parametern anlegen. |
+| `PUT /api/admin/shows/{showId}/slide-positions` | Admin-Bearer-Token | Slide-Reihenfolge atomar per ID-Array aktualisieren (`{ "slideIds": [...] }`). |
 | `PUT /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Position und typspezifische JSON-Parameter aktualisieren. |
 | `DELETE /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Slide löschen. |
 

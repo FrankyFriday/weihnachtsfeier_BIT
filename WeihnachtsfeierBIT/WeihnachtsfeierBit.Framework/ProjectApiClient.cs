@@ -69,6 +69,17 @@ public class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keinen aktualisierten Slide zurückgegeben.");
     }
 
+    public async Task ReorderAdminShowSlidesAsync(
+        string accessToken,
+        Guid showId,
+        Guid[] slideIds,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/shows/{showId}/slide-positions", accessToken, new { slideIds });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task DeleteAdminShowSlideAsync(
         string accessToken,
         Guid showId,

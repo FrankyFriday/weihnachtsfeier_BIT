@@ -89,6 +89,8 @@ public sealed class RankingSlide : Slide
 public abstract class SlideParameters
 {
     public int SchemaVersion { get; set; } = 1;
+
+    public string InternalName { get; set; } = string.Empty;
 }
 
 public sealed class PollSlideParameters : SlideParameters

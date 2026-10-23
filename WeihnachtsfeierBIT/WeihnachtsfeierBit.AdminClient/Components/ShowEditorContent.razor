@@ -16,77 +16,230 @@
             <PageHeading Eyebrow="SHOW-EDITOR" Title="@_show.Name" Description="Slides verwalten, konfigurieren und in der Reihenfolge der Show sortieren." />
         </div>
 
-        <div class="framework-button-row" style="margin-bottom: 24px;">
-            <label for="new-slide-type">Slide-Typ</label>
-            <select id="new-slide-type" @bind="_newSlideType">
+        <div class="slide-editor-layout">
+            <!-- LEFT COLUMN: Slide List -->
+            <div class="slide-list-column">
+                <div class="slide-list-header">
+                    <h3>Slides (@_slides.Length)</h3>
+                </div>
+
+                @if (_slides.Length == 0)
+                {
+                    <div class="slide-list-empty">
+                        <p>Noch keine Slides vorhanden.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="slide-list-items">
+                        @foreach (var slide in _slides.OrderBy(s => s.Position))
+                        {
+                            var isSelected = _selectedSlide?.Id == slide.Id;
+                            <div class="slide-list-item @(isSelected ? "selected" : string.Empty)" @onclick="() => SelectSlide(slide)" @key="slide.Id">
+                                <div class="slide-list-item-content">
+                                    <div class="slide-list-item-header">
+                                        <span class="slide-position">#@(slide.Position + 1)</span>
+                                        <span class="slide-type-badge slide-type-@slide.Type">@SlideTypeLabel(slide.Type)</span>
+                                    </div>
+                                    <div class="slide-list-item-title">
+                                        @slide.DisplayName
+                                    </div>
+                                </div>
+                                <div class="slide-list-item-actions" @onclick:stopPropagation="true">
+                                    <button type="button" class="btn-arrow" title="Nach oben" @onclick="() => MoveSlideAsync(slide, -1)" disabled="@(_busySlideId is not null || slide.Position == 0)">▲</button>
+                                    <button type="button" class="btn-arrow" title="Nach unten" @onclick="() => MoveSlideAsync(slide, 1)" disabled="@(_busySlideId is not null || slide.Position == _slides.Length - 1)">▼</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="slide-list-footer">
+                    <FrameworkButton Label="+ Slide hinzufügen" Variant="primary" OnClick="OpenAddModal" Disabled="@_adding" />
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Slide Configurator -->
+            <div class="slide-detail-column">
+                @if (_selectedSlide is not null)
+                {
+                    <Card Class="slide-detail-card" @key="_selectedSlide.Id">
+                        <HeaderContent>
+                            <div class="slide-detail-header">
+                                <div>
+                                    <span class="eyebrow">SLIDE #@(_selectedSlide.Position + 1)</span>
+                                    <h2>@_selectedSlide.DisplayName</h2>
+                                </div>
+                                <span class="slide-type-badge slide-type-@_selectedSlide.Type">@SlideTypeLabel(_selectedSlide.Type)</span>
+                            </div>
+                        </HeaderContent>
+                        <ChildContent>
+                            <div class="slide-form">
+                                <!-- Common Field: Internal Name -->
+                                <div class="form-group">
+                                    <label for="slide-internal-name">Interner Name <span class="framework-help-text">(nur im Admin-Panel sichtbar)</span></label>
+                                    <input id="slide-internal-name" @bind="_selectedSlide.InternalName" placeholder="z. B. Begrüßung Runde 1" />
+                                </div>
+
+                                <hr class="form-divider" />
+
+                                @if (_selectedSlide.Type == "announcement")
+                                {
+                                    <div class="form-group">
+                                        <label for="announcement-title">Titel</label>
+                                        <input id="announcement-title" @bind="_selectedSlide.AnnouncementTitle" maxlength="120" placeholder="Ankündigungstitel" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="announcement-message">Nachricht</label>
+                                        <textarea id="announcement-message" @bind="_selectedSlide.AnnouncementMessage" rows="5" placeholder="Nachrichtentext"></textarea>
+                                    </div>
+                                }
+                                else if (_selectedSlide.Type == "poll")
+                                {
+                                    <div class="form-group">
+                                        <label for="poll-question">Frage</label>
+                                        <input id="poll-question" @bind="_selectedSlide.PollQuestion" placeholder="Welche Option wählt ihr?" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Optionen</label>
+                                        @for (int i = 0; i < _selectedSlide.PollOptions.Count; i++)
+                                        {
+                                            var index = i;
+                                            <div class="dynamic-list-row">
+                                                <input @bind="_selectedSlide.PollOptions[index]" placeholder="@($"Option {index + 1}")" />
+                                                <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => RemovePollOption(_selectedSlide, index)" Disabled="@(_selectedSlide.PollOptions.Count <= 2)" />
+                                            </div>
+                                        }
+                                        <div style="margin-top: 8px;">
+                                            <FrameworkButton Label="+ Option hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.PollOptions.Add(string.Empty)" />
+                                        </div>
+                                    </div>
+                                    <div class="form-group checkbox-group">
+                                        <label>
+                                            <input type="checkbox" @bind="_selectedSlide.PollAllowMultiple" />
+                                            <span>Mehrfachauswahl erlauben</span>
+                                        </label>
+                                    </div>
+                                }
+                                else if (_selectedSlide.Type == "quiz")
+                                {
+                                    <div class="form-group">
+                                        <label for="quiz-question">Frage</label>
+                                        <input id="quiz-question" @bind="_selectedSlide.QuizQuestion" placeholder="Welche Antwort ist richtig?" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Antwortmöglichkeiten</label>
+                                        @for (int i = 0; i < _selectedSlide.QuizAnswers.Count; i++)
+                                        {
+                                            var index = i;
+                                            var isCorrect = _selectedSlide.QuizCorrectAnswerIndices.Contains(index);
+                                            <div class="dynamic-list-row">
+                                                <input @bind="_selectedSlide.QuizAnswers[index]" placeholder="@($"Antwort {index + 1}")" />
+                                                <label class="correct-checkbox-label">
+                                                    <input type="checkbox" checked="@isCorrect" @onchange="e => ToggleQuizCorrectAnswer(_selectedSlide, index, (bool)(e.Value ?? false))" />
+                                                    <span>Richtig</span>
+                                                </label>
+                                                <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => RemoveQuizAnswer(_selectedSlide, index)" Disabled="@(_selectedSlide.QuizAnswers.Count <= 2)" />
+                                            </div>
+                                        }
+                                        <div style="margin-top: 8px;">
+                                            <FrameworkButton Label="+ Antwort hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.QuizAnswers.Add(string.Empty)" />
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="quiz-time-limit">Zeitlimit in Sekunden (optional)</label>
+                                        <input id="quiz-time-limit" type="number" min="5" max="300" @bind="_selectedSlide.QuizTimeLimitSeconds" placeholder="z. B. 30" />
+                                    </div>
+                                }
+                                else if (_selectedSlide.Type == "ranking")
+                                {
+                                    <div class="form-group">
+                                        <label for="ranking-title">Titel der Rangliste</label>
+                                        <input id="ranking-title" @bind="_selectedSlide.RankingTitle" placeholder="z. B. Punktestand nach Runde 1" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Ranglisteneinträge</label>
+                                        @for (int i = 0; i < _selectedSlide.RankingEntries.Count; i++)
+                                        {
+                                            var index = i;
+                                            <div class="dynamic-list-row">
+                                                <input @bind="_selectedSlide.RankingEntries[index].Label" placeholder="Name / Team" style="flex: 2;" />
+                                                <input type="number" @bind="_selectedSlide.RankingEntries[index].Score" placeholder="Punkte" style="flex: 1;" />
+                                                <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => RemoveRankingEntry(_selectedSlide, index)" Disabled="@(_selectedSlide.RankingEntries.Count <= 1)" />
+                                            </div>
+                                        }
+                                        <div style="margin-top: 8px;">
+                                            <FrameworkButton Label="+ Eintrag hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.RankingEntries.Add(new RankingEntryModel())" />
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(_selectedSlide.ErrorMessage))
+                                {
+                                    <FrameworkNotice Message="@_selectedSlide.ErrorMessage" Format="error" />
+                                }
+                            </div>
+                        </ChildContent>
+                        <FooterContent>
+                            <div class="slide-detail-footer">
+                                <FrameworkButton Label="Slide löschen" Variant="danger" OnClick="() => DeleteSlideAsync(_selectedSlide)" Busy="@(_busySlideId == _selectedSlide.Id)" Disabled="@(_busySlideId is not null)" />
+                                <FrameworkButton Label="Änderungen speichern" Variant="primary" OnClick="() => SaveSlideAsync(_selectedSlide)" Busy="@(_busySlideId == _selectedSlide.Id)" Disabled="@(_busySlideId is not null)" />
+                            </div>
+                        </FooterContent>
+                    </Card>
+                }
+                else
+                {
+                    <EmptyState Title="Keine Slide ausgewählt" Description="Wähle eine Slide aus der linken Liste aus, um sie zu konfigurieren, oder erstelle eine neue Slide." />
+                }
+            </div>
+        </div>
+    }
+</FrameworkPage>
+
+<!-- ADD SLIDE MODAL -->
+<FrameworkModal IsOpen="@_isAddModalOpen" Title="Neue Slide hinzufügen" OnClose="CloseAddModal">
+    <div class="modal-form">
+        <div class="form-group">
+            <label for="modal-slide-type">Slide-Typ</label>
+            <select id="modal-slide-type" @bind="_newSlideType" class="framework-select">
                 <option value="announcement">Ankündigung</option>
                 <option value="poll">Abstimmung</option>
                 <option value="quiz">Quiz</option>
                 <option value="ranking">Zwischenstand</option>
             </select>
-            <FrameworkButton Label="Slide hinzufügen" Variant="primary" OnClick="AddSlideAsync" Busy="@_adding" Disabled="@_adding" />
+        </div>
+        <div class="form-group" style="margin-top: 16px;">
+            <label for="modal-internal-name">Interner Name <span class="framework-help-text">(optional, nur im Admin-Panel sichtbar)</span></label>
+            <input id="modal-internal-name" @bind="_newSlideInternalName" placeholder="z. B. Begrüßung & Regeln" />
         </div>
 
-        @if (_slides.Length == 0)
+        @if (!string.IsNullOrEmpty(_addModalError))
         {
-            <EmptyState Title="Noch keine Slides" Description="Füge den ersten Slide hinzu, um die Show aufzubauen." />
-        }
-        else
-        {
-            <div class="project-grid">
-                @foreach (var slide in _slides.OrderBy(item => item.Position))
-                {
-                    <Card Class="project-card" @key="slide.Id">
-                        <ChildContent>
-                            <div class="overview-toolbar">
-                                <div>
-                                    <span class="eyebrow">SLIDE @(slide.Position + 1)</span>
-                                    <h2>@SlideTypeLabel(slide.Type)</h2>
-                                </div>
-                                <div class="framework-button-row">
-                                    <FrameworkButton Label="Nach oben" Variant="secondary" OnClick="() => MoveSlideAsync(slide, -1)" Disabled="@(_busySlideId is not null || slide.Position == 0)" />
-                                    <FrameworkButton Label="Nach unten" Variant="secondary" OnClick="() => MoveSlideAsync(slide, 1)" Disabled="@(_busySlideId is not null || slide.Position == _slides.Length - 1)" />
-                                    <FrameworkButton Label="Slide löschen" Variant="danger" OnClick="() => DeleteSlideAsync(slide)" Busy="@(_busySlideId == slide.Id)" Disabled="@(_busySlideId is not null)" />
-                                </div>
-                            </div>
-                            @if (slide.Type == "announcement")
-                            {
-                                <div class="project-create-form">
-                                    <label for="@($"slide-title-{slide.Id}")">Titel</label>
-                                    <input id="@($"slide-title-{slide.Id}")" @bind="slide.AnnouncementTitle" maxlength="120" />
-                                    <label for="@($"slide-message-{slide.Id}")">Nachricht</label>
-                                    <textarea id="@($"slide-message-{slide.Id}")" @bind="slide.AnnouncementMessage" rows="5"></textarea>
-                                </div>
-                            }
-                            else
-                            {
-                                <label for="@($"slide-parameters-{slide.Id}")">Slide-Parameter (JSON)</label>
-                                <textarea id="@($"slide-parameters-{slide.Id}")"
-                                          @bind="slide.ParametersJson"
-                                          rows="6"
-                                          style="width: 100%; font-family: monospace; margin-top: 8px;"></textarea>
-                            }
-                            @if (!string.IsNullOrEmpty(slide.ErrorMessage))
-                            {
-                                <p class="text-danger" role="alert">@slide.ErrorMessage</p>
-                            }
-                        </ChildContent>
-                        <FooterContent>
-                            <FrameworkButton Label="Änderungen speichern" Variant="primary" OnClick="() => SaveSlideAsync(slide)" Busy="@(_busySlideId == slide.Id)" Disabled="@(_busySlideId is not null)" />
-                        </FooterContent>
-                    </Card>
-                }
+            <div style="margin-top: 16px;">
+                <FrameworkNotice Message="@_addModalError" Format="error" />
             </div>
         }
-    }
-</FrameworkPage>
+
+        <div class="modal-footer-actions">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseAddModal" Disabled="@_adding" />
+            <FrameworkButton Label="Slide hinzufügen" Variant="primary" OnClick="AddSlideAsync" Busy="@_adding" Disabled="@_adding" />
+        </div>
+    </div>
+</FrameworkModal>
 
 @code {
     [Parameter] public Guid ShowId { get; set; }
 
     private AdminShow? _show;
     private EditableSlide[] _slides = [];
+    private EditableSlide? _selectedSlide;
+
+    private bool _isAddModalOpen;
     private string _newSlideType = "announcement";
+    private string _newSlideInternalName = string.Empty;
+    private string? _addModalError;
+
     private Guid? _busySlideId;
     private bool _adding;
 
@@ -99,28 +252,80 @@
         await Task.WhenAll(showTask, slidesTask);
 
         _show = await showTask;
-        _slides = (await slidesTask)
+        var slideResponses = await slidesTask;
+
+        var selectedId = _selectedSlide?.Id;
+
+        _slides = slideResponses
             .Select(slide => new EditableSlide(slide.Id, slide.Type, slide.Position, slide.Parameters))
             .OrderBy(slide => slide.Position)
             .ToArray();
+
+        if (selectedId is Guid targetId && _slides.FirstOrDefault(s => s.Id == targetId) is EditableSlide reselected)
+        {
+            _selectedSlide = reselected;
+        }
+        else
+        {
+            _selectedSlide = _slides.FirstOrDefault();
+        }
+    }
+
+    private void SelectSlide(EditableSlide slide)
+    {
+        _selectedSlide = slide;
+    }
+
+    private void OpenAddModal()
+    {
+        _newSlideType = "announcement";
+        _newSlideInternalName = string.Empty;
+        _addModalError = null;
+        _isAddModalOpen = true;
+    }
+
+    private void CloseAddModal()
+    {
+        if (!_adding)
+        {
+            _isAddModalOpen = false;
+        }
     }
 
     private async Task AddSlideAsync()
     {
         _adding = true;
+        _addModalError = null;
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                var parameters = _newSlideType == "announcement"
-                    ? JsonSerializer.SerializeToElement(new { title = string.Empty, message = string.Empty })
-                    : JsonSerializer.SerializeToElement(new { });
-                await ProjectApiClient.CreateAdminShowSlideAsync(
+                object defaultPayload = _newSlideType switch
+                {
+                    "announcement" => new { internalName = _newSlideInternalName.Trim(), title = string.Empty, message = string.Empty },
+                    "poll" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, options = new[] { string.Empty, string.Empty }, allowMultipleAnswers = false },
+                    "quiz" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, answers = new[] { string.Empty, string.Empty }, correctAnswerIndices = new[] { 0 }, timeLimitSeconds = (int?)null },
+                    "ranking" => new { internalName = _newSlideInternalName.Trim(), title = string.Empty, entries = new[] { new { label = string.Empty, score = 0 } } },
+                    _ => new { internalName = _newSlideInternalName.Trim() }
+                };
+
+                var createdSlide = await ProjectApiClient.CreateAdminShowSlideAsync(
                     token,
                     ShowId,
-                    new SlideWriteRequest(_newSlideType, _slides.Length, parameters));
+                    new SlideWriteRequest(_newSlideType, _slides.Length, JsonSerializer.SerializeToElement(defaultPayload)));
+
+                _isAddModalOpen = false;
                 await LoadDataAsync(token);
+
+                if (createdSlide is not null)
+                {
+                    _selectedSlide = _slides.FirstOrDefault(s => s.Id == createdSlide.Id);
+                }
             });
+        }
+        catch (Exception ex)
+        {
+            _addModalError = "Fehler beim Erstellen der Slide: " + ex.Message;
         }
         finally
         {
@@ -130,34 +335,10 @@
 
     private async Task SaveSlideAsync(EditableSlide slide)
     {
-        slide.ErrorMessage = null;
-        JsonElement parameters;
-        if (slide.Type == "announcement")
+        var (parameters, error) = slide.BuildParameters();
+        if (error is not null)
         {
-            if (string.IsNullOrWhiteSpace(slide.AnnouncementTitle) || string.IsNullOrWhiteSpace(slide.AnnouncementMessage))
-            {
-                slide.ErrorMessage = "Titel und Nachricht dürfen nicht leer sein.";
-                return;
-            }
-
-            parameters = JsonSerializer.SerializeToElement(new
-            {
-                title = slide.AnnouncementTitle.Trim(),
-                message = slide.AnnouncementMessage.Trim()
-            });
-        }
-        else
-        {
-            try
-            {
-                using var document = JsonDocument.Parse(slide.ParametersJson);
-                parameters = document.RootElement.Clone();
-            }
-            catch (JsonException)
-            {
-                slide.ErrorMessage = "Bitte gültiges JSON für die Slide-Parameter eingeben.";
-                return;
-            }
+            return;
         }
 
         _busySlideId = slide.Id;
@@ -189,26 +370,29 @@
             return;
         }
 
-        (ordered[currentIndex].Position, ordered[targetIndex].Position) =
-            (ordered[targetIndex].Position, ordered[currentIndex].Position);
+        var temp = ordered[currentIndex];
+        ordered[currentIndex] = ordered[targetIndex];
+        ordered[targetIndex] = temp;
 
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].Position = i;
+        }
+
+        _slides = ordered.ToArray();
         _busySlideId = slide.Id;
+
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                foreach (var item in new[] { ordered[currentIndex], ordered[targetIndex] })
-                {
-                    using var document = JsonDocument.Parse(item.ParametersJson);
-                    await ProjectApiClient.UpdateAdminShowSlideAsync(
-                        token,
-                        ShowId,
-                        item.Id,
-                        new SlideWriteRequest(item.Type, item.Position, document.RootElement.Clone()));
-                }
-
-                await LoadDataAsync(token);
+                var slideIds = _slides.Select(s => s.Id).ToArray();
+                await ProjectApiClient.ReorderAdminShowSlidesAsync(token, ShowId, slideIds);
             });
+        }
+        catch
+        {
+            await RunAuthenticatedAsync(LoadDataAsync);
         }
         finally
         {
@@ -224,12 +408,67 @@
             await RunAuthenticatedAsync(async token =>
             {
                 await ProjectApiClient.DeleteAdminShowSlideAsync(token, ShowId, slide.Id);
+                _selectedSlide = null;
+
+                var remainingIds = _slides.Where(s => s.Id != slide.Id).Select(s => s.Id).ToArray();
+                if (remainingIds.Length > 0)
+                {
+                    await ProjectApiClient.ReorderAdminShowSlidesAsync(token, ShowId, remainingIds);
+                }
+
                 await LoadDataAsync(token);
             });
         }
         finally
         {
             _busySlideId = null;
+        }
+    }
+
+    private void RemovePollOption(EditableSlide slide, int index)
+    {
+        if (slide.PollOptions.Count > 2)
+        {
+            slide.PollOptions.RemoveAt(index);
+        }
+    }
+
+    private void RemoveQuizAnswer(EditableSlide slide, int index)
+    {
+        if (slide.QuizAnswers.Count > 2)
+        {
+            slide.QuizAnswers.RemoveAt(index);
+            slide.QuizCorrectAnswerIndices.Remove(index);
+            for (int i = 0; i < slide.QuizCorrectAnswerIndices.Count; i++)
+            {
+                if (slide.QuizCorrectAnswerIndices[i] > index)
+                {
+                    slide.QuizCorrectAnswerIndices[i]--;
+                }
+            }
+        }
+    }
+
+    private void ToggleQuizCorrectAnswer(EditableSlide slide, int index, bool isCorrect)
+    {
+        if (isCorrect)
+        {
+            if (!slide.QuizCorrectAnswerIndices.Contains(index))
+            {
+                slide.QuizCorrectAnswerIndices.Add(index);
+            }
+        }
+        else
+        {
+            slide.QuizCorrectAnswerIndices.Remove(index);
+        }
+    }
+
+    private void RemoveRankingEntry(EditableSlide slide, int index)
+    {
+        if (slide.RankingEntries.Count > 1)
+        {
+            slide.RankingEntries.RemoveAt(index);
         }
     }
 
@@ -242,21 +481,255 @@
         _ => type
     };
 
-    private sealed class EditableSlide(Guid id, string type, int position, JsonElement parameters)
+    private sealed class RankingEntryModel
     {
-        public Guid Id { get; } = id;
-        public string Type { get; } = type;
-        public int Position { get; set; } = position;
-        public string ParametersJson { get; set; } = parameters.GetRawText();
-        public string AnnouncementTitle { get; set; } = ReadAnnouncementParameter(parameters, "title");
-        public string AnnouncementMessage { get; set; } = ReadAnnouncementParameter(parameters, "message");
+        public string Label { get; set; } = string.Empty;
+        public int Score { get; set; }
+    }
+
+    private sealed class EditableSlide
+    {
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+        public Guid Id { get; }
+        public string Type { get; }
+        public int Position { get; set; }
+        public string InternalName { get; set; } = string.Empty;
         public string? ErrorMessage { get; set; }
 
-        private static string ReadAnnouncementParameter(JsonElement parameters, string name) =>
-            parameters.ValueKind == JsonValueKind.Object
-            && parameters.TryGetProperty(name, out var value)
-            && value.ValueKind == JsonValueKind.String
-                ? value.GetString() ?? string.Empty
+        public string AnnouncementTitle { get; set; } = string.Empty;
+        public string AnnouncementMessage { get; set; } = string.Empty;
+
+        public string PollQuestion { get; set; } = string.Empty;
+        public List<string> PollOptions { get; set; } = [];
+        public bool PollAllowMultiple { get; set; }
+
+        public string QuizQuestion { get; set; } = string.Empty;
+        public List<string> QuizAnswers { get; set; } = [];
+        public List<int> QuizCorrectAnswerIndices { get; set; } = [];
+        public int? QuizTimeLimitSeconds { get; set; }
+
+        public string RankingTitle { get; set; } = string.Empty;
+        public List<RankingEntryModel> RankingEntries { get; set; } = [];
+
+        public EditableSlide(Guid id, string type, int position, JsonElement parameters)
+        {
+            Id = id;
+            Type = type;
+            Position = position;
+            InternalName = ReadString(parameters, "internalName");
+
+            switch (type)
+            {
+                case "announcement":
+                    AnnouncementTitle = ReadString(parameters, "title");
+                    AnnouncementMessage = ReadString(parameters, "message");
+                    break;
+                case "poll":
+                    PollQuestion = ReadString(parameters, "question");
+                    PollOptions = ReadStringList(parameters, "options");
+                    PollAllowMultiple = ReadBool(parameters, "allowMultipleAnswers");
+                    if (PollOptions.Count < 2)
+                    {
+                        while (PollOptions.Count < 2) PollOptions.Add(string.Empty);
+                    }
+                    break;
+                case "quiz":
+                    QuizQuestion = ReadString(parameters, "question");
+                    QuizAnswers = ReadStringList(parameters, "answers");
+                    QuizCorrectAnswerIndices = ReadIntList(parameters, "correctAnswerIndices");
+                    QuizTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
+                    if (QuizAnswers.Count < 2)
+                    {
+                        while (QuizAnswers.Count < 2) QuizAnswers.Add(string.Empty);
+                    }
+                    break;
+                case "ranking":
+                    RankingTitle = ReadString(parameters, "title");
+                    RankingEntries = ReadRankingEntries(parameters, "entries");
+                    if (RankingEntries.Count == 0)
+                    {
+                        RankingEntries.Add(new RankingEntryModel());
+                    }
+                    break;
+            }
+        }
+
+        public string DisplayName =>
+            !string.IsNullOrWhiteSpace(InternalName)
+                ? InternalName
+                : Type switch
+                {
+                    "announcement" => !string.IsNullOrWhiteSpace(AnnouncementTitle) ? AnnouncementTitle : "Ankündigung",
+                    "poll" => !string.IsNullOrWhiteSpace(PollQuestion) ? PollQuestion : "Abstimmung",
+                    "quiz" => !string.IsNullOrWhiteSpace(QuizQuestion) ? QuizQuestion : "Quiz",
+                    "ranking" => !string.IsNullOrWhiteSpace(RankingTitle) ? RankingTitle : "Zwischenstand",
+                    _ => "Slide"
+                };
+
+        public (JsonElement Parameters, string? Error) BuildParameters()
+        {
+            ErrorMessage = null;
+            object payload;
+
+            switch (Type)
+            {
+                case "announcement":
+                    if (string.IsNullOrWhiteSpace(AnnouncementTitle))
+                    {
+                        ErrorMessage = "Bitte einen Titel für die Ankündigung eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    payload = new
+                    {
+                        internalName = InternalName.Trim(),
+                        title = AnnouncementTitle.Trim(),
+                        message = AnnouncementMessage.Trim()
+                    };
+                    break;
+
+                case "poll":
+                    var validPollOptions = PollOptions.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToList();
+                    if (string.IsNullOrWhiteSpace(PollQuestion))
+                    {
+                        ErrorMessage = "Bitte eine Frage für die Abstimmung eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    if (validPollOptions.Count < 2)
+                    {
+                        ErrorMessage = "Bitte mindestens 2 Antwortoptionen eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    payload = new
+                    {
+                        internalName = InternalName.Trim(),
+                        question = PollQuestion.Trim(),
+                        options = validPollOptions,
+                        allowMultipleAnswers = PollAllowMultiple
+                    };
+                    break;
+
+                case "quiz":
+                    var validQuizAnswers = QuizAnswers.Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a.Trim()).ToList();
+                    if (string.IsNullOrWhiteSpace(QuizQuestion))
+                    {
+                        ErrorMessage = "Bitte eine Quizfrage eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    if (validQuizAnswers.Count < 2)
+                    {
+                        ErrorMessage = "Bitte mindestens 2 Antwortmöglichkeiten eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    if (QuizCorrectAnswerIndices.Count == 0)
+                    {
+                        ErrorMessage = "Bitte mindestens eine Antwort als richtig markieren.";
+                        return (default, ErrorMessage);
+                    }
+                    payload = new
+                    {
+                        internalName = InternalName.Trim(),
+                        question = QuizQuestion.Trim(),
+                        answers = validQuizAnswers,
+                        correctAnswerIndices = QuizCorrectAnswerIndices,
+                        timeLimitSeconds = QuizTimeLimitSeconds
+                    };
+                    break;
+
+                case "ranking":
+                    var validEntries = RankingEntries
+                        .Where(e => !string.IsNullOrWhiteSpace(e.Label))
+                        .Select(e => new { label = e.Label.Trim(), score = e.Score })
+                        .ToList();
+                    if (string.IsNullOrWhiteSpace(RankingTitle))
+                    {
+                        ErrorMessage = "Bitte einen Titel für den Zwischenstand eingeben.";
+                        return (default, ErrorMessage);
+                    }
+                    if (validEntries.Count == 0)
+                    {
+                        ErrorMessage = "Bitte mindestens einen Ranglisteneintrag hinzufügen.";
+                        return (default, ErrorMessage);
+                    }
+                    payload = new
+                    {
+                        internalName = InternalName.Trim(),
+                        title = RankingTitle.Trim(),
+                        entries = validEntries
+                    };
+                    break;
+
+                default:
+                    payload = new { internalName = InternalName.Trim() };
+                    break;
+            }
+
+            return (JsonSerializer.SerializeToElement(payload, payload.GetType(), JsonOptions), null);
+        }
+
+        private static string ReadString(JsonElement element, string prop) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
+                ? val.GetString() ?? string.Empty
                 : string.Empty;
+
+        private static bool ReadBool(JsonElement element, string prop) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && (val.ValueKind == JsonValueKind.True || val.ValueKind == JsonValueKind.False)
+                ? val.GetBoolean()
+                : false;
+
+        private static int? ReadNullableInt(JsonElement element, string prop) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number
+                ? val.GetInt32()
+                : null;
+
+        private static List<string> ReadStringList(JsonElement element, string prop)
+        {
+            var result = new List<string>();
+            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in array.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                    {
+                        result.Add(item.GetString() ?? string.Empty);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static List<int> ReadIntList(JsonElement element, string prop)
+        {
+            var result = new List<int>();
+            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in array.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Number)
+                    {
+                        result.Add(item.GetInt32());
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static List<RankingEntryModel> ReadRankingEntries(JsonElement element, string prop)
+        {
+            var result = new List<RankingEntryModel>();
+            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in array.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object)
+                    {
+                        var label = ReadString(item, "label");
+                        var score = ReadNullableInt(item, "score") ?? 0;
+                        result.Add(new RankingEntryModel { Label = label, Score = score });
+                    }
+                }
+            }
+            return result;
+        }
     }
 }

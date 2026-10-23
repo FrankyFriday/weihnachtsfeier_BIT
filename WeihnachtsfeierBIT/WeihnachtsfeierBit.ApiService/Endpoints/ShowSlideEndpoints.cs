@@ -12,6 +12,7 @@ public static class ShowSlideEndpoints
     public static void Map(RouteGroupBuilder admin)
     {
         admin.MapPost("/shows/{showId:guid}/slides", CreateSlideAsync).WithName("CreateSlide");
+        admin.MapPut("/shows/{showId:guid}/slide-positions", ReorderSlidesAsync).WithName("ReorderSlides");
         admin.MapPut("/shows/{showId:guid}/slides/{slideId:guid}", UpdateSlideAsync).WithName("UpdateSlide");
         admin.MapDelete("/shows/{showId:guid}/slides/{slideId:guid}", DeleteSlideAsync).WithName("DeleteSlide");
     }
@@ -112,6 +113,36 @@ public static class ShowSlideEndpoints
         }
 
         dbContext.Slides.Remove(slide);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ReorderSlidesAsync(
+        Guid projectId,
+        Guid showId,
+        ReorderSlidesRequest request,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        if (!await IsShowInProjectAsync(dbContext, projectId, showId, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        var slides = await dbContext.Slides
+            .Where(slide => slide.ShowId == showId)
+            .ToListAsync(cancellationToken);
+
+        var slideDict = slides.ToDictionary(s => s.Id);
+
+        for (int i = 0; i < request.SlideIds.Length; i++)
+        {
+            if (slideDict.TryGetValue(request.SlideIds[i], out var slide))
+            {
+                slide.Position = i;
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

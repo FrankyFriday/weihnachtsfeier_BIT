@@ -26,14 +26,14 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 | Typ | Parameterbeispiele |
 | --- | --- |
-| Poll | Frage, Optionen, Mehrfachauswahl |
-| Announcement | Titel, Nachricht |
-| Quiz | Frage, Antworten, richtige Antwortindizes, Zeitlimit |
-| Ranking | Titel, Ranglisteneinträge |
+| Poll | Interner Name, Frage, Optionen, Mehrfachauswahl |
+| Announcement | Interner Name, Titel, Nachricht |
+| Quiz | Interner Name, Frage, Antworten, richtige Antwortindizes, Zeitlimit |
+| Ranking | Interner Name, Titel, Ranglisteneinträge |
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration. Ein neuer Untertyp muss in `Slide.cs` und im EF-Discriminator in `OnModelCreating` ergänzt werden. `SchemaVersion` ist für spätere JSON-Formatmigrationen vorgesehen.
 
-Der Show-Editor stellt für Announcement-Slides eigene Titel- und Nachrichtenfelder bereit; andere Slide-Typen können ihre typspezifischen Parameter direkt als JSON bearbeiten.
+Der Show-Editor bietet für alle Slide-Typen (Ankündigung, Abstimmung, Quiz und Zwischenstand) ein grafisches Master-Detail-Formular inklusive internem Namen, Sortierpfeilen und PopUp-Dialog zum Hinzufügen neuer Slides.
 
 ## Admin- und Teilnehmerzugriff
 
