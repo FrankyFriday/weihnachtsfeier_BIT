@@ -1,0 +1,27 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkFormGroup Label="Frage" ForId="poll-question">
+    <FrameworkInputText Id="poll-question" @bind-Value="Slide.PollQuestion" Placeholder="Welche Option wählt ihr?" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Optionen">
+    @for (int i = 0; i < Slide.PollOptions.Count; i++)
+    {
+        var index = i;
+        <div class="dynamic-list-row">
+            <FrameworkInputText Value="@Slide.PollOptions[index]" ValueChanged="val => Slide.PollOptions[index] = val ?? string.Empty" Placeholder="@($"Option {index + 1}")" />
+            <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => Slide.RemovePollOption(index)" Disabled="@(Slide.PollOptions.Count <= 2)" />
+        </div>
+    }
+    <div style="margin-top: 8px;">
+        <FrameworkButton Label="+ Option hinzufügen" Variant="secondary" OnClick="() => Slide.PollOptions.Add(string.Empty)" />
+    </div>
+</FrameworkFormGroup>
+
+<FrameworkCheckbox @bind-Value="Slide.PollAllowMultiple" Label="Mehrfachauswahl erlauben" />
+<FrameworkCheckbox @bind-Value="Slide.PollHideResultsUntilRevealed" Label="Ergebnisse verdeckt halten bis zur Enthüllung" />
+<FrameworkCheckbox @bind-Value="Slide.PollShowPercentage" Label="Ergebnisse in Prozent anzeigen" />
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

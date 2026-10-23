@@ -1,0 +1,13 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkFormGroup Label="Titel" ForId="announcement-title">
+    <FrameworkInputText Id="announcement-title" @bind-Value="Slide.AnnouncementTitle" MaxLength="120" Placeholder="Ankündigungstitel" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Nachricht" ForId="announcement-message">
+    <FrameworkTextArea Id="announcement-message" @bind-Value="Slide.AnnouncementMessage" Rows="5" Placeholder="Nachrichtentext" />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}
