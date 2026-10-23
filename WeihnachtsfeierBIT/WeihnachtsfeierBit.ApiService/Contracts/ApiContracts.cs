@@ -25,6 +25,7 @@ public sealed record LinkShowRequest(Guid ShowId);
 public sealed record LinkShowToProjectRequest(Guid ShowId);
 public sealed record SlideRequest(string Type, int Position, JsonElement Parameters);
 public sealed record SlideResponse(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
+public sealed record ReorderSlidesRequest(Guid[] SlideIds);
 public sealed record SessionSummary(Guid Id, Guid UserId, DateTime CreatedAtUtc, DateTime LastActivityAtUtc, DateTime ExpiresAtUtc, string? UserAgent);
 public sealed record ApiError(string Message);
 public sealed record CreateTestEntryRequest(string? Name);

@@ -1,0 +1,25 @@
+<div class="form-group checkbox-group @Class" style="@Style" @attributes="AdditionalAttributes">
+    <label>
+        <input type="checkbox" checked="@Value" disabled="@Disabled" @onchange="OnChange" />
+        <span>
+            @Label
+            @if (!string.IsNullOrWhiteSpace(HelpText))
+            {
+                <span class="framework-help-text">(@HelpText)</span>
+            }
+        </span>
+    </label>
+</div>
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnChange(ChangeEventArgs e) => ValueChanged.InvokeAsync((bool)(e.Value ?? false));
+}

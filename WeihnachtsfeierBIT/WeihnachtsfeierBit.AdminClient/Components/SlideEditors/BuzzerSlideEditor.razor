@@ -1,0 +1,17 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkFormGroup Label="Buzzer-Frage / Aufgabe" ForId="buzzer-question">
+    <FrameworkInputText Id="buzzer-question" @bind-Value="Slide.BuzzerQuestion" Placeholder="Welches Team buzzert als Erstes?" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Punkte für schnellsten Buzzer/Antwort" ForId="buzzer-points">
+    <FrameworkInputNumber Id="buzzer-points" @bind-Value="Slide.BuzzerPoints" Min="0" Placeholder="100" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Zeitlimit in Sekunden" HelpText="optional" ForId="buzzer-time-limit">
+    <FrameworkInputNumber Id="buzzer-time-limit" @bind-Value="Slide.BuzzerTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 20" />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

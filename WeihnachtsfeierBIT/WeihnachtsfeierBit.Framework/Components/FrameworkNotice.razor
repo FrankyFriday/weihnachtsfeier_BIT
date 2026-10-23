@@ -1,7 +1,11 @@
-<p class="framework-notice framework-notice-@Severity" role="@Role">@Message</p>
+<p class="framework-notice framework-notice-@Severity @Class" style="@Style" role="@Role" @attributes="AdditionalAttributes">@Message</p>
 
 @code {
     [Parameter, EditorRequired] public string Message { get; set; } = string.Empty;
     [Parameter] public string Severity { get; set; } = "error";
+    [Parameter] public string Format { get => Severity; set => Severity = value; }
     [Parameter] public string Role { get; set; } = "alert";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
 }

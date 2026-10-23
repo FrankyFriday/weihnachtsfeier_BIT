@@ -1,0 +1,8 @@
+@page "/shows/{ShowId:guid}/settings"
+
+<PageTitle>Show-Einstellungen | Admin</PageTitle>
+<ShowSettingsContent ShowId="ShowId" />
+
+@code {
+    [Parameter] public Guid ShowId { get; set; }
+}

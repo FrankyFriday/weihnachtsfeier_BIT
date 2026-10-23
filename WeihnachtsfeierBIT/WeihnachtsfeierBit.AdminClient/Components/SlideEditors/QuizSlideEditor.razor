@@ -1,0 +1,42 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkFormGroup Label="Frage" ForId="quiz-question">
+    <FrameworkInputText Id="quiz-question" @bind-Value="Slide.QuizQuestion" Placeholder="Welche Antwort ist richtig?" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Antwortmöglichkeiten">
+    @for (int i = 0; i < Slide.QuizAnswers.Count; i++)
+    {
+        var index = i;
+        var isCorrect = Slide.QuizCorrectAnswerIndices.Contains(index);
+        <div class="dynamic-list-row">
+            <FrameworkInputText Value="@Slide.QuizAnswers[index]" ValueChanged="val => Slide.QuizAnswers[index] = val ?? string.Empty" Placeholder="@($"Antwort {index + 1}")" />
+            <label class="correct-checkbox-label">
+                <input type="checkbox" checked="@isCorrect" @onchange="e => Slide.ToggleQuizCorrectAnswer(index, (bool)(e.Value ?? false))" />
+                <span>Richtig</span>
+            </label>
+            <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => Slide.RemoveQuizAnswer(index)" Disabled="@(Slide.QuizAnswers.Count <= 2)" />
+        </div>
+    }
+    <div style="margin-top: 8px;">
+        <FrameworkButton Label="+ Antwort hinzufügen" Variant="secondary" OnClick="() => Slide.QuizAnswers.Add(string.Empty)" />
+    </div>
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Punkte bei richtiger Antwort" ForId="quiz-points">
+    <FrameworkInputNumber Id="quiz-points" @bind-Value="Slide.QuizPoints" Min="0" Placeholder="100" />
+</FrameworkFormGroup>
+
+<FrameworkCheckbox @bind-Value="Slide.QuizEnableSpeedBonus" Label="Geschwindigkeits-Bonus aktivieren" />
+
+<FrameworkFormGroup Label="Zeitlimit in Sekunden" HelpText="optional" ForId="quiz-time-limit">
+    <FrameworkInputNumber Id="quiz-time-limit" @bind-Value="Slide.QuizTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 30" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Lösungserklärung / Erläuterung" HelpText="optional, wird nach Auflösung angezeigt" ForId="quiz-explanation">
+    <FrameworkTextArea Id="quiz-explanation" @bind-Value="Slide.QuizExplanation" Rows="3" Placeholder="Zusätzliche Infos zur Lösung..." />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

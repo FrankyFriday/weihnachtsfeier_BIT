@@ -11,6 +11,7 @@ public static class AdminShowSlideEndpoints
     {
         shows.MapGet("/{showId:guid}/slides", GetSlidesAsync).WithName("GetAdminShowSlides");
         shows.MapPost("/{showId:guid}/slides", CreateSlideAsync).WithName("CreateAdminShowSlide");
+        shows.MapPut("/{showId:guid}/slide-positions", ReorderSlidesAsync).WithName("ReorderAdminShowSlides");
         shows.MapPut("/{showId:guid}/slides/{slideId:guid}", UpdateSlideAsync).WithName("UpdateAdminShowSlide");
         shows.MapDelete("/{showId:guid}/slides/{slideId:guid}", DeleteSlideAsync).WithName("DeleteAdminShowSlide");
     }
@@ -123,6 +124,42 @@ public static class AdminShowSlideEndpoints
         }
 
         dbContext.Slides.Remove(slide);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ReorderSlidesAsync(
+        Guid showId,
+        ReorderSlidesRequest request,
+        HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!await dbContext.Shows.AnyAsync(show => show.Id == showId, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        var slides = await dbContext.Slides
+            .Where(slide => slide.ShowId == showId)
+            .ToListAsync(cancellationToken);
+
+        var slideDict = slides.ToDictionary(s => s.Id);
+
+        for (int i = 0; i < request.SlideIds.Length; i++)
+        {
+            if (slideDict.TryGetValue(request.SlideIds[i], out var slide))
+            {
+                slide.Position = i;
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

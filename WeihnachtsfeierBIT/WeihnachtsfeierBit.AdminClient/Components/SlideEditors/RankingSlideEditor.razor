@@ -1,0 +1,19 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkNotice Message="Der Zwischenstand zeigt während des Live-Events automatisch den aktuellen Punktestand aller Teams aus dem jeweiligen Projekt an." Severity="info" />
+
+<div style="margin-top: 16px;">
+    <FrameworkFormGroup Label="Titel der Rangliste" ForId="ranking-title">
+        <FrameworkInputText Id="ranking-title" @bind-Value="Slide.RankingTitle" Placeholder="z. B. Zwischenstand nach Runde 1" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Top-X Begrenzung" HelpText="optional, z. B. 3 für Top 3; leer lassen für alle Teams" ForId="ranking-top-count">
+        <FrameworkInputNumber Id="ranking-top-count" @bind-Value="Slide.RankingTopCount" Min="1" Max="50" Placeholder="z. B. 3 oder 5" />
+    </FrameworkFormGroup>
+
+    <FrameworkCheckbox @bind-Value="Slide.RankingAnimatePodium" Label="Podium-Animation aktivieren (aufsteigende Enthüllung)" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

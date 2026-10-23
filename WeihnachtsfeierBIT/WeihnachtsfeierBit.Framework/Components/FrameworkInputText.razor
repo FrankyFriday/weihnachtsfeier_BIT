@@ -1,0 +1,27 @@
+<input id="@Id"
+       type="@Type"
+       value="@Value"
+       placeholder="@Placeholder"
+       maxlength="@(MaxLength ?? int.MaxValue)"
+       disabled="@Disabled"
+       class="framework-input @Class"
+       style="@Style"
+       @oninput="OnInput"
+       @onchange="OnChange"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int? MaxLength { get; set; }
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString());
+    private Task OnChange(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString());
+}

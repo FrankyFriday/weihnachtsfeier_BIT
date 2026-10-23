@@ -1,0 +1,21 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<FrameworkFormGroup Label="Schätzfrage" ForId="estimation-question">
+    <FrameworkInputText Id="estimation-question" @bind-Value="Slide.EstimationQuestion" Placeholder="Wie viele Kilo Schokolade werden verbraucht?" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Exakter / Richtiger Wert" ForId="estimation-correct-value">
+    <FrameworkInputDouble Id="estimation-correct-value" @bind-Value="Slide.EstimationCorrectValue" Placeholder="z. B. 42" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Einheit" HelpText="optional, z. B. kg, Meter, Stück" ForId="estimation-unit">
+    <FrameworkInputText Id="estimation-unit" @bind-Value="Slide.EstimationUnit" Placeholder="z. B. kg" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Maximale Punkte für beste Schätzung" ForId="estimation-points">
+    <FrameworkInputNumber Id="estimation-points" @bind-Value="Slide.EstimationPoints" Min="0" Placeholder="100" />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

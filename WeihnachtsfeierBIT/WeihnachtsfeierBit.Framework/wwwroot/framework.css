@@ -56,7 +56,7 @@
     cursor: pointer;
 }
 
-.framework-button:disabled { cursor: wait; opacity: .65; }
+.framework-button:disabled { cursor: not-allowed; opacity: .65; }
 .framework-button-primary, .framework-link-primary { border-color: #197b67; background: #197b67; color: #fff; }
 .framework-button-primary:hover, .framework-link-primary:hover { background: #105c4d; }
 .framework-button-secondary, .framework-link-secondary { background: #fff; color: #1d2528; }
@@ -176,4 +176,36 @@
 @media (max-width: 700px) {
     .framework-page { padding: 28px 20px 40px; }
     .framework-page-heading h1 { font-size: 27px; }
+}
+
+.framework-input,
+.framework-textarea {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #cbd7d3;
+    border-radius: 5px;
+    font: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+    background: #fff;
+    color: #1d2528;
+}
+
+.framework-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.framework-input:focus,
+.framework-textarea:focus {
+    outline: 2px solid #197b6744;
+    border-color: #197b67;
+}
+
+.framework-input:disabled,
+.framework-textarea:disabled {
+    background: #f6f8f7;
+    cursor: not-allowed;
+    opacity: 0.75;
 }

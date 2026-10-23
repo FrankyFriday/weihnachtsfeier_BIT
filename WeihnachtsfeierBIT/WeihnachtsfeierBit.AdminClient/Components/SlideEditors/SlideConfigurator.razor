@@ -1,0 +1,75 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<Card Class="slide-detail-card">
+    <HeaderContent>
+        <div class="slide-detail-header">
+            <div>
+                <span class="eyebrow">SLIDE #@(Slide.Position + 1)</span>
+                <h2>@Slide.DisplayName</h2>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <FrameworkBadge Text="@EditableSlide.SlideTypeLabel(Slide.Type)" Variant="@Slide.Type" />
+                @if (Slide.IsDisabled)
+                {
+                    <FrameworkBadge Text="Entwurf" Variant="disabled" />
+                }
+            </div>
+        </div>
+    </HeaderContent>
+    <ChildContent>
+        <div class="slide-form">
+            <!-- Common Fields: Internal Name, Disabled Switch & Admin Notes -->
+            <FrameworkFormGroup Label="Interner Name" HelpText="nur im Admin-Panel sichtbar" ForId="slide-internal-name">
+                <FrameworkInputText Id="slide-internal-name" @bind-Value="Slide.InternalName" Placeholder="z. B. Begrüßung Runde 1" />
+            </FrameworkFormGroup>
+
+            <FrameworkCheckbox @bind-Value="Slide.IsDisabled" Label="Slide deaktivieren / Entwurf" HelpText="wird in der Live-Show übersprungen" />
+
+            <FrameworkFormGroup Label="Moderator- / Regie-Notizen" HelpText="nur für Admins sichtbar" ForId="slide-admin-notes">
+                <FrameworkTextArea Id="slide-admin-notes" @bind-Value="Slide.AdminNotes" Rows="2" Placeholder="Regieanweisung oder Notizen für den Moderator..." />
+            </FrameworkFormGroup>
+
+            <FrameworkDivider />
+
+            @switch (Slide.Type)
+            {
+                case "announcement":
+                    <AnnouncementSlideEditor Slide="Slide" />
+                    break;
+                case "poll":
+                    <PollSlideEditor Slide="Slide" />
+                    break;
+                case "quiz":
+                    <QuizSlideEditor Slide="Slide" />
+                    break;
+                case "ranking":
+                    <RankingSlideEditor Slide="Slide" />
+                    break;
+                case "estimation":
+                    <EstimationSlideEditor Slide="Slide" />
+                    break;
+                case "buzzer":
+                    <BuzzerSlideEditor Slide="Slide" />
+                    break;
+            }
+
+            @if (!string.IsNullOrEmpty(Slide.ErrorMessage))
+            {
+                <FrameworkNotice Message="@Slide.ErrorMessage" Severity="error" />
+            }
+        </div>
+    </ChildContent>
+    <FooterContent>
+        <div class="slide-detail-footer">
+            <FrameworkButton Label="Slide löschen" Variant="danger" OnClick="OnDelete" Busy="IsBusy" Disabled="IsBusy" />
+            <FrameworkButton Label="Änderungen speichern" Variant="primary" OnClick="OnSave" Busy="IsBusy" Disabled="IsBusy" />
+        </div>
+    </FooterContent>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+}

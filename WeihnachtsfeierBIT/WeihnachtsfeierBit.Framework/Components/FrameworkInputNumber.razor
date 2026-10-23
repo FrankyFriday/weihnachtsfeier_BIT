@@ -1,0 +1,59 @@
+@typeparam TValue
+
+<input id="@Id"
+       type="number"
+       value="@Value"
+       placeholder="@Placeholder"
+       min="@Min"
+       max="@Max"
+       step="@Step"
+       disabled="@Disabled"
+       class="framework-input @Class"
+       style="@Style"
+       @onchange="OnChange"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public int? Min { get; set; }
+    [Parameter] public int? Max { get; set; }
+    [Parameter] public string? Step { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnChange(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        if (typeof(TValue) == typeof(int))
+        {
+            if (int.TryParse(raw, out var parsedInt))
+            {
+                return ValueChanged.InvokeAsync((TValue)(object)parsedInt);
+            }
+            return ValueChanged.InvokeAsync((TValue)(object)0);
+        }
+        else if (typeof(TValue) == typeof(int?))
+        {
+            if (int.TryParse(raw, out var parsedInt))
+            {
+                return ValueChanged.InvokeAsync((TValue)(object)parsedInt);
+            }
+            return ValueChanged.InvokeAsync(default);
+        }
+        else if (typeof(TValue) == typeof(double))
+        {
+            if (double.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture, out var parsedDouble) || double.TryParse(raw, out parsedDouble))
+            {
+                return ValueChanged.InvokeAsync((TValue)(object)parsedDouble);
+            }
+            return ValueChanged.InvokeAsync((TValue)(object)0.0);
+        }
+
+        return ValueChanged.InvokeAsync(default);
+    }
+}

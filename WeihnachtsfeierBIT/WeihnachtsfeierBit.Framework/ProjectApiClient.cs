@@ -69,6 +69,17 @@ public class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keinen aktualisierten Slide zurückgegeben.");
     }
 
+    public async Task ReorderAdminShowSlidesAsync(
+        string accessToken,
+        Guid showId,
+        Guid[] slideIds,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/shows/{showId}/slide-positions", accessToken, new { slideIds });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task DeleteAdminShowSlideAsync(
         string accessToken,
         Guid showId,
@@ -87,6 +98,31 @@ public class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
             ?? throw new InvalidOperationException("Die API hat keine Show zurückgegeben.");
+    }
+
+    public async Task<AdminShow> UpdateAdminShowAsync(string accessToken, Guid showId, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/shows/{showId}", accessToken, new CreateGlobalShowRequest(name));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine aktualisierte Show zurückgegeben.");
+    }
+
+    public async Task DeleteAdminShowAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/admin/shows/{showId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<AdminShow> DuplicateAdminShowAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/admin/shows/{showId}/duplicate", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShow>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keine duplizierte Show zurückgegeben.");
     }
 
     public async Task<ProjectSummary> CreateProjectAsync(string accessToken, string name, CancellationToken cancellationToken = default)

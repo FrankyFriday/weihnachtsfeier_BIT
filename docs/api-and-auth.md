@@ -17,8 +17,12 @@ Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitg
 | `GET /api/admin/shows` | Admin-Bearer-Token | Globale Shows samt Anzahl verknüpfter Projekte auflisten. |
 | `POST /api/admin/shows` | Admin-Bearer-Token | Show global anlegen; Body `{ "name": "..." }`. |
 | `GET /api/admin/shows/{showId}` | Admin-Bearer-Token | Eine globale Show laden. |
+| `PUT /api/admin/shows/{showId}` | Admin-Bearer-Token | Shownamen aktualisieren; Body `{ "name": "..." }`. |
+| `DELETE /api/admin/shows/{showId}` | Admin-Bearer-Token | Show und alle zugehörigen Slides löschen. |
+| `POST /api/admin/shows/{showId}/duplicate` | Admin-Bearer-Token | Show mit allen Slides als Kopie duplizieren. |
 | `GET /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Geordnete Slides einer globalen Show laden. |
 | `POST /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Slide mit Typ, Position und JSON-Parametern anlegen. |
+| `PUT /api/admin/shows/{showId}/slide-positions` | Admin-Bearer-Token | Slide-Reihenfolge atomar per ID-Array aktualisieren (`{ "slideIds": [...] }`). |
 | `PUT /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Position und typspezifische JSON-Parameter aktualisieren. |
 | `DELETE /api/admin/shows/{showId}/slides/{slideId}` | Admin-Bearer-Token | Slide löschen. |
 
