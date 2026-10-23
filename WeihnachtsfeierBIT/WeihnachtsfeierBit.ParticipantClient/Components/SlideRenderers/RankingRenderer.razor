@@ -1,0 +1,13 @@
+@using WeihnachtsfeierBit.Framework
+
+<div class="mobile-card">
+    <div class="mobile-card-header">
+        <span class="mobile-eyebrow">ZWISCHENSTAND</span>
+        <h1>Rangliste</h1>
+    </div>
+    <p style="color: #657276; font-size: 13px;">Aktueller Punktestand aller Teams.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+}

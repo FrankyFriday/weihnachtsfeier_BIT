@@ -7,174 +7,50 @@
 
 <PageTitle>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
 
-<div class="play-container">
-    @if (_isLoading)
-    {
-        <div class="mobile-card text-center">
-            <div class="spinner"></div>
-            <p style="margin-top: 12px; color: #657276;">Wird geladen ...</p>
-        </div>
-    }
-    else if (!_isLoggedIn)
-    {
-        <div class="mobile-card">
-            <div class="mobile-card-header">
-                <span class="mobile-eyebrow">TEILNEHMER-LOGIN</span>
-                <h1>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Willkommen!")</h1>
-                <p>
-                    @if (_resolvedSession is not null)
-                    {
-                        <span>Gib deine Teilnehmernummer ein, um der Session (Code: <strong>@_resolvedSession.Code</strong>) beizutreten.</span>
-                    }
-                    else
-                    {
-                        <span>Gib den 6-stelligen Session-Code des Spielleiters ein.</span>
-                    }
-                </p>
-            </div>
-
-            @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <div class="mobile-alert error">@_errorMessage</div>
-            }
-
-            @if (_resolvedSession is null)
-            {
-                <form @onsubmit="CheckCodeAsync" @onsubmit:preventDefault="true" class="mobile-form">
-                    <div class="mobile-field">
-                        <label for="session-code">6-stelliger Session-Code</label>
-                        <input id="session-code" type="text" maxlength="6" class="mobile-input large-text" @bind="_sessionCodeInput" placeholder="z. B. 482910" required />
-                    </div>
-                    <button type="submit" class="mobile-button primary" disabled="@_isSubmitting">
-                        @(_isSubmitting ? "Prüfe Code ..." : "Session-Code prüfen")
-                    </button>
-                </form>
-            }
-            else
-            {
-                <form @onsubmit="LoginByCodeAsync" @onsubmit:preventDefault="true" class="mobile-form">
-                    <div class="mobile-field">
-                        <label for="participant-number">Deine Teilnehmernummer</label>
-                        <input id="participant-number" type="number" min="1" class="mobile-input large-text" @bind="_participantNumberInput" placeholder="z. B. 12" required />
-                    </div>
-                    <div class="framework-button-row" style="display: flex; gap: 10px; margin-top: 8px;">
-                        <button type="button" class="mobile-button secondary" style="flex: 1;" @onclick="ResetCode">Code ändern</button>
-                        <button type="submit" class="mobile-button primary" style="flex: 2;" disabled="@_isSubmitting">
-                            @(_isSubmitting ? "Melde an ..." : "Anmelden & Beitreten")
-                        </button>
-                    </div>
-                </form>
-            }
-        </div>
-    }
-    else
-    {
-        <header class="play-header">
-            <div>
-                <span class="mobile-eyebrow">@(_resolvedSession?.ProjectName ?? _project?.Name)</span>
-                <h2>Teilnehmer #@_participant?.Number</h2>
-            </div>
-            <div class="connection-status @(_isConnected ? "online" : "offline")">
-                <span class="status-dot"></span>
-                @(_isConnected ? "Live" : "Verbinde ...")
-            </div>
-        </header>
-
-        @if (!string.IsNullOrEmpty(_errorMessage))
-        {
-            <div class="mobile-alert error">@_errorMessage</div>
-        }
-
-        @if (!string.IsNullOrEmpty(_successMessage))
-        {
-            <div class="mobile-alert success">@_successMessage</div>
-        }
-
-        @if (CurrentTeamState is not null)
-        {
-            <div class="mobile-card hero-team-card" style="border-top: 6px solid @CurrentTeamState.Color;">
-                <div class="hero-team-header">
-                    <span class="hero-team-badge" style="background-color: @CurrentTeamState.Color;">
-                        #@CurrentTeamState.Rank
-                    </span>
-                    <div>
-                        <span class="mobile-eyebrow">DEIN TEAM</span>
-                        <h1 class="hero-team-title">@CurrentTeamState.DisplayName</h1>
-                    </div>
-                </div>
-
-                <div class="hero-stats-grid">
-                    <div class="stat-box">
-                        <span class="stat-label">Rang</span>
-                        <strong class="stat-value">#@CurrentTeamState.Rank <small>/ @TotalTeamCount</small></strong>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Punktestand</span>
-                        <strong class="stat-value">@CurrentTeamState.Points <small>Pkt.</small></strong>
-                    </div>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="mobile-card warning-card">
-                <h3>Kein Team zugewiesen</h3>
-                <p>Du bist aktuell noch keinem Team zugeordnet. Der Moderator weist dich gleich zu!</p>
-            </div>
-        }
-
-        <div class="mobile-card">
-            <h3>Dein Profil</h3>
-            <form @onsubmit="SaveMyNameAsync" @onsubmit:preventDefault="true" class="mobile-form inline-form">
-                <div class="mobile-field" style="flex: 1;">
-                    <label for="my-name">Dein Name</label>
-                    <input id="my-name" type="text" maxlength="120" class="mobile-input" @bind="_nameInput" placeholder="z. B. Alex" />
-                </div>
-                <button type="submit" class="mobile-button secondary" disabled="@_isSavingName" style="align-self: flex-end;">
-                    @(_isSavingName ? "..." : "Speichern")
-                </button>
-            </form>
-        </div>
-
-        @if (CurrentTeamState is not null && CurrentTeamState.Members.Length > 0)
-        {
-            <div class="mobile-card">
-                <h3>Team-Mitglieder (@CurrentTeamState.Members.Length)</h3>
-                <ul class="member-list">
-                    @foreach (var member in CurrentTeamState.Members)
-                    {
-                        <li class="member-item @(member.Id == _participant?.Id ? "me" : "")">
-                            <span class="member-number">#@member.Number</span>
-                            <span class="member-name">@(string.IsNullOrWhiteSpace(member.Name) ? "Unbenannt" : member.Name)</span>
-                            @if (member.Id == _participant?.Id)
-                            {
-                                <span class="me-tag">(Du)</span>
-                            }
-                        </li>
-                    }
-                </ul>
-            </div>
-        }
-
-        @if (AllTeamStates.Length > 0)
-        {
-            <div class="mobile-card">
-                <h3>Gesamtrangliste</h3>
-                <div class="leaderboard-list">
-                    @foreach (var team in AllTeamStates)
-                    {
-                        <div class="leaderboard-item @(team.Id == CurrentTeamState?.Id ? "my-team" : "")">
-                            <span class="lb-rank">#@team.Rank</span>
-                            <span class="lb-color-dot" style="background-color: @team.Color;"></span>
-                            <span class="lb-name">@team.DisplayName</span>
-                            <strong class="lb-points">@team.Points Pkt.</strong>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-    }
-</div>
+@if (_isLoading)
+{
+    <div style="max-width: 400px; margin: 100px auto; padding: 20px;">
+        <FrameworkLoading Message="Wird geladen ..." />
+    </div>
+}
+else if (!_isLoggedIn)
+{
+    <ParticipantLoginView SessionCodeInput="@_sessionCodeInput"
+                          ResolvedSession="@_resolvedSession"
+                          Project="_project"
+                          ErrorMessage="@_errorMessage"
+                          IsSubmitting="@_isSubmitting"
+                          ParticipantNumberInput="@_participantNumberInput"
+                          SessionCodeChanged="v => _sessionCodeInput = v"
+                          ParticipantNumberChanged="v => _participantNumberInput = v"
+                          OnCheckCode="CheckCodeAsync"
+                          OnLogin="LoginByCodeAsync"
+                          OnResetCode="ResetCode" />
+}
+else if (_liveGameState?.ActiveEvent is EventState activeEv)
+{
+    <ParticipantEventView Event="activeEv" AccessToken="_accessToken" ProjectId="ProjectId" ShowBackButton="false" />
+}
+else if (_selectedPassiveEvent is EventState passiveEv)
+{
+    <ParticipantEventView Event="passiveEv" AccessToken="_accessToken" ProjectId="ProjectId" ShowBackButton="true" OnBack="ClosePassiveEvent" />
+}
+else
+{
+    <ParticipantDashboardView ProjectName="@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Projekt")"
+                              ParticipantNumber="@(_participant?.Number ?? 0)"
+                              ParticipantId="@(_participant?.Id ?? Guid.Empty)"
+                              TeamState="CurrentTeamState"
+                              AllTeams="AllTeamStates"
+                              PassiveEvents="_liveGameState?.PassiveEvents ?? []"
+                              NameInput="@_nameInput"
+                              IsSavingName="@_isSavingName"
+                              ErrorMessage="@_errorMessage"
+                              SuccessMessage="@_successMessage"
+                              NameInputChanged="v => _nameInput = v"
+                              OnSaveName="SaveMyNameAsync"
+                              OnSelectPassiveEvent="OpenPassiveEvent" />
+}
 
 @code {
     [Parameter] public string? CodeOrParam { get; set; }
@@ -187,12 +63,12 @@
     private ParticipantSummary? _participant;
     private ProjectResponse? _project;
     private ProjectGameState? _liveGameState;
+    private EventState? _selectedPassiveEvent;
 
     private bool _isLoggedIn;
     private bool _isLoading = true;
     private bool _isSubmitting;
     private bool _isSavingName;
-    private bool _isConnected;
 
     private string? _errorMessage;
     private string? _successMessage;
@@ -205,7 +81,6 @@
     private TeamState? CurrentTeamState { get; set; }
 
     private TeamState[] AllTeamStates => _liveGameState?.Teams ?? [];
-    private int TotalTeamCount => AllTeamStates.Length;
 
     protected override async Task OnInitializedAsync()
     {
@@ -236,6 +111,9 @@
             _isLoading = false;
         }
     }
+
+    private void OpenPassiveEvent(EventState ev) => _selectedPassiveEvent = ev;
+    private void ClosePassiveEvent() => _selectedPassiveEvent = null;
 
     private async Task CheckCodeAsync()
     {
@@ -350,20 +228,42 @@
             {
                 _liveGameState = state;
                 UpdateCurrentTeamState();
+
+                // Live sync selected passive event if open (match by InstanceShowId for shows, or EventId for spontaneous events)
+                if (_selectedPassiveEvent is not null)
+                {
+                    EventState? updatedPassive = null;
+                    if (_selectedPassiveEvent.InstanceShowId.HasValue)
+                    {
+                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.InstanceShowId == _selectedPassiveEvent.InstanceShowId.Value);
+                    }
+                    else
+                    {
+                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
+                    }
+
+                    if (updatedPassive is null)
+                    {
+                        _selectedPassiveEvent = null; // Closed by admin
+                    }
+                    else
+                    {
+                        _selectedPassiveEvent = updatedPassive; // Updated state / slide change
+                    }
+                }
+
                 InvokeAsync(StateHasChanged);
             }
         });
 
         _hubConnection.Reconnecting += _ =>
         {
-            _isConnected = false;
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
         };
 
         _hubConnection.Reconnected += _ =>
         {
-            _isConnected = true;
             InvokeAsync(StateHasChanged);
             return Task.CompletedTask;
         };
@@ -372,11 +272,9 @@
         {
             await _hubConnection.StartAsync();
             await _hubConnection.SendAsync("JoinProject", ProjectId);
-            _isConnected = true;
         }
         catch
         {
-            _isConnected = false;
         }
     }
 

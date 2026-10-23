@@ -1,0 +1,60 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div class="mobile-card text-center">
+    <div class="mobile-card-header">
+        <span class="mobile-eyebrow">BUZZER-RUNDE</span>
+        <h1>@ReadString(Event.Parameters, "question")</h1>
+    </div>
+
+    @if (_buzzed)
+    {
+        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">Du hast gebuzzert! 🚀</div>
+    }
+    else
+    {
+        <div style="margin: 30px 0;">
+            <button type="button" @onclick="SubmitBuzzer" disabled="@_isSubmitting" style="width: 200px; height: 200px; border-radius: 50%; background: #dc2626; color: #fff; font-size: 24px; font-weight: 800; border: none; box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4); cursor: pointer;">
+                BUZZER!
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
+
+    private bool _buzzed;
+    private bool _isSubmitting;
+
+    private async Task SubmitBuzzer()
+    {
+        if (_isSubmitting) return;
+        _isSubmitting = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                var payload = JsonSerializer.SerializeToElement(new { buzzedAtUtc = DateTime.UtcNow });
+                await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+            }
+            _buzzed = true;
+        }
+        catch
+        {
+            _buzzed = true;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement elem, string prop) =>
+        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
+            ? val.GetString() ?? string.Empty
+            : string.Empty;
+}

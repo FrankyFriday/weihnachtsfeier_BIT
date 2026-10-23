@@ -38,3 +38,4 @@ public sealed record StartSessionShowRequest(Guid ShowId, string Mode);
 public sealed record UpdateSessionShowRequest(int CurrentSlideIndex, string Mode);
 public sealed record CreateSpontaneousEventRequest(string SlideType, string Mode, JsonElement Parameters);
 public sealed record UpdateEventModeRequest(string Mode);
+public sealed record SubmitResponseRequest(JsonElement ResponseData);

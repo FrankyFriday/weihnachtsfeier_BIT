@@ -1,0 +1,79 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div class="mobile-card">
+    <div class="mobile-card-header">
+        <span class="mobile-eyebrow">ABSTIMMUNG</span>
+        <h1>@ReadString(Event.Parameters, "question")</h1>
+    </div>
+
+    @if (_submitted)
+    {
+        <div class="mobile-alert success">Deine Stimme wurde erfolgreich abgegeben!</div>
+    }
+    else
+    {
+        <div style="display: grid; gap: 10px; margin-top: 16px;">
+            @foreach (var opt in ReadStringList(Event.Parameters, "options"))
+            {
+                <button type="button" class="mobile-button secondary" @onclick="() => SubmitPoll(opt)" disabled="@_isSubmitting">
+                    @opt
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
+
+    private bool _submitted;
+    private bool _isSubmitting;
+
+    private async Task SubmitPoll(string option)
+    {
+        if (_isSubmitting) return;
+        _isSubmitting = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                var payload = JsonSerializer.SerializeToElement(new { selectedOption = option });
+                await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+            }
+            _submitted = true;
+        }
+        catch
+        {
+            _submitted = true;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement elem, string prop) =>
+        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
+            ? val.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static List<string> ReadStringList(JsonElement elem, string prop)
+    {
+        var list = new List<string>();
+        if (elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in arr.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    list.Add(item.GetString() ?? string.Empty);
+                }
+            }
+        }
+        return list;
+    }
+}

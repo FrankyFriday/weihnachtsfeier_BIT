@@ -1,0 +1,47 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.ParticipantClient.Components.SlideRenderers
+
+<div style="min-height: 100vh; background: #f6f8f7; display: flex; flex-direction: column;">
+    @if (ShowBackButton)
+    {
+        <div style="background: #fff; padding: 12px 16px; border-bottom: 1px solid #dce5e2; display: flex; align-items: center; justify-content: space-between;">
+            <FrameworkButton Label="◄ Zurück zur Übersicht" Variant="secondary" OnClick="OnBack" />
+            <FrameworkBadge Text="@Event.SlideType.ToUpperInvariant()" Variant="@Event.SlideType" />
+        </div>
+    }
+
+    <div style="flex: 1; padding: 20px 16px; max-width: 600px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: center;">
+        @switch (Event.SlideType.ToLowerInvariant())
+        {
+            case "announcement":
+                <AnnouncementRenderer Event="Event" />
+                break;
+            case "poll":
+                <PollRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "quiz":
+                <QuizRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "ranking":
+                <RankingRenderer Event="Event" />
+                break;
+            case "estimation":
+                <EstimationRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "buzzer":
+                <BuzzerRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            default:
+                <FallbackRenderer Event="Event" />
+                break;
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+}

@@ -1,0 +1,10 @@
+@using WeihnachtsfeierBit.Framework
+
+<div class="mobile-card">
+    <h3>Nicht visualisierbar</h3>
+    <p>Diese Slide vom Typ '@Event.SlideType' kann aktuell nicht visualisiert werden.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+}

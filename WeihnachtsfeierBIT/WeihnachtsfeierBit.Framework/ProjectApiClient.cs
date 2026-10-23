@@ -436,6 +436,13 @@ public class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task SubmitEventResponseAsync(string accessToken, Guid projectId, Guid eventId, JsonElement responseData, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/events/{eventId}/responses", accessToken, new { responseData });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<ProjectGameState> GetSessionStateAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/session/state", accessToken);

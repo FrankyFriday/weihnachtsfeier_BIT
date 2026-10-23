@@ -19,6 +19,7 @@ public static class SessionControlEndpoints
         projects.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
         projects.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         projects.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
+        projects.MapPost("/session/events/{eventId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
     }
 
     private static async Task<IResult> GetSessionStateAsync(
@@ -372,6 +373,24 @@ public static class SessionControlEndpoints
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> SubmitEventResponseAsync(
+        Guid projectId,
+        Guid eventId,
+        SubmitResponseRequest request,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var ev = await dbContext.GameInstanceEvents
+            .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
+
+        if (ev is null || ev.Status != "active")
+        {
+            return Results.NotFound(new ApiError("Event ist nicht aktiv."));
+        }
+
+        return Results.Ok();
     }
 
     private static void MakeAllItemsPassive(GameInstance instance, Guid? excludeShowId = null, Guid? excludeEventId = null)

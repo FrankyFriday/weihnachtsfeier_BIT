@@ -1,0 +1,19 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div class="mobile-card">
+    <div class="mobile-card-header">
+        <span class="mobile-eyebrow">ANKÜNDIGUNG</span>
+        <h1>@ReadString(Event.Parameters, "title")</h1>
+    </div>
+    <p style="white-space: pre-wrap; font-size: 15px; color: #1d2528;">@ReadString(Event.Parameters, "message")</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+
+    private static string ReadString(JsonElement elem, string prop) =>
+        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
+            ? val.GetString() ?? string.Empty
+            : string.Empty;
+}

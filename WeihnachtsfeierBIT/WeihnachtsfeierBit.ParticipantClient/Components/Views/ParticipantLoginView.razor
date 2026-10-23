@@ -1,0 +1,54 @@
+<div style="max-width: 480px; margin: 40px auto; padding: 0 16px;">
+    <Card Class="settings-card">
+        <PageHeading Eyebrow="TEILNEHMER-LOGIN" Title="@(ResolvedSession?.ProjectName ?? Project?.Name ?? "Willkommen!")" Description="@LoginDescription" />
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div style="margin-bottom: 16px;">
+                <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+            </div>
+        }
+
+        @if (ResolvedSession is null)
+        {
+            <form @onsubmit="OnCheckCode" @onsubmit:preventDefault="true">
+                <FrameworkFormGroup Label="6-stelliger Session-Code" ForId="session-code">
+                    <FrameworkInputText Id="session-code" Value="@SessionCodeInput" ValueChanged="SessionCodeChanged" Placeholder="z. B. 482910" MaxLength="6" />
+                </FrameworkFormGroup>
+                <div style="margin-top: 20px;">
+                    <FrameworkButton Label="@(IsSubmitting ? "Prüfe Code ..." : "Session-Code prüfen")" Variant="primary" Type="submit" Disabled="@IsSubmitting" />
+                </div>
+            </form>
+        }
+        else
+        {
+            <form @onsubmit="OnLogin" @onsubmit:preventDefault="true">
+                <FrameworkFormGroup Label="Deine Teilnehmernummer" ForId="participant-number">
+                    <FrameworkInputNumber Id="participant-number" Value="ParticipantNumberInput" ValueChanged="ParticipantNumberChanged" Min="1" />
+                </FrameworkFormGroup>
+                <div class="framework-button-row" style="margin-top: 20px; display: flex; gap: 10px;">
+                    <FrameworkButton Label="Code ändern" Variant="secondary" OnClick="OnResetCode" />
+                    <FrameworkButton Label="@(IsSubmitting ? "Melde an ..." : "Anmelden & Beitreten")" Variant="primary" Type="submit" Disabled="@IsSubmitting" />
+                </div>
+            </form>
+        }
+    </Card>
+</div>
+
+@code {
+    [Parameter] public string? SessionCodeInput { get; set; }
+    [Parameter] public ResolveCodeResponse? ResolvedSession { get; set; }
+    [Parameter] public ProjectResponse? Project { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public bool IsSubmitting { get; set; }
+    [Parameter] public int ParticipantNumberInput { get; set; } = 10;
+    [Parameter] public EventCallback<string?> SessionCodeChanged { get; set; }
+    [Parameter] public EventCallback<int> ParticipantNumberChanged { get; set; }
+    [Parameter] public EventCallback OnCheckCode { get; set; }
+    [Parameter] public EventCallback OnLogin { get; set; }
+    [Parameter] public EventCallback OnResetCode { get; set; }
+
+    private string LoginDescription => ResolvedSession is not null
+        ? $"Gib deine Teilnehmernummer ein, um der Session (Code: {ResolvedSession.Code}) beizutreten."
+        : "Gib den 6-stelligen Session-Code des Spielleiters ein.";
+}
