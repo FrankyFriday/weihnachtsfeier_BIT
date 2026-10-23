@@ -394,6 +394,57 @@ public class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task StartSessionShowAsync(string accessToken, Guid projectId, Guid showId, string mode, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/shows", accessToken, new { showId, mode });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task UpdateSessionShowAsync(string accessToken, Guid projectId, Guid instanceShowId, int slideIndex, string mode, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/shows/{instanceShowId}", accessToken, new { currentSlideIndex = slideIndex, mode });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task StopSessionShowAsync(string accessToken, Guid projectId, Guid instanceShowId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/session/shows/{instanceShowId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task CreateSpontaneousEventAsync(string accessToken, Guid projectId, string slideType, string mode, JsonElement parameters, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/events", accessToken, new { slideType, mode, parameters });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task UpdateEventModeAsync(string accessToken, Guid projectId, Guid eventId, string mode, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}/mode", accessToken, new { mode });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task CloseEventAsync(string accessToken, Guid projectId, Guid eventId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}/close", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<ProjectGameState> GetSessionStateAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/session/state", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectGameState>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Session-Zustand zurückgegeben.");
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -452,8 +503,17 @@ public sealed record UpdateTeamRequest(string DisplayName, string Color, int Poi
 public sealed record UpdateTeamPointsRequest(int Points);
 public sealed record SlideSummary(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
 public sealed record SlideWriteRequest(string Type, int Position, JsonElement Parameters);
-public sealed record ParticipantState(Guid Id, int Number, string? Name);
-public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
-public sealed record ProjectGameState(Guid ProjectId, string ProjectName, TeamState[] Teams, DateTime UpdatedAtUtc);
 public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
 public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
+public sealed record ParticipantState(Guid Id, int Number, string? Name);
+public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
+public sealed record ActiveShowState(Guid InstanceShowId, Guid ShowId, string ShowName, string Mode, int CurrentSlideIndex, int TotalSlides, Guid? CurrentEventId);
+public sealed record EventState(Guid EventId, Guid? InstanceShowId, string SlideType, string Title, string Mode, string Status, JsonElement Parameters, DateTime StartedAtUtc);
+public sealed record ProjectGameState(
+    Guid ProjectId,
+    string ProjectName,
+    TeamState[] Teams,
+    EventState? ActiveEvent,
+    EventState[] PassiveEvents,
+    ActiveShowState[] ActiveShows,
+    DateTime UpdatedAtUtc);

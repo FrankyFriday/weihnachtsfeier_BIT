@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Hubs;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
@@ -20,9 +22,18 @@ public sealed class GameStateNotifier(
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<WeihnachtsfeierDbContext>();
 
+        var gameState = await BuildProjectGameStateAsync(projectId, dbContext, cancellationToken);
+        if (gameState is null) return;
+
+        var groupName = GameStateHub.GetGroupName(projectId);
+        await hubContext.Clients.Group(groupName).SendAsync("GameStateUpdated", gameState, cancellationToken);
+    }
+
+    public static async Task<ProjectGameState?> BuildProjectGameStateAsync(Guid projectId, WeihnachtsfeierDbContext dbContext, CancellationToken cancellationToken)
+    {
         var project = await dbContext.Projekte.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
-        if (project is null) return;
+        if (project is null) return null;
 
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(t => t.ProjektId == projectId)
@@ -53,13 +64,81 @@ public sealed class GameStateNotifier(
                 Members: members));
         }
 
-        var gameState = new ProjectGameState(
+        EventState? activeEvent = null;
+        var passiveEvents = new List<EventState>();
+        var activeShows = new List<ActiveShowState>();
+
+        var instance = await dbContext.GameInstances.AsNoTracking()
+            .Include(gi => gi.Shows)
+                .ThenInclude(gis => gis.Show)
+                    .ThenInclude(s => s.Slides)
+            .Include(gi => gi.Events)
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+        if (instance is not null)
+        {
+            var liveEvents = instance.Events
+                .Where(e => e.Status == "active")
+                .OrderByDescending(e => e.StartedAtUtc)
+                .ToList();
+
+            var activeGie = liveEvents.FirstOrDefault(e => e.Mode == "active");
+            if (activeGie is not null)
+            {
+                activeEvent = ToEventState(activeGie);
+            }
+
+            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
+            {
+                passiveEvents.Add(ToEventState(passiveGie));
+            }
+
+            foreach (var gis in instance.Shows.OrderBy(s => s.CreatedAtUtc))
+            {
+                var currentShowEvent = liveEvents.FirstOrDefault(e => e.GameInstanceShowId == gis.Id);
+                var totalSlides = gis.Show.Slides.Count;
+                activeShows.Add(new ActiveShowState(
+                    gis.Id,
+                    gis.ShowId,
+                    gis.Show.Name,
+                    gis.Mode,
+                    gis.CurrentSlideIndex,
+                    totalSlides,
+                    currentShowEvent?.Id));
+            }
+        }
+
+        return new ProjectGameState(
             project.Id,
             project.Name,
             teamStates.ToArray(),
+            activeEvent,
+            passiveEvents.ToArray(),
+            activeShows.ToArray(),
             DateTime.UtcNow);
+    }
 
-        var groupName = GameStateHub.GetGroupName(projectId);
-        await hubContext.Clients.Group(groupName).SendAsync("GameStateUpdated", gameState, cancellationToken);
+    private static EventState ToEventState(GameInstanceEvent gie)
+    {
+        JsonElement paramsElem;
+        try
+        {
+            using var doc = JsonDocument.Parse(gie.ParametersJson);
+            paramsElem = doc.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            paramsElem = JsonSerializer.SerializeToElement(new { });
+        }
+
+        return new EventState(
+            gie.Id,
+            gie.GameInstanceShowId,
+            gie.SlideType,
+            gie.Title,
+            gie.Mode,
+            gie.Status,
+            paramsElem,
+            gie.StartedAtUtc);
     }
 }

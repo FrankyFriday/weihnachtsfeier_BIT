@@ -62,6 +62,17 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
 | `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
 
+## Live Session & Event Steuerung
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show in Session starten (Modus `"active"` oder `"passive"`). |
+| `PUT /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Show-Slide wechseln oder Modus ändern. |
+| `DELETE /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Laufende Show aus Session stoppen. |
+| `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen (Aktiv oder Passiv). |
+| `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
+| `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
+
 ## Fachliche Endpunkte
 
 Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
