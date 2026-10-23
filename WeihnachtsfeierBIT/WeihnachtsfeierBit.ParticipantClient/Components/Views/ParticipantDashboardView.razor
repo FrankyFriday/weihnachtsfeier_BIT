@@ -1,0 +1,159 @@
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkPage>
+    <div style="max-width: 600px; margin: 0 auto; padding-bottom: 40px;">
+        <!-- HEADER -->
+        <div class="overview-toolbar" style="margin-bottom: 20px;">
+            <div>
+                <span class="mobile-eyebrow">@ProjectName</span>
+                <h2 style="margin: 0;">Teilnehmer #@ParticipantNumber</h2>
+            </div>
+            <FrameworkBadge Text="Live verbunden" Variant="primary" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div style="margin-bottom: 16px;"><FrameworkNotice Message="@ErrorMessage" Severity="error" /></div>
+        }
+        @if (!string.IsNullOrEmpty(SuccessMessage))
+        {
+            <div style="margin-bottom: 16px;"><FrameworkNotice Message="@SuccessMessage" Severity="success" /></div>
+        }
+
+        <!-- PASSIVE EVENTS LIST (MENU) -->
+        @if (PassiveEvents is not null && PassiveEvents.Length > 0)
+        {
+            <Card Class="settings-card" Style="margin-bottom: 20px; border-left: 5px solid #197b67;">
+                <h3>Verfügbare Aktionen & Umfragen</h3>
+                <p class="framework-help-text">Wähle eine Aktion aus, um teilzunehmen:</p>
+                <div style="display: grid; gap: 10px; margin-top: 12px;">
+                    @foreach (var ev in PassiveEvents)
+                    {
+                        <div style="padding: 12px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                            <div>
+                                <FrameworkBadge Text="@GetFriendlyTypeName(ev.SlideType)" Variant="@ev.SlideType" />
+                                <strong style="display: block; margin-top: 4px;">@ev.Title</strong>
+                            </div>
+                            <FrameworkButton Label="Öffnen" Variant="primary" OnClick="() => OnSelectPassiveEvent.InvokeAsync(ev)" />
+                        </div>
+                    }
+                </div>
+            </Card>
+        }
+
+        <!-- TEAM CARD -->
+        @if (TeamState is not null)
+        {
+            <Card Class="settings-card" Style="@($"margin-bottom: 20px; border-top: 6px solid {TeamState.Color};")">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <span class="mobile-eyebrow">DEIN TEAM</span>
+                        <h1 style="margin: 4px 0 0 0;">@TeamState.DisplayName</h1>
+                    </div>
+                    <FrameworkBadge Text="@($"#{TeamState.Rank}")" Variant="primary" />
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: #f6f8f7; padding: 12px; border-radius: 6px; text-align: center;">
+                        <span style="font-size: 12px; color: #657276; display: block;">Rang</span>
+                        <strong style="font-size: 20px; color: #105c4d;">#@TeamState.Rank <small style="font-size: 12px; color: #657276;">/ @TotalTeamCount</small></strong>
+                    </div>
+                    <div style="background: #f6f8f7; padding: 12px; border-radius: 6px; text-align: center;">
+                        <span style="font-size: 12px; color: #657276; display: block;">Punkte</span>
+                        <strong style="font-size: 20px; color: #105c4d;">@TeamState.Points Pkt.</strong>
+                    </div>
+                </div>
+            </Card>
+        }
+        else
+        {
+            <Card Class="settings-card" Style="margin-bottom: 20px; background: #fdfaf6; border-left: 5px solid #d97706;">
+                <h3>Kein Team zugewiesen</h3>
+                <p style="margin: 0; color: #657276;">Du bist aktuell noch keinem Team zugeordnet. Der Moderator weist dich gleich zu!</p>
+            </Card>
+        }
+
+        <!-- PROFILE -->
+        <Card Class="settings-card" Style="margin-bottom: 20px;">
+            <h3>Dein Profil</h3>
+            <form @onsubmit="OnSaveName" @onsubmit:preventDefault="true" style="display: flex; gap: 10px; margin-top: 12px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <FrameworkFormGroup Label="Dein Name" ForId="my-name">
+                        <FrameworkInputText Id="my-name" Value="@NameInput" ValueChanged="NameInputChanged" MaxLength="120" Placeholder="z. B. Alex" />
+                    </FrameworkFormGroup>
+                </div>
+                <FrameworkButton Label="@(IsSavingName ? "..." : "Speichern")" Variant="secondary" Type="submit" Disabled="@IsSavingName" />
+            </form>
+        </Card>
+
+        <!-- TEAM MEMBERS -->
+        @if (TeamState is not null && TeamState.Members.Length > 0)
+        {
+            <Card Class="settings-card" Style="margin-bottom: 20px;">
+                <h3>Team-Mitglieder (@TeamState.Members.Length)</h3>
+                <ul style="list-style: none; padding: 0; margin: 12px 0 0 0; display: grid; gap: 8px;">
+                    @foreach (var member in TeamState.Members)
+                    {
+                        <li style="padding: 8px 12px; background: @(member.Id == ParticipantId ? "#e6f4f1" : "#f8faf9"); border: 1px solid #dce5e2; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #105c4d; margin-right: 8px;">#@member.Number</strong>
+                                <span>@(string.IsNullOrWhiteSpace(member.Name) ? "Unbenannt" : member.Name)</span>
+                            </div>
+                            @if (member.Id == ParticipantId)
+                            {
+                                <FrameworkBadge Text="Du" Variant="primary" />
+                            }
+                        </li>
+                    }
+                </ul>
+            </Card>
+        }
+
+        <!-- LEADERBOARD -->
+        @if (AllTeams.Length > 0)
+        {
+            <Card Class="settings-card">
+                <h3>Gesamtrangliste</h3>
+                <div style="display: grid; gap: 8px; margin-top: 12px;">
+                    @foreach (var team in AllTeams)
+                    {
+                        <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: @(team.Id == TeamState?.Id ? "#f0f8f4" : "#fff"); display: flex; align-items: center; gap: 12px;">
+                            <span style="font-weight: 800; width: 24px; color: #105c4d;">#@team.Rank</span>
+                            <span style="width: 12px; height: 12px; border-radius: 50%; background-color: @team.Color; display: inline-block;"></span>
+                            <span style="flex: 1; font-weight: 600;">@team.DisplayName</span>
+                            <strong style="color: #105c4d;">@team.Points Pkt.</strong>
+                        </div>
+                    }
+                </div>
+            </Card>
+        }
+    </div>
+</FrameworkPage>
+
+@code {
+    [Parameter] public string ProjectName { get; set; } = string.Empty;
+    [Parameter] public int ParticipantNumber { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
+    [Parameter] public TeamState? TeamState { get; set; }
+    [Parameter] public TeamState[] AllTeams { get; set; } = [];
+    [Parameter] public EventState[] PassiveEvents { get; set; } = [];
+    [Parameter] public string NameInput { get; set; } = string.Empty;
+    [Parameter] public bool IsSavingName { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public string? SuccessMessage { get; set; }
+    [Parameter] public EventCallback<string> NameInputChanged { get; set; }
+    [Parameter] public EventCallback OnSaveName { get; set; }
+    [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
+
+    private int TotalTeamCount => AllTeams.Length;
+
+    private static string GetFriendlyTypeName(string type) => type.ToLowerInvariant() switch
+    {
+        "announcement" => "Ankündigung",
+        "poll" => "Abstimmung",
+        "quiz" => "Quiz",
+        "estimation" => "Schätzfrage",
+        "buzzer" => "Buzzer",
+        "ranking" => "Rangliste",
+        _ => "Event"
+    };
+}

@@ -13,6 +13,8 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
+    public DbSet<GameInstanceShow> GameInstanceShows => Set<GameInstanceShow>();
+    public DbSet<GameInstanceEvent> GameInstanceEvents => Set<GameInstanceEvent>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -87,6 +89,31 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         gameInstances.HasOne(gi => gi.Projekt)
             .WithMany()
             .HasForeignKey(gi => gi.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var gameInstanceShows = modelBuilder.Entity<GameInstanceShow>();
+        gameInstanceShows.Property(gis => gis.Mode).HasMaxLength(16).HasDefaultValue("active");
+        gameInstanceShows.HasOne(gis => gis.GameInstance)
+            .WithMany(gi => gi.Shows)
+            .HasForeignKey(gis => gis.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        gameInstanceShows.HasOne(gis => gis.Show)
+            .WithMany()
+            .HasForeignKey(gis => gis.ShowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var gameInstanceEvents = modelBuilder.Entity<GameInstanceEvent>();
+        gameInstanceEvents.Property(gie => gie.SlideType).HasMaxLength(32).IsRequired();
+        gameInstanceEvents.Property(gie => gie.Mode).HasMaxLength(16).HasDefaultValue("active");
+        gameInstanceEvents.Property(gie => gie.Status).HasMaxLength(16).HasDefaultValue("active");
+        gameInstanceEvents.Property(gie => gie.ParametersJson).HasColumnType("jsonb").IsRequired();
+        gameInstanceEvents.HasOne(gie => gie.GameInstance)
+            .WithMany(gi => gi.Events)
+            .HasForeignKey(gie => gie.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        gameInstanceEvents.HasOne(gie => gie.GameInstanceShow)
+            .WithMany(gis => gis.Events)
+            .HasForeignKey(gie => gie.GameInstanceShowId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()

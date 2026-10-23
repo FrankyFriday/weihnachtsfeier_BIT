@@ -1,0 +1,8 @@
+<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: #ffffff;">
+    <h1 style="font-size: 24px; font-weight: 800; margin: 0 0 12px 0; color: #9b1c1c;">Nicht visualisierbar</h1>
+    <p style="font-size: 16px; color: #556265; margin: 0;">Diese Slide vom Typ '@Event.SlideType' kann aktuell nicht visualisiert werden.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+}

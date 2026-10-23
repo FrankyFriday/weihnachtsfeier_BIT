@@ -1,0 +1,55 @@
+<div style="position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;">
+    @if (ShowBackButton)
+    {
+        <div style="background: #f8faf9; padding: 12px 16px; border-bottom: 1px solid #dce5e2; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+            <FrameworkButton Label="◄ Zurück" Variant="secondary" OnClick="OnBack" />
+            <FrameworkBadge Text="@GetFriendlyTypeName(Event.SlideType)" Variant="@Event.SlideType" />
+        </div>
+    }
+
+    <div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; overflow: hidden; box-sizing: border-box;">
+        @switch (Event.SlideType.ToLowerInvariant())
+        {
+            case "announcement":
+                <AnnouncementRenderer Event="Event" />
+                break;
+            case "poll":
+                <PollRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "quiz":
+                <QuizRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "ranking":
+                <RankingRenderer Event="Event" />
+                break;
+            case "estimation":
+                <EstimationRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            case "buzzer":
+                <BuzzerRenderer Event="Event" AccessToken="@AccessToken" ProjectId="ProjectId" />
+                break;
+            default:
+                <FallbackRenderer Event="Event" />
+                break;
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    private static string GetFriendlyTypeName(string type) => type.ToLowerInvariant() switch
+    {
+        "announcement" => "Ankündigung",
+        "poll" => "Abstimmung",
+        "quiz" => "Quiz",
+        "estimation" => "Schätzfrage",
+        "buzzer" => "Buzzer",
+        "ranking" => "Rangliste",
+        _ => "Event"
+    };
+}

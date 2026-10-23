@@ -33,3 +33,9 @@ public sealed record CreateTestEntryRequest(string? Name);
 public sealed record GameInstanceResponse(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
 public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
 public sealed record LoginByCodeRequest(string Code, int Number);
+
+public sealed record StartSessionShowRequest(Guid ShowId, string Mode);
+public sealed record UpdateSessionShowRequest(int CurrentSlideIndex, string Mode);
+public sealed record CreateSpontaneousEventRequest(string SlideType, string Mode, JsonElement Parameters);
+public sealed record UpdateEventModeRequest(string Mode);
+public sealed record SubmitResponseRequest(JsonElement ResponseData);
