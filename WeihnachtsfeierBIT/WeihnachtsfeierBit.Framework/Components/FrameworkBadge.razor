@@ -1,0 +1,11 @@
+<span class="slide-type-badge slide-type-@Variant @Class" style="@Style" @attributes="AdditionalAttributes">
+    @Text
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

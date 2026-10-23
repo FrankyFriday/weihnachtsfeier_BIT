@@ -1,27 +1,44 @@
-<label class="framework-select">
-    @if (!string.IsNullOrWhiteSpace(Label))
-    {
+@if (!string.IsNullOrWhiteSpace(Label))
+{
+    <label class="framework-select" for="@Id">
         <span>@Label</span>
-    }
-    <select value="@Value" disabled="@Disabled" @onchange="OnValueChanged">
+        <select id="@Id" value="@Value" disabled="@Disabled" class="framework-select-input @Class" style="@Style" @onchange="OnValueChanged" @attributes="AdditionalAttributes">
+            @if (!string.IsNullOrWhiteSpace(Placeholder))
+            {
+                <option value="" selected="@(string.IsNullOrEmpty(Value))">@Placeholder</option>
+            }
+            @foreach (var option in Options)
+            {
+                <option value="@option.Value" selected="@(option.Value == Value)">@option.Label</option>
+            }
+        </select>
+    </label>
+}
+else
+{
+    <select id="@Id" value="@Value" disabled="@Disabled" class="framework-select-input @Class" style="@Style" @onchange="OnValueChanged" @attributes="AdditionalAttributes">
         @if (!string.IsNullOrWhiteSpace(Placeholder))
         {
-            <option value="">@Placeholder</option>
+            <option value="" selected="@(string.IsNullOrEmpty(Value))">@Placeholder</option>
         }
         @foreach (var option in Options)
         {
-            <option value="@option.Value">@option.Label</option>
+            <option value="@option.Value" selected="@(option.Value == Value)">@option.Label</option>
         }
     </select>
-</label>
+}
 
 @code {
+    [Parameter] public string? Id { get; set; }
     [Parameter] public string? Label { get; set; }
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public IReadOnlyList<FrameworkSelectOption> Options { get; set; } = [];
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private Task OnValueChanged(ChangeEventArgs args) => ValueChanged.InvokeAsync(args.Value?.ToString());
 }

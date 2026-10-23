@@ -39,10 +39,10 @@
                                 <div class="slide-list-item-content">
                                     <div class="slide-list-item-header">
                                         <span class="slide-position">#@(slide.Position + 1)</span>
-                                        <span class="slide-type-badge slide-type-@slide.Type">@SlideTypeLabel(slide.Type)</span>
+                                        <FrameworkBadge Text="@SlideTypeLabel(slide.Type)" Variant="@slide.Type" />
                                         @if (slide.IsDisabled)
                                         {
-                                            <span class="slide-type-badge slide-type-disabled">Entwurf</span>
+                                            <FrameworkBadge Text="Entwurf" Variant="disabled" />
                                         }
                                     </div>
                                     <div class="slide-list-item-title">
@@ -75,10 +75,10 @@
                                     <h2>@_selectedSlide.DisplayName</h2>
                                 </div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <span class="slide-type-badge slide-type-@_selectedSlide.Type">@SlideTypeLabel(_selectedSlide.Type)</span>
+                                    <FrameworkBadge Text="@SlideTypeLabel(_selectedSlide.Type)" Variant="@_selectedSlide.Type" />
                                     @if (_selectedSlide.IsDisabled)
                                     {
-                                        <span class="slide-type-badge slide-type-disabled">Entwurf</span>
+                                        <FrameworkBadge Text="Entwurf" Variant="disabled" />
                                     }
                                 </div>
                             </div>
@@ -86,89 +86,61 @@
                         <ChildContent>
                             <div class="slide-form">
                                 <!-- Common Fields: Internal Name, Disabled Switch & Admin Notes -->
-                                <div class="form-group">
-                                    <label for="slide-internal-name">Interner Name <span class="framework-help-text">(nur im Admin-Panel sichtbar)</span></label>
-                                    <input id="slide-internal-name" @bind="_selectedSlide.InternalName" placeholder="z. B. Begrüßung Runde 1" />
-                                </div>
+                                <FrameworkFormGroup Label="Interner Name" HelpText="nur im Admin-Panel sichtbar" ForId="slide-internal-name">
+                                    <FrameworkInputText Id="slide-internal-name" @bind-Value="_selectedSlide.InternalName" Placeholder="z. B. Begrüßung Runde 1" />
+                                </FrameworkFormGroup>
 
-                                <div class="form-group checkbox-group">
-                                    <label>
-                                        <input type="checkbox" @bind="_selectedSlide.IsDisabled" />
-                                        <span>Slide deaktivieren / Entwurf <span class="framework-help-text">(wird in der Live-Show übersprungen)</span></span>
-                                    </label>
-                                </div>
+                                <FrameworkCheckbox @bind-Value="_selectedSlide.IsDisabled" Label="Slide deaktivieren / Entwurf" HelpText="wird in der Live-Show übersprungen" />
 
-                                <div class="form-group">
-                                    <label for="slide-admin-notes">Moderator- / Regie-Notizen <span class="framework-help-text">(nur für Admins sichtbar)</span></label>
-                                    <textarea id="slide-admin-notes" @bind="_selectedSlide.AdminNotes" rows="2" placeholder="Regieanweisung oder Notizen für den Moderator..."></textarea>
-                                </div>
+                                <FrameworkFormGroup Label="Moderator- / Regie-Notizen" HelpText="nur für Admins sichtbar" ForId="slide-admin-notes">
+                                    <FrameworkTextArea Id="slide-admin-notes" @bind-Value="_selectedSlide.AdminNotes" Rows="2" Placeholder="Regieanweisung oder Notizen für den Moderator..." />
+                                </FrameworkFormGroup>
 
-                                <hr class="form-divider" />
+                                <FrameworkDivider />
 
                                 @if (_selectedSlide.Type == "announcement")
                                 {
-                                    <div class="form-group">
-                                        <label for="announcement-title">Titel</label>
-                                        <input id="announcement-title" @bind="_selectedSlide.AnnouncementTitle" maxlength="120" placeholder="Ankündigungstitel" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="announcement-message">Nachricht</label>
-                                        <textarea id="announcement-message" @bind="_selectedSlide.AnnouncementMessage" rows="5" placeholder="Nachrichtentext"></textarea>
-                                    </div>
+                                    <FrameworkFormGroup Label="Titel" ForId="announcement-title">
+                                        <FrameworkInputText Id="announcement-title" @bind-Value="_selectedSlide.AnnouncementTitle" MaxLength="120" Placeholder="Ankündigungstitel" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Nachricht" ForId="announcement-message">
+                                        <FrameworkTextArea Id="announcement-message" @bind-Value="_selectedSlide.AnnouncementMessage" Rows="5" Placeholder="Nachrichtentext" />
+                                    </FrameworkFormGroup>
                                 }
                                 else if (_selectedSlide.Type == "poll")
                                 {
-                                    <div class="form-group">
-                                        <label for="poll-question">Frage</label>
-                                        <input id="poll-question" @bind="_selectedSlide.PollQuestion" placeholder="Welche Option wählt ihr?" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Optionen</label>
+                                    <FrameworkFormGroup Label="Frage" ForId="poll-question">
+                                        <FrameworkInputText Id="poll-question" @bind-Value="_selectedSlide.PollQuestion" Placeholder="Welche Option wählt ihr?" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Optionen">
                                         @for (int i = 0; i < _selectedSlide.PollOptions.Count; i++)
                                         {
                                             var index = i;
                                             <div class="dynamic-list-row">
-                                                <input @bind="_selectedSlide.PollOptions[index]" placeholder="@($"Option {index + 1}")" />
+                                                <FrameworkInputText Value="@_selectedSlide.PollOptions[index]" ValueChanged="val => _selectedSlide.PollOptions[index] = val ?? string.Empty" Placeholder="@($"Option {index + 1}")" />
                                                 <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => RemovePollOption(_selectedSlide, index)" Disabled="@(_selectedSlide.PollOptions.Count <= 2)" />
                                             </div>
                                         }
                                         <div style="margin-top: 8px;">
                                             <FrameworkButton Label="+ Option hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.PollOptions.Add(string.Empty)" />
                                         </div>
-                                    </div>
-                                    <div class="form-group checkbox-group">
-                                        <label>
-                                            <input type="checkbox" @bind="_selectedSlide.PollAllowMultiple" />
-                                            <span>Mehrfachauswahl erlauben</span>
-                                        </label>
-                                    </div>
-                                    <div class="form-group checkbox-group">
-                                        <label>
-                                            <input type="checkbox" @bind="_selectedSlide.PollHideResultsUntilRevealed" />
-                                            <span>Ergebnisse verdeckt halten bis zur Enthüllung</span>
-                                        </label>
-                                    </div>
-                                    <div class="form-group checkbox-group">
-                                        <label>
-                                            <input type="checkbox" @bind="_selectedSlide.PollShowPercentage" />
-                                            <span>Ergebnisse in Prozent anzeigen</span>
-                                        </label>
-                                    </div>
+                                    </FrameworkFormGroup>
+                                    <FrameworkCheckbox @bind-Value="_selectedSlide.PollAllowMultiple" Label="Mehrfachauswahl erlauben" />
+                                    <FrameworkCheckbox @bind-Value="_selectedSlide.PollHideResultsUntilRevealed" Label="Ergebnisse verdeckt halten bis zur Enthüllung" />
+                                    <FrameworkCheckbox @bind-Value="_selectedSlide.PollShowPercentage" Label="Ergebnisse in Prozent anzeigen" />
                                 }
                                 else if (_selectedSlide.Type == "quiz")
                                 {
-                                    <div class="form-group">
-                                        <label for="quiz-question">Frage</label>
-                                        <input id="quiz-question" @bind="_selectedSlide.QuizQuestion" placeholder="Welche Antwort ist richtig?" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Antwortmöglichkeiten</label>
+                                    <FrameworkFormGroup Label="Frage" ForId="quiz-question">
+                                        <FrameworkInputText Id="quiz-question" @bind-Value="_selectedSlide.QuizQuestion" Placeholder="Welche Antwort ist richtig?" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Antwortmöglichkeiten">
                                         @for (int i = 0; i < _selectedSlide.QuizAnswers.Count; i++)
                                         {
                                             var index = i;
                                             var isCorrect = _selectedSlide.QuizCorrectAnswerIndices.Contains(index);
                                             <div class="dynamic-list-row">
-                                                <input @bind="_selectedSlide.QuizAnswers[index]" placeholder="@($"Antwort {index + 1}")" />
+                                                <FrameworkInputText Value="@_selectedSlide.QuizAnswers[index]" ValueChanged="val => _selectedSlide.QuizAnswers[index] = val ?? string.Empty" Placeholder="@($"Antwort {index + 1}")" />
                                                 <label class="correct-checkbox-label">
                                                     <input type="checkbox" checked="@isCorrect" @onchange="e => ToggleQuizCorrectAnswer(_selectedSlide, index, (bool)(e.Value ?? false))" />
                                                     <span>Richtig</span>
@@ -179,79 +151,57 @@
                                         <div style="margin-top: 8px;">
                                             <FrameworkButton Label="+ Antwort hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.QuizAnswers.Add(string.Empty)" />
                                         </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="quiz-points">Punkte bei richtiger Antwort</label>
-                                        <input id="quiz-points" type="number" min="0" @bind="_selectedSlide.QuizPoints" placeholder="100" />
-                                    </div>
-                                    <div class="form-group checkbox-group">
-                                        <label>
-                                            <input type="checkbox" @bind="_selectedSlide.QuizEnableSpeedBonus" />
-                                            <span>Geschwindigkeits-Bonus aktivieren</span>
-                                        </label>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="quiz-time-limit">Zeitlimit in Sekunden (optional)</label>
-                                        <input id="quiz-time-limit" type="number" min="5" max="300" @bind="_selectedSlide.QuizTimeLimitSeconds" placeholder="z. B. 30" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="quiz-explanation">Lösungserklärung / Erläuterung <span class="framework-help-text">(optional, wird nach Auflösung angezeigt)</span></label>
-                                        <textarea id="quiz-explanation" @bind="_selectedSlide.QuizExplanation" rows="3" placeholder="Zusätzliche Infos zur Lösung..."></textarea>
-                                    </div>
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Punkte bei richtiger Antwort" ForId="quiz-points">
+                                        <FrameworkInputNumber Id="quiz-points" @bind-Value="_selectedSlide.QuizPoints" Min="0" Placeholder="100" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkCheckbox @bind-Value="_selectedSlide.QuizEnableSpeedBonus" Label="Geschwindigkeits-Bonus aktivieren" />
+                                    <FrameworkFormGroup Label="Zeitlimit in Sekunden" HelpText="optional" ForId="quiz-time-limit">
+                                        <FrameworkInputNumber Id="quiz-time-limit" @bind-Value="_selectedSlide.QuizTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 30" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Lösungserklärung / Erläuterung" HelpText="optional, wird nach Auflösung angezeigt" ForId="quiz-explanation">
+                                        <FrameworkTextArea Id="quiz-explanation" @bind-Value="_selectedSlide.QuizExplanation" Rows="3" Placeholder="Zusätzliche Infos zur Lösung..." />
+                                    </FrameworkFormGroup>
                                 }
                                 else if (_selectedSlide.Type == "ranking")
                                 {
-                                    <div class="framework-notice framework-notice-info" style="margin-bottom: 16px;">
-                                        Der Zwischenstand zeigt während des Live-Events automatisch den aktuellen Punktestand aller Teams aus dem jeweiligen Projekt an.
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="ranking-title">Titel der Rangliste</label>
-                                        <input id="ranking-title" @bind="_selectedSlide.RankingTitle" placeholder="z. B. Zwischenstand nach Runde 1" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="ranking-top-count">Top-X Begrenzung <span class="framework-help-text">(optional, z. B. 3 für Top 3; leer lassen für alle Teams)</span></label>
-                                        <input id="ranking-top-count" type="number" min="1" max="50" @bind="_selectedSlide.RankingTopCount" placeholder="z. B. 3 oder 5" />
-                                    </div>
-                                    <div class="form-group checkbox-group">
-                                        <label>
-                                            <input type="checkbox" @bind="_selectedSlide.RankingAnimatePodium" />
-                                            <span>Podium-Animation aktivieren (aufsteigende Enthüllung)</span>
-                                        </label>
+                                    <FrameworkNotice Message="Der Zwischenstand zeigt während des Live-Events automatisch den aktuellen Punktestand aller Teams aus dem jeweiligen Projekt an." Severity="info" />
+                                    <div style="margin-top: 16px;">
+                                        <FrameworkFormGroup Label="Titel der Rangliste" ForId="ranking-title">
+                                            <FrameworkInputText Id="ranking-title" @bind-Value="_selectedSlide.RankingTitle" Placeholder="z. B. Zwischenstand nach Runde 1" />
+                                        </FrameworkFormGroup>
+                                        <FrameworkFormGroup Label="Top-X Begrenzung" HelpText="optional, z. B. 3 für Top 3; leer lassen für alle Teams" ForId="ranking-top-count">
+                                            <FrameworkInputNumber Id="ranking-top-count" @bind-Value="_selectedSlide.RankingTopCount" Min="1" Max="50" Placeholder="z. B. 3 oder 5" />
+                                        </FrameworkFormGroup>
+                                        <FrameworkCheckbox @bind-Value="_selectedSlide.RankingAnimatePodium" Label="Podium-Animation aktivieren (aufsteigende Enthüllung)" />
                                     </div>
                                 }
                                 else if (_selectedSlide.Type == "estimation")
                                 {
-                                    <div class="form-group">
-                                        <label for="estimation-question">Schätzfrage</label>
-                                        <input id="estimation-question" @bind="_selectedSlide.EstimationQuestion" placeholder="Wie viele Kilo Schokolade werden verbraucht?" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="estimation-correct-value">Exakter / Richtiger Wert</label>
-                                        <input id="estimation-correct-value" type="number" step="any" @bind="_selectedSlide.EstimationCorrectValue" placeholder="z. B. 42" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="estimation-unit">Einheit <span class="framework-help-text">(optional, z. B. kg, Meter, Stück)</span></label>
-                                        <input id="estimation-unit" @bind="_selectedSlide.EstimationUnit" placeholder="z. B. kg" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="estimation-points">Maximale Punkte für beste Schätzung</label>
-                                        <input id="estimation-points" type="number" min="0" @bind="_selectedSlide.EstimationPoints" placeholder="100" />
-                                    </div>
+                                    <FrameworkFormGroup Label="Schätzfrage" ForId="estimation-question">
+                                        <FrameworkInputText Id="estimation-question" @bind-Value="_selectedSlide.EstimationQuestion" Placeholder="Wie viele Kilo Schokolade werden verbraucht?" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Exakter / Richtiger Wert" ForId="estimation-correct-value">
+                                        <FrameworkInputDouble Id="estimation-correct-value" @bind-Value="_selectedSlide.EstimationCorrectValue" Placeholder="z. B. 42" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Einheit" HelpText="optional, z. B. kg, Meter, Stück" ForId="estimation-unit">
+                                        <FrameworkInputText Id="estimation-unit" @bind-Value="_selectedSlide.EstimationUnit" Placeholder="z. B. kg" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Maximale Punkte für beste Schätzung" ForId="estimation-points">
+                                        <FrameworkInputNumber Id="estimation-points" @bind-Value="_selectedSlide.EstimationPoints" Min="0" Placeholder="100" />
+                                    </FrameworkFormGroup>
                                 }
                                 else if (_selectedSlide.Type == "buzzer")
                                 {
-                                    <div class="form-group">
-                                        <label for="buzzer-question">Buzzer-Frage / Aufgabe</label>
-                                        <input id="buzzer-question" @bind="_selectedSlide.BuzzerQuestion" placeholder="Welches Team buzzert als Erstes?" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="buzzer-points">Punkte für schnellsten Buzzer/Antwort</label>
-                                        <input id="buzzer-points" type="number" min="0" @bind="_selectedSlide.BuzzerPoints" placeholder="100" />
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="buzzer-time-limit">Zeitlimit in Sekunden (optional)</label>
-                                        <input id="buzzer-time-limit" type="number" min="5" max="300" @bind="_selectedSlide.BuzzerTimeLimitSeconds" placeholder="z. B. 20" />
-                                    </div>
+                                    <FrameworkFormGroup Label="Buzzer-Frage / Aufgabe" ForId="buzzer-question">
+                                        <FrameworkInputText Id="buzzer-question" @bind-Value="_selectedSlide.BuzzerQuestion" Placeholder="Welches Team buzzert als Erstes?" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Punkte für schnellsten Buzzer/Antwort" ForId="buzzer-points">
+                                        <FrameworkInputNumber Id="buzzer-points" @bind-Value="_selectedSlide.BuzzerPoints" Min="0" Placeholder="100" />
+                                    </FrameworkFormGroup>
+                                    <FrameworkFormGroup Label="Zeitlimit in Sekunden" HelpText="optional" ForId="buzzer-time-limit">
+                                        <FrameworkInputNumber Id="buzzer-time-limit" @bind-Value="_selectedSlide.BuzzerTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 20" />
+                                    </FrameworkFormGroup>
                                 }
 
                                 @if (!string.IsNullOrEmpty(_selectedSlide.ErrorMessage))
@@ -280,21 +230,13 @@
 <!-- ADD SLIDE MODAL -->
 <FrameworkModal IsOpen="@_isAddModalOpen" Title="Neue Slide hinzufügen" OnClose="CloseAddModal">
     <div class="modal-form">
-        <div class="form-group">
-            <label for="modal-slide-type">Slide-Typ</label>
-            <select id="modal-slide-type" @bind="_newSlideType" class="framework-select">
-                <option value="announcement">Ankündigung</option>
-                <option value="poll">Abstimmung</option>
-                <option value="quiz">Quiz</option>
-                <option value="ranking">Zwischenstand (Automatisch)</option>
-                <option value="estimation">Schätzfrage</option>
-                <option value="buzzer">Buzzer-Frage</option>
-            </select>
-        </div>
-        <div class="form-group" style="margin-top: 16px;">
-            <label for="modal-internal-name">Interner Name <span class="framework-help-text">(optional, nur im Admin-Panel sichtbar)</span></label>
-            <input id="modal-internal-name" @bind="_newSlideInternalName" placeholder="z. B. Begrüßung & Regeln" />
-        </div>
+        <FrameworkFormGroup Label="Slide-Typ" ForId="modal-slide-type">
+            <FrameworkSelect Id="modal-slide-type" Value="@_newSlideType" ValueChanged='v => _newSlideType = v ?? "announcement"' Options="@_slideTypeOptions" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Interner Name" HelpText="optional, nur im Admin-Panel sichtbar" ForId="modal-internal-name" Style="margin-top: 16px;">
+            <FrameworkInputText Id="modal-internal-name" @bind-Value="_newSlideInternalName" Placeholder="z. B. Begrüßung & Regeln" />
+        </FrameworkFormGroup>
 
         @if (!string.IsNullOrEmpty(_addModalError))
         {
@@ -324,6 +266,16 @@
 
     private Guid? _busySlideId;
     private bool _adding;
+
+    private static readonly FrameworkSelectOption[] _slideTypeOptions =
+    [
+        new("announcement", "Ankündigung"),
+        new("poll", "Abstimmung"),
+        new("quiz", "Quiz"),
+        new("ranking", "Zwischenstand (Automatisch)"),
+        new("estimation", "Schätzfrage"),
+        new("buzzer", "Buzzer-Frage")
+    ];
 
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);
 

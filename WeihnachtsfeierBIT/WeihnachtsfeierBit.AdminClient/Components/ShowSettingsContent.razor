@@ -26,10 +26,9 @@
         <Card Class="settings-card">
             <ChildContent>
                 <h2>Show-Name</h2>
-                <div class="settings-form">
-                    <label for="show-name">Name der Show</label>
-                    <input id="show-name" @bind="_showName" maxlength="120" placeholder="Showname eingeben" />
-                </div>
+                <FrameworkFormGroup Label="Name der Show" ForId="show-name">
+                    <FrameworkInputText Id="show-name" @bind-Value="_showName" MaxLength="120" Placeholder="Showname eingeben" />
+                </FrameworkFormGroup>
             </ChildContent>
             <FooterContent>
                 <FrameworkButton Label="Name speichern" Variant="primary" OnClick="SaveShowNameAsync" Busy="@_savingName" Disabled="@_savingName" />
@@ -49,21 +48,19 @@
 
                 @if (_showExportJson is not null)
                 {
-                    <div class="form-group" style="margin-top: 16px;">
-                        <label for="export-json">Exportierte Show-Struktur (JSON)</label>
-                        <textarea id="export-json" readonly rows="8" style="width: 100%; font-family: monospace;" value="@_showExportJson"></textarea>
-                    </div>
+                    <FrameworkFormGroup Label="Exportierte Show-Struktur (JSON)" ForId="export-json" Style="margin-top: 16px;">
+                        <FrameworkTextArea Id="export-json" Value="@_showExportJson" Rows="8" Disabled="true" Style="font-family: monospace;" />
+                    </FrameworkFormGroup>
                 }
 
-                <hr class="form-divider" style="margin: 20px 0;" />
+                <FrameworkDivider Style="margin: 20px 0;" />
 
-                <div class="form-group">
-                    <label for="import-json">Slides aus JSON importieren</label>
-                    <textarea id="import-json" @bind="_importJson" rows="5" placeholder="Füge hier eine exportierte Show-JSON-Struktur ein..."></textarea>
+                <FrameworkFormGroup Label="Slides aus JSON importieren" ForId="import-json">
+                    <FrameworkTextArea Id="import-json" @bind-Value="_importJson" Rows="5" Placeholder="Füge hier eine exportierte Show-JSON-Struktur ein..." />
                     <div style="margin-top: 8px;">
                         <FrameworkButton Label="Slides importieren" Variant="secondary" OnClick="ImportShowJsonAsync" Busy="@_importing" Disabled="@(string.IsNullOrWhiteSpace(_importJson) || _importing)" />
                     </div>
-                </div>
+                </FrameworkFormGroup>
             </ChildContent>
         </Card>
 
