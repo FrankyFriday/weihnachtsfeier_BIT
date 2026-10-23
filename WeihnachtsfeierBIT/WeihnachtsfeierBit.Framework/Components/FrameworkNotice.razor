@@ -3,5 +3,6 @@
 @code {
     [Parameter, EditorRequired] public string Message { get; set; } = string.Empty;
     [Parameter] public string Severity { get; set; } = "error";
+    [Parameter] public string Format { get => Severity; set => Severity = value; }
     [Parameter] public string Role { get; set; } = "alert";
 }

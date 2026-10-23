@@ -35,11 +35,15 @@
                         @foreach (var slide in _slides.OrderBy(s => s.Position))
                         {
                             var isSelected = _selectedSlide?.Id == slide.Id;
-                            <div class="slide-list-item @(isSelected ? "selected" : string.Empty)" @onclick="() => SelectSlide(slide)" @key="slide.Id">
+                            <div class="slide-list-item @(isSelected ? "selected" : string.Empty) @(slide.IsDisabled ? "disabled-slide" : string.Empty)" @onclick="() => SelectSlide(slide)" @key="slide.Id">
                                 <div class="slide-list-item-content">
                                     <div class="slide-list-item-header">
                                         <span class="slide-position">#@(slide.Position + 1)</span>
                                         <span class="slide-type-badge slide-type-@slide.Type">@SlideTypeLabel(slide.Type)</span>
+                                        @if (slide.IsDisabled)
+                                        {
+                                            <span class="slide-type-badge slide-type-disabled">Entwurf</span>
+                                        }
                                     </div>
                                     <div class="slide-list-item-title">
                                         @slide.DisplayName
@@ -70,15 +74,33 @@
                                     <span class="eyebrow">SLIDE #@(_selectedSlide.Position + 1)</span>
                                     <h2>@_selectedSlide.DisplayName</h2>
                                 </div>
-                                <span class="slide-type-badge slide-type-@_selectedSlide.Type">@SlideTypeLabel(_selectedSlide.Type)</span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="slide-type-badge slide-type-@_selectedSlide.Type">@SlideTypeLabel(_selectedSlide.Type)</span>
+                                    @if (_selectedSlide.IsDisabled)
+                                    {
+                                        <span class="slide-type-badge slide-type-disabled">Entwurf</span>
+                                    }
+                                </div>
                             </div>
                         </HeaderContent>
                         <ChildContent>
                             <div class="slide-form">
-                                <!-- Common Field: Internal Name -->
+                                <!-- Common Fields: Internal Name, Disabled Switch & Admin Notes -->
                                 <div class="form-group">
                                     <label for="slide-internal-name">Interner Name <span class="framework-help-text">(nur im Admin-Panel sichtbar)</span></label>
                                     <input id="slide-internal-name" @bind="_selectedSlide.InternalName" placeholder="z. B. Begrüßung Runde 1" />
+                                </div>
+
+                                <div class="form-group checkbox-group">
+                                    <label>
+                                        <input type="checkbox" @bind="_selectedSlide.IsDisabled" />
+                                        <span>Slide deaktivieren / Entwurf <span class="framework-help-text">(wird in der Live-Show übersprungen)</span></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="slide-admin-notes">Moderator- / Regie-Notizen <span class="framework-help-text">(nur für Admins sichtbar)</span></label>
+                                    <textarea id="slide-admin-notes" @bind="_selectedSlide.AdminNotes" rows="2" placeholder="Regieanweisung oder Notizen für den Moderator..."></textarea>
                                 </div>
 
                                 <hr class="form-divider" />
@@ -120,6 +142,18 @@
                                             <span>Mehrfachauswahl erlauben</span>
                                         </label>
                                     </div>
+                                    <div class="form-group checkbox-group">
+                                        <label>
+                                            <input type="checkbox" @bind="_selectedSlide.PollHideResultsUntilRevealed" />
+                                            <span>Ergebnisse verdeckt halten bis zur Enthüllung</span>
+                                        </label>
+                                    </div>
+                                    <div class="form-group checkbox-group">
+                                        <label>
+                                            <input type="checkbox" @bind="_selectedSlide.PollShowPercentage" />
+                                            <span>Ergebnisse in Prozent anzeigen</span>
+                                        </label>
+                                    </div>
                                 }
                                 else if (_selectedSlide.Type == "quiz")
                                 {
@@ -147,36 +181,82 @@
                                         </div>
                                     </div>
                                     <div class="form-group">
+                                        <label for="quiz-points">Punkte bei richtiger Antwort</label>
+                                        <input id="quiz-points" type="number" min="0" @bind="_selectedSlide.QuizPoints" placeholder="100" />
+                                    </div>
+                                    <div class="form-group checkbox-group">
+                                        <label>
+                                            <input type="checkbox" @bind="_selectedSlide.QuizEnableSpeedBonus" />
+                                            <span>Geschwindigkeits-Bonus aktivieren</span>
+                                        </label>
+                                    </div>
+                                    <div class="form-group">
                                         <label for="quiz-time-limit">Zeitlimit in Sekunden (optional)</label>
                                         <input id="quiz-time-limit" type="number" min="5" max="300" @bind="_selectedSlide.QuizTimeLimitSeconds" placeholder="z. B. 30" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="quiz-explanation">Lösungserklärung / Erläuterung <span class="framework-help-text">(optional, wird nach Auflösung angezeigt)</span></label>
+                                        <textarea id="quiz-explanation" @bind="_selectedSlide.QuizExplanation" rows="3" placeholder="Zusätzliche Infos zur Lösung..."></textarea>
                                     </div>
                                 }
                                 else if (_selectedSlide.Type == "ranking")
                                 {
-                                    <div class="form-group">
-                                        <label for="ranking-title">Titel der Rangliste</label>
-                                        <input id="ranking-title" @bind="_selectedSlide.RankingTitle" placeholder="z. B. Punktestand nach Runde 1" />
+                                    <div class="framework-notice framework-notice-info" style="margin-bottom: 16px;">
+                                        Der Zwischenstand zeigt während des Live-Events automatisch den aktuellen Punktestand aller Teams aus dem jeweiligen Projekt an.
                                     </div>
                                     <div class="form-group">
-                                        <label>Ranglisteneinträge</label>
-                                        @for (int i = 0; i < _selectedSlide.RankingEntries.Count; i++)
-                                        {
-                                            var index = i;
-                                            <div class="dynamic-list-row">
-                                                <input @bind="_selectedSlide.RankingEntries[index].Label" placeholder="Name / Team" style="flex: 2;" />
-                                                <input type="number" @bind="_selectedSlide.RankingEntries[index].Score" placeholder="Punkte" style="flex: 1;" />
-                                                <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => RemoveRankingEntry(_selectedSlide, index)" Disabled="@(_selectedSlide.RankingEntries.Count <= 1)" />
-                                            </div>
-                                        }
-                                        <div style="margin-top: 8px;">
-                                            <FrameworkButton Label="+ Eintrag hinzufügen" Variant="secondary" OnClick="() => _selectedSlide.RankingEntries.Add(new RankingEntryModel())" />
-                                        </div>
+                                        <label for="ranking-title">Titel der Rangliste</label>
+                                        <input id="ranking-title" @bind="_selectedSlide.RankingTitle" placeholder="z. B. Zwischenstand nach Runde 1" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="ranking-top-count">Top-X Begrenzung <span class="framework-help-text">(optional, z. B. 3 für Top 3; leer lassen für alle Teams)</span></label>
+                                        <input id="ranking-top-count" type="number" min="1" max="50" @bind="_selectedSlide.RankingTopCount" placeholder="z. B. 3 oder 5" />
+                                    </div>
+                                    <div class="form-group checkbox-group">
+                                        <label>
+                                            <input type="checkbox" @bind="_selectedSlide.RankingAnimatePodium" />
+                                            <span>Podium-Animation aktivieren (aufsteigende Enthüllung)</span>
+                                        </label>
+                                    </div>
+                                }
+                                else if (_selectedSlide.Type == "estimation")
+                                {
+                                    <div class="form-group">
+                                        <label for="estimation-question">Schätzfrage</label>
+                                        <input id="estimation-question" @bind="_selectedSlide.EstimationQuestion" placeholder="Wie viele Kilo Schokolade werden verbraucht?" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="estimation-correct-value">Exakter / Richtiger Wert</label>
+                                        <input id="estimation-correct-value" type="number" step="any" @bind="_selectedSlide.EstimationCorrectValue" placeholder="z. B. 42" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="estimation-unit">Einheit <span class="framework-help-text">(optional, z. B. kg, Meter, Stück)</span></label>
+                                        <input id="estimation-unit" @bind="_selectedSlide.EstimationUnit" placeholder="z. B. kg" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="estimation-points">Maximale Punkte für beste Schätzung</label>
+                                        <input id="estimation-points" type="number" min="0" @bind="_selectedSlide.EstimationPoints" placeholder="100" />
+                                    </div>
+                                }
+                                else if (_selectedSlide.Type == "buzzer")
+                                {
+                                    <div class="form-group">
+                                        <label for="buzzer-question">Buzzer-Frage / Aufgabe</label>
+                                        <input id="buzzer-question" @bind="_selectedSlide.BuzzerQuestion" placeholder="Welches Team buzzert als Erstes?" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="buzzer-points">Punkte für schnellsten Buzzer/Antwort</label>
+                                        <input id="buzzer-points" type="number" min="0" @bind="_selectedSlide.BuzzerPoints" placeholder="100" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="buzzer-time-limit">Zeitlimit in Sekunden (optional)</label>
+                                        <input id="buzzer-time-limit" type="number" min="5" max="300" @bind="_selectedSlide.BuzzerTimeLimitSeconds" placeholder="z. B. 20" />
                                     </div>
                                 }
 
                                 @if (!string.IsNullOrEmpty(_selectedSlide.ErrorMessage))
                                 {
-                                    <FrameworkNotice Message="@_selectedSlide.ErrorMessage" Format="error" />
+                                    <FrameworkNotice Message="@_selectedSlide.ErrorMessage" Severity="error" />
                                 }
                             </div>
                         </ChildContent>
@@ -206,7 +286,9 @@
                 <option value="announcement">Ankündigung</option>
                 <option value="poll">Abstimmung</option>
                 <option value="quiz">Quiz</option>
-                <option value="ranking">Zwischenstand</option>
+                <option value="ranking">Zwischenstand (Automatisch)</option>
+                <option value="estimation">Schätzfrage</option>
+                <option value="buzzer">Buzzer-Frage</option>
             </select>
         </div>
         <div class="form-group" style="margin-top: 16px;">
@@ -217,7 +299,7 @@
         @if (!string.IsNullOrEmpty(_addModalError))
         {
             <div style="margin-top: 16px;">
-                <FrameworkNotice Message="@_addModalError" Format="error" />
+                <FrameworkNotice Message="@_addModalError" Severity="error" />
             </div>
         }
 
@@ -303,9 +385,11 @@
                 object defaultPayload = _newSlideType switch
                 {
                     "announcement" => new { internalName = _newSlideInternalName.Trim(), title = string.Empty, message = string.Empty },
-                    "poll" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, options = new[] { string.Empty, string.Empty }, allowMultipleAnswers = false },
-                    "quiz" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, answers = new[] { string.Empty, string.Empty }, correctAnswerIndices = new[] { 0 }, timeLimitSeconds = (int?)null },
-                    "ranking" => new { internalName = _newSlideInternalName.Trim(), title = string.Empty, entries = new[] { new { label = string.Empty, score = 0 } } },
+                    "poll" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, options = new[] { string.Empty, string.Empty }, allowMultipleAnswers = false, hideResultsUntilRevealed = false, showPercentage = false },
+                    "quiz" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, answers = new[] { string.Empty, string.Empty }, correctAnswerIndices = new[] { 0 }, timeLimitSeconds = (int?)null, points = 100, enableSpeedBonus = false, explanation = string.Empty },
+                    "ranking" => new { internalName = _newSlideInternalName.Trim(), title = "Zwischenstand", topCount = (int?)null, animatePodium = false },
+                    "estimation" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, correctValue = 0.0, unit = string.Empty, points = 100 },
+                    "buzzer" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, points = 100, timeLimitSeconds = (int?)null },
                     _ => new { internalName = _newSlideInternalName.Trim() }
                 };
 
@@ -353,6 +437,11 @@
                     new SlideWriteRequest(slide.Type, slide.Position, parameters));
                 await LoadDataAsync(token);
             });
+            slide.ErrorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            slide.ErrorMessage = "Fehler beim Speichern der Slide: " + ex.Message;
         }
         finally
         {
@@ -419,6 +508,10 @@
                 await LoadDataAsync(token);
             });
         }
+        catch (Exception ex)
+        {
+            slide.ErrorMessage = "Fehler beim Löschen: " + ex.Message;
+        }
         finally
         {
             _busySlideId = null;
@@ -464,28 +557,16 @@
         }
     }
 
-    private void RemoveRankingEntry(EditableSlide slide, int index)
-    {
-        if (slide.RankingEntries.Count > 1)
-        {
-            slide.RankingEntries.RemoveAt(index);
-        }
-    }
-
     private static string SlideTypeLabel(string type) => type switch
     {
         "announcement" => "Ankündigung",
         "poll" => "Abstimmung",
         "quiz" => "Quiz",
         "ranking" => "Zwischenstand",
+        "estimation" => "Schätzfrage",
+        "buzzer" => "Buzzer",
         _ => type
     };
-
-    private sealed class RankingEntryModel
-    {
-        public string Label { get; set; } = string.Empty;
-        public int Score { get; set; }
-    }
 
     private sealed class EditableSlide
     {
@@ -495,22 +576,45 @@
         public string Type { get; }
         public int Position { get; set; }
         public string InternalName { get; set; } = string.Empty;
+        public string AdminNotes { get; set; } = string.Empty;
+        public bool IsDisabled { get; set; }
         public string? ErrorMessage { get; set; }
 
+        // Announcement
         public string AnnouncementTitle { get; set; } = string.Empty;
         public string AnnouncementMessage { get; set; } = string.Empty;
 
+        // Poll
         public string PollQuestion { get; set; } = string.Empty;
         public List<string> PollOptions { get; set; } = [];
         public bool PollAllowMultiple { get; set; }
+        public bool PollHideResultsUntilRevealed { get; set; }
+        public bool PollShowPercentage { get; set; }
 
+        // Quiz
         public string QuizQuestion { get; set; } = string.Empty;
         public List<string> QuizAnswers { get; set; } = [];
         public List<int> QuizCorrectAnswerIndices { get; set; } = [];
         public int? QuizTimeLimitSeconds { get; set; }
+        public int QuizPoints { get; set; } = 100;
+        public bool QuizEnableSpeedBonus { get; set; }
+        public string QuizExplanation { get; set; } = string.Empty;
 
-        public string RankingTitle { get; set; } = string.Empty;
-        public List<RankingEntryModel> RankingEntries { get; set; } = [];
+        // Ranking
+        public string RankingTitle { get; set; } = "Zwischenstand";
+        public int? RankingTopCount { get; set; }
+        public bool RankingAnimatePodium { get; set; }
+
+        // Estimation
+        public string EstimationQuestion { get; set; } = string.Empty;
+        public double EstimationCorrectValue { get; set; }
+        public string EstimationUnit { get; set; } = string.Empty;
+        public int EstimationPoints { get; set; } = 100;
+
+        // Buzzer
+        public string BuzzerQuestion { get; set; } = string.Empty;
+        public int BuzzerPoints { get; set; } = 100;
+        public int? BuzzerTimeLimitSeconds { get; set; }
 
         public EditableSlide(Guid id, string type, int position, JsonElement parameters)
         {
@@ -518,6 +622,8 @@
             Type = type;
             Position = position;
             InternalName = ReadString(parameters, "internalName");
+            AdminNotes = ReadString(parameters, "adminNotes");
+            IsDisabled = ReadBool(parameters, "isDisabled");
 
             switch (type)
             {
@@ -529,6 +635,8 @@
                     PollQuestion = ReadString(parameters, "question");
                     PollOptions = ReadStringList(parameters, "options");
                     PollAllowMultiple = ReadBool(parameters, "allowMultipleAnswers");
+                    PollHideResultsUntilRevealed = ReadBool(parameters, "hideResultsUntilRevealed");
+                    PollShowPercentage = ReadBool(parameters, "showPercentage");
                     if (PollOptions.Count < 2)
                     {
                         while (PollOptions.Count < 2) PollOptions.Add(string.Empty);
@@ -539,18 +647,29 @@
                     QuizAnswers = ReadStringList(parameters, "answers");
                     QuizCorrectAnswerIndices = ReadIntList(parameters, "correctAnswerIndices");
                     QuizTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
+                    QuizPoints = ReadNullableInt(parameters, "points") ?? 100;
+                    QuizEnableSpeedBonus = ReadBool(parameters, "enableSpeedBonus");
+                    QuizExplanation = ReadString(parameters, "explanation");
                     if (QuizAnswers.Count < 2)
                     {
                         while (QuizAnswers.Count < 2) QuizAnswers.Add(string.Empty);
                     }
                     break;
                 case "ranking":
-                    RankingTitle = ReadString(parameters, "title");
-                    RankingEntries = ReadRankingEntries(parameters, "entries");
-                    if (RankingEntries.Count == 0)
-                    {
-                        RankingEntries.Add(new RankingEntryModel());
-                    }
+                    RankingTitle = !string.IsNullOrWhiteSpace(ReadString(parameters, "title")) ? ReadString(parameters, "title") : "Zwischenstand";
+                    RankingTopCount = ReadNullableInt(parameters, "topCount");
+                    RankingAnimatePodium = ReadBool(parameters, "animatePodium");
+                    break;
+                case "estimation":
+                    EstimationQuestion = ReadString(parameters, "question");
+                    EstimationCorrectValue = ReadDouble(parameters, "correctValue");
+                    EstimationUnit = ReadString(parameters, "unit");
+                    EstimationPoints = ReadNullableInt(parameters, "points") ?? 100;
+                    break;
+                case "buzzer":
+                    BuzzerQuestion = ReadString(parameters, "question");
+                    BuzzerPoints = ReadNullableInt(parameters, "points") ?? 100;
+                    BuzzerTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
                     break;
             }
         }
@@ -564,6 +683,8 @@
                     "poll" => !string.IsNullOrWhiteSpace(PollQuestion) ? PollQuestion : "Abstimmung",
                     "quiz" => !string.IsNullOrWhiteSpace(QuizQuestion) ? QuizQuestion : "Quiz",
                     "ranking" => !string.IsNullOrWhiteSpace(RankingTitle) ? RankingTitle : "Zwischenstand",
+                    "estimation" => !string.IsNullOrWhiteSpace(EstimationQuestion) ? EstimationQuestion : "Schätzfrage",
+                    "buzzer" => !string.IsNullOrWhiteSpace(BuzzerQuestion) ? BuzzerQuestion : "Buzzer",
                     _ => "Slide"
                 };
 
@@ -583,6 +704,8 @@
                     payload = new
                     {
                         internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
                         title = AnnouncementTitle.Trim(),
                         message = AnnouncementMessage.Trim()
                     };
@@ -603,9 +726,13 @@
                     payload = new
                     {
                         internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
                         question = PollQuestion.Trim(),
                         options = validPollOptions,
-                        allowMultipleAnswers = PollAllowMultiple
+                        allowMultipleAnswers = PollAllowMultiple,
+                        hideResultsUntilRevealed = PollHideResultsUntilRevealed,
+                        showPercentage = PollShowPercentage
                     };
                     break;
 
@@ -629,38 +756,73 @@
                     payload = new
                     {
                         internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
                         question = QuizQuestion.Trim(),
                         answers = validQuizAnswers,
                         correctAnswerIndices = QuizCorrectAnswerIndices,
-                        timeLimitSeconds = QuizTimeLimitSeconds
+                        timeLimitSeconds = QuizTimeLimitSeconds,
+                        points = QuizPoints,
+                        enableSpeedBonus = QuizEnableSpeedBonus,
+                        explanation = QuizExplanation.Trim()
                     };
                     break;
 
                 case "ranking":
-                    var validEntries = RankingEntries
-                        .Where(e => !string.IsNullOrWhiteSpace(e.Label))
-                        .Select(e => new { label = e.Label.Trim(), score = e.Score })
-                        .ToList();
-                    if (string.IsNullOrWhiteSpace(RankingTitle))
+                    payload = new
                     {
-                        ErrorMessage = "Bitte einen Titel für den Zwischenstand eingeben.";
+                        internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
+                        title = string.IsNullOrWhiteSpace(RankingTitle) ? "Zwischenstand" : RankingTitle.Trim(),
+                        topCount = RankingTopCount,
+                        animatePodium = RankingAnimatePodium
+                    };
+                    break;
+
+                case "estimation":
+                    if (string.IsNullOrWhiteSpace(EstimationQuestion))
+                    {
+                        ErrorMessage = "Bitte eine Schätzfrage eingeben.";
                         return (default, ErrorMessage);
                     }
-                    if (validEntries.Count == 0)
+                    var safeCorrectValue = double.IsNaN(EstimationCorrectValue) || double.IsInfinity(EstimationCorrectValue) ? 0.0 : EstimationCorrectValue;
+                    payload = new
                     {
-                        ErrorMessage = "Bitte mindestens einen Ranglisteneintrag hinzufügen.";
+                        internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
+                        question = EstimationQuestion.Trim(),
+                        correctValue = safeCorrectValue,
+                        unit = EstimationUnit.Trim(),
+                        points = EstimationPoints
+                    };
+                    break;
+
+                case "buzzer":
+                    if (string.IsNullOrWhiteSpace(BuzzerQuestion))
+                    {
+                        ErrorMessage = "Bitte eine Buzzer-Frage eingeben.";
                         return (default, ErrorMessage);
                     }
                     payload = new
                     {
                         internalName = InternalName.Trim(),
-                        title = RankingTitle.Trim(),
-                        entries = validEntries
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled,
+                        question = BuzzerQuestion.Trim(),
+                        points = BuzzerPoints,
+                        timeLimitSeconds = BuzzerTimeLimitSeconds
                     };
                     break;
 
                 default:
-                    payload = new { internalName = InternalName.Trim() };
+                    payload = new
+                    {
+                        internalName = InternalName.Trim(),
+                        adminNotes = AdminNotes.Trim(),
+                        isDisabled = IsDisabled
+                    };
                     break;
             }
 
@@ -681,6 +843,11 @@
             element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number
                 ? val.GetInt32()
                 : null;
+
+        private static double ReadDouble(JsonElement element, string prop) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number
+                ? val.GetDouble()
+                : 0.0;
 
         private static List<string> ReadStringList(JsonElement element, string prop)
         {
@@ -708,24 +875,6 @@
                     if (item.ValueKind == JsonValueKind.Number)
                     {
                         result.Add(item.GetInt32());
-                    }
-                }
-            }
-            return result;
-        }
-
-        private static List<RankingEntryModel> ReadRankingEntries(JsonElement element, string prop)
-        {
-            var result = new List<RankingEntryModel>();
-            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var array) && array.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in array.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.Object)
-                    {
-                        var label = ReadString(item, "label");
-                        var score = ReadNullableInt(item, "score") ?? 0;
-                        result.Add(new RankingEntryModel { Label = label, Score = score });
                     }
                 }
             }

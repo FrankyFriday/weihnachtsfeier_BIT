@@ -1,0 +1,260 @@
+@using System.Text.Json
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Show wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+    else if (_show is not null)
+    {
+        <PageHeading Eyebrow="SHOW" Title="Einstellungen" Description="@($"Allgemeine Einstellungen und Aktionen für {_show.Name}.")" />
+
+        @if (!string.IsNullOrEmpty(_statusMessage))
+        {
+            <div style="margin-bottom: 20px;">
+                <FrameworkNotice Message="@_statusMessage" Severity="@_statusFormat" />
+            </div>
+        }
+
+        <!-- 1. NAME BEARBEITEN -->
+        <Card Class="settings-card">
+            <ChildContent>
+                <h2>Show-Name</h2>
+                <div class="settings-form">
+                    <label for="show-name">Name der Show</label>
+                    <input id="show-name" @bind="_showName" maxlength="120" placeholder="Showname eingeben" />
+                </div>
+            </ChildContent>
+            <FooterContent>
+                <FrameworkButton Label="Name speichern" Variant="primary" OnClick="SaveShowNameAsync" Busy="@_savingName" Disabled="@_savingName" />
+            </FooterContent>
+        </Card>
+
+        <!-- 2. SHOW DUPLIZIEREN & EXPORT/IMPORT -->
+        <Card Class="settings-card" Style="margin-top: 24px;">
+            <ChildContent>
+                <h2>Show duplizieren & Export / Import</h2>
+                <p class="framework-help-text">Dupliziere diese Show als Vorlage oder exportiere/importiere deren Folien als JSON-Datei.</p>
+
+                <div class="framework-button-row" style="margin-bottom: 20px;">
+                    <FrameworkButton Label="Show duplizieren (Kopie erstellen)" Variant="secondary" OnClick="DuplicateShowAsync" Busy="@_duplicating" Disabled="@_duplicating" />
+                    <FrameworkButton Label="Folien als JSON exportieren" Variant="secondary" OnClick="ExportShowJsonAsync" />
+                </div>
+
+                @if (_showExportJson is not null)
+                {
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label for="export-json">Exportierte Show-Struktur (JSON)</label>
+                        <textarea id="export-json" readonly rows="8" style="width: 100%; font-family: monospace;" value="@_showExportJson"></textarea>
+                    </div>
+                }
+
+                <hr class="form-divider" style="margin: 20px 0;" />
+
+                <div class="form-group">
+                    <label for="import-json">Slides aus JSON importieren</label>
+                    <textarea id="import-json" @bind="_importJson" rows="5" placeholder="Füge hier eine exportierte Show-JSON-Struktur ein..."></textarea>
+                    <div style="margin-top: 8px;">
+                        <FrameworkButton Label="Slides importieren" Variant="secondary" OnClick="ImportShowJsonAsync" Busy="@_importing" Disabled="@(string.IsNullOrWhiteSpace(_importJson) || _importing)" />
+                    </div>
+                </div>
+            </ChildContent>
+        </Card>
+
+        <!-- 3. GEFAHRENZONE -->
+        <Card Class="settings-card" Style="margin-top: 24px;">
+            <ChildContent>
+                <div class="framework-danger-zone">
+                    <h3>Show löschen</h3>
+                    <p>Beim Löschen werden die Show und alle enthaltenen Slides dauerhaft entfernt. Verknüpfungen in Projekten werden gelöst.</p>
+                    <FrameworkButton Label="Show unwiderruflich löschen" Variant="danger" OnClick="DeleteShowAsync" Busy="@_deleting" Disabled="@_deleting" />
+                </div>
+            </ChildContent>
+        </Card>
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ShowId { get; set; }
+
+    private AdminShow? _show;
+    private string _showName = string.Empty;
+    private string? _statusMessage;
+    private string _statusFormat = "success";
+
+    private bool _savingName;
+    private bool _duplicating;
+    private bool _deleting;
+    private bool _importing;
+    private string? _showExportJson;
+    private string _importJson = string.Empty;
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);
+
+    private async Task LoadDataAsync(string token)
+    {
+        _show = await ProjectApiClient.GetAdminShowAsync(token, ShowId);
+        if (_show is not null)
+        {
+            _showName = _show.Name;
+        }
+    }
+
+    private async Task SaveShowNameAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_showName))
+        {
+            _statusMessage = "Bitte einen Shownamen eingeben.";
+            _statusFormat = "error";
+            return;
+        }
+
+        _savingName = true;
+        _statusMessage = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                _show = await ProjectApiClient.UpdateAdminShowAsync(token, ShowId, _showName.Trim());
+                _statusMessage = "Showname erfolgreich gespeichert.";
+                _statusFormat = "success";
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = "Fehler beim Speichern des Namens: " + ex.Message;
+            _statusFormat = "error";
+        }
+        finally
+        {
+            _savingName = false;
+        }
+    }
+
+    private async Task DuplicateShowAsync()
+    {
+        _duplicating = true;
+        _statusMessage = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var duplicated = await ProjectApiClient.DuplicateAdminShowAsync(token, ShowId);
+                Navigation.NavigateTo($"{Navigation.BaseUri}shows/{duplicated.Id}");
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = "Fehler beim Duplizieren der Show: " + ex.Message;
+            _statusFormat = "error";
+            _duplicating = false;
+        }
+    }
+
+    private async Task ExportShowJsonAsync()
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                var slides = await ProjectApiClient.GetAdminShowSlidesAsync(token, ShowId);
+                var exportObj = new
+                {
+                    showName = _show?.Name,
+                    exportedAtUtc = DateTime.UtcNow,
+                    slides = slides.Select(s => new
+                    {
+                        type = s.Type,
+                        position = s.Position,
+                        parameters = s.Parameters
+                    })
+                };
+
+                _showExportJson = JsonSerializer.Serialize(exportObj, new JsonSerializerOptions { WriteIndented = true });
+                _statusMessage = "Show-Struktur als JSON generiert.";
+                _statusFormat = "success";
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = "Fehler beim Exportieren: " + ex.Message;
+            _statusFormat = "error";
+        }
+    }
+
+    private async Task ImportShowJsonAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_importJson))
+        {
+            return;
+        }
+
+        _importing = true;
+        _statusMessage = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(_importJson);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("slides", out var slidesArray) || slidesArray.ValueKind != JsonValueKind.Array)
+            {
+                _statusMessage = "Ungültiges JSON-Format: Kein 'slides'-Array gefunden.";
+                _statusFormat = "error";
+                return;
+            }
+
+            await RunAuthenticatedAsync(async token =>
+            {
+                var existingSlides = await ProjectApiClient.GetAdminShowSlidesAsync(token, ShowId);
+                int startPos = existingSlides.Length;
+
+                foreach (var slideElem in slidesArray.EnumerateArray())
+                {
+                    if (slideElem.TryGetProperty("type", out var typeProp) && slideElem.TryGetProperty("parameters", out var paramsProp))
+                    {
+                        string slideType = typeProp.GetString() ?? "announcement";
+                        await ProjectApiClient.CreateAdminShowSlideAsync(token, ShowId, new SlideWriteRequest(slideType, startPos++, paramsProp.Clone()));
+                    }
+                }
+
+                _importJson = string.Empty;
+                _statusMessage = "Slides wurden erfolgreich importiert.";
+                _statusFormat = "success";
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = "Fehler beim Importieren: " + ex.Message;
+            _statusFormat = "error";
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private async Task DeleteShowAsync()
+    {
+        _deleting = true;
+        _statusMessage = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.DeleteAdminShowAsync(token, ShowId);
+                Navigation.NavigateTo($"{Navigation.BaseUri}shows");
+            });
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = "Fehler beim Löschen der Show: " + ex.Message;
+            _statusFormat = "error";
+            _deleting = false;
+        }
+    }
+}

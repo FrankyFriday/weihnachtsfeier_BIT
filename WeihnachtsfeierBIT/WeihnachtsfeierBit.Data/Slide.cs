@@ -86,11 +86,43 @@ public sealed class RankingSlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class EstimationSlide : Slide
+{
+    private EstimationSlideParameters? _parameters;
+
+    [NotMapped]
+    public EstimationSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<EstimationSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class BuzzerSlide : Slide
+{
+    private BuzzerSlideParameters? _parameters;
+
+    [NotMapped]
+    public BuzzerSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<BuzzerSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public abstract class SlideParameters
 {
     public int SchemaVersion { get; set; } = 1;
 
     public string InternalName { get; set; } = string.Empty;
+
+    public string AdminNotes { get; set; } = string.Empty;
+
+    public bool IsDisabled { get; set; }
 }
 
 public sealed class PollSlideParameters : SlideParameters
@@ -100,6 +132,10 @@ public sealed class PollSlideParameters : SlideParameters
     public List<string> Options { get; set; } = [];
 
     public bool AllowMultipleAnswers { get; set; }
+
+    public bool HideResultsUntilRevealed { get; set; }
+
+    public bool ShowPercentage { get; set; }
 }
 
 public sealed class AnnouncementSlideParameters : SlideParameters
@@ -118,18 +154,39 @@ public sealed class QuizSlideParameters : SlideParameters
     public List<int> CorrectAnswerIndices { get; set; } = [];
 
     public int? TimeLimitSeconds { get; set; }
+
+    public int Points { get; set; } = 100;
+
+    public bool EnableSpeedBonus { get; set; }
+
+    public string Explanation { get; set; } = string.Empty;
 }
 
 public sealed class RankingSlideParameters : SlideParameters
 {
     public string Title { get; set; } = string.Empty;
 
-    public List<RankingEntry> Entries { get; set; } = [];
+    public int? TopCount { get; set; }
+
+    public bool AnimatePodium { get; set; }
 }
 
-public sealed class RankingEntry
+public sealed class EstimationSlideParameters : SlideParameters
 {
-    public string Label { get; set; } = string.Empty;
+    public string Question { get; set; } = string.Empty;
 
-    public int Score { get; set; }
+    public double CorrectValue { get; set; }
+
+    public string Unit { get; set; } = string.Empty;
+
+    public int Points { get; set; } = 100;
+}
+
+public sealed class BuzzerSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+
+    public int Points { get; set; } = 100;
+
+    public int? TimeLimitSeconds { get; set; }
 }

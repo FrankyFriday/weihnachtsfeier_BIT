@@ -246,6 +246,13 @@
 .slide-type-poll { background: #fef3c7; color: #92400e; }
 .slide-type-quiz { background: #fce7f3; color: #9d174d; }
 .slide-type-ranking { background: #dcfce7; color: #166534; }
+.slide-type-estimation { background: #e0e7ff; color: #3730a3; }
+.slide-type-buzzer { background: #ffedd5; color: #c2410c; }
+.slide-type-disabled { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+
+.slide-list-item.disabled-slide {
+    opacity: 0.65;
+}
 
 .slide-list-item-title {
     font-size: 13px;

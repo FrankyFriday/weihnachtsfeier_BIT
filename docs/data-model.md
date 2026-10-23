@@ -16,7 +16,7 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
 | `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. Eine Show kann null, einem oder mehreren Projekten zugeordnet sein. |
-| `Slide` | Show-ID, Position und konkrete Untertypen Poll, Announcement, Quiz oder Ranking. |
+| `Slide` | Show-ID, Position und konkrete Untertypen Poll, Announcement, Quiz, Ranking, Estimation oder Buzzer. |
 
 Passwörter werden mit PBKDF2 gehasht. API-Tokens werden zufällig generiert; persistiert wird ausschließlich ihr SHA-256-Hash.
 
@@ -26,10 +26,12 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 | Typ | Parameterbeispiele |
 | --- | --- |
-| Poll | Interner Name, Frage, Optionen, Mehrfachauswahl |
-| Announcement | Interner Name, Titel, Nachricht |
-| Quiz | Interner Name, Frage, Antworten, richtige Antwortindizes, Zeitlimit |
-| Ranking | Interner Name, Titel, Ranglisteneinträge |
+| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige |
+| Announcement | Interner Name, Regie-Notizen, Deaktivieren, Titel, Nachricht |
+| Quiz | Interner Name, Regie-Notizen, Deaktivieren, Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
+| Ranking | Interner Name, Regie-Notizen, Deaktivieren, Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
+| Estimation | Interner Name, Regie-Notizen, Deaktivieren, Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
+| Buzzer | Interner Name, Regie-Notizen, Deaktivieren, Buzzer-Frage, Punkte, Zeitlimit |
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration. Ein neuer Untertyp muss in `Slide.cs` und im EF-Discriminator in `OnModelCreating` ergänzt werden. `SchemaVersion` ist für spätere JSON-Formatmigrationen vorgesehen.
 
