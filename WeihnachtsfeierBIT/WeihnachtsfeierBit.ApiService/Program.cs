@@ -56,14 +56,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/", () => "API service is running. Navigate to /weatherforecast to see sample data.");
+app.MapGet("/", () => "API service is running.");
 
 app.MapHub<WeihnachtsfeierBit.ApiService.Hubs.GameStateHub>("/hubs/gamestate");
 GameInstanceEndpoints.MapPublic(app);
 app.MapAuthenticationEndpoints();
 app.MapProjectEndpoints();
-app.MapWeatherEndpoints();
-
 if (app.Environment.IsDevelopment())
 {
     app.MapTestEntryEndpoints();
@@ -72,4 +70,3 @@ if (app.Environment.IsDevelopment())
 app.MapDefaultEndpoints();
 
 app.Run();
-
