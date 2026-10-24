@@ -118,6 +118,7 @@ public sealed class GameStateNotifier(
             activeEvent,
             passiveEvents.ToArray(),
             activeShows.ToArray(),
+            instance?.ActiveCanvasEventId,
             DateTime.UtcNow);
     }
 

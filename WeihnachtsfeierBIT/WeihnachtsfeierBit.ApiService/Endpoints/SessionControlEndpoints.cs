@@ -21,6 +21,7 @@ public static class SessionControlEndpoints
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
+        admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
     }
 
     private static async Task<IResult> GetSessionStateAsync(
@@ -450,6 +451,35 @@ public static class SessionControlEndpoints
             dbContext.GameInstanceEventResponses.Add(newResponse);
         }
 
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> SetCanvasEventAsync(
+        Guid projectId,
+        SetCanvasEventRequest request,
+        HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var instance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+        if (instance is null)
+        {
+            return Results.BadRequest(new ApiError("Keine aktive Play-Session vorhanden."));
+        }
+
+        instance.ActiveCanvasEventId = request.EventId;
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 

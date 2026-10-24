@@ -33,6 +33,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasMaxLength(6)
                         .HasColumnType("character varying(6)");
 
+                    b.Property<Guid?>("ActiveCanvasEventId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 

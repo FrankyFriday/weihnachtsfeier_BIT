@@ -60,6 +60,10 @@
                 @foreach (var tab in _tabs)
                 {
                     <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 16px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 8px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
+                        @if (tab.IsBeamerActive)
+                        {
+                            <span title="Wird aktuell auf dem Beamer angezeigt">📺</span>
+                        }
                         <span>@tab.Title</span>
                         <FrameworkBadge Text="@tab.BadgeText" Variant="@tab.BadgeVariant" />
                     </button>
@@ -78,15 +82,33 @@
                         @if (_selectedTabItem.IsShow)
                         {
                             var show = _selectedTabItem.Show!;
+                            var currentShowEvent = _activeEvent?.InstanceShowId == show.InstanceShowId ? _activeEvent : _passiveEvents.FirstOrDefault(e => e.InstanceShowId == show.InstanceShowId);
+                            var isBeamer = _activeCanvasEventId.HasValue && currentShowEvent is not null && currentShowEvent.EventId == _activeCanvasEventId.Value;
+
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                                 <div>
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
                                         <h2 style="margin: 0;">@show.ShowName</h2>
                                         <FrameworkBadge Text="@(show.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(show.Mode == "active" ? "primary" : "secondary")" />
+                                        @if (isBeamer)
+                                        {
+                                            <FrameworkBadge Text="📺 Beamer Aktiv" Variant="primary" />
+                                        }
                                     </div>
                                     <p style="margin: 0; font-size: 14px; color: #657276;">Laufende Show-Instanz</p>
                                 </div>
                                 <div class="framework-button-row">
+                                    @if (currentShowEvent is not null)
+                                    {
+                                        if (isBeamer)
+                                        {
+                                            <FrameworkButton Label="Beamer trennen" Variant="secondary" OnClick="() => SetCanvasEvent(null)" />
+                                        }
+                                        else
+                                        {
+                                            <FrameworkButton Label="📺 Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(currentShowEvent.EventId)" />
+                                        }
+                                    }
                                     <FrameworkButton Label="◄ Vorherige Slide" Variant="secondary" OnClick="() => StepShowSlide(show, -1)" Disabled="@(show.CurrentSlideIndex == 0)" />
                                     <FrameworkButton Label="Nächste Slide ►" Variant="primary" OnClick="() => StepShowSlide(show, 1)" Disabled="@(show.CurrentSlideIndex >= show.TotalSlides - 1)" />
                                     @if (show.Mode == "active")
@@ -145,7 +167,6 @@
                             </div>
 
                             <!-- EMBEDDED RESULT VIEW FOR CURRENT SHOW SLIDE -->
-                            var currentShowEvent = _activeEvent?.InstanceShowId == show.InstanceShowId ? _activeEvent : _passiveEvents.FirstOrDefault(e => e.InstanceShowId == show.InstanceShowId);
                             if (currentShowEvent is not null)
                             {
                                 <FrameworkDivider />
@@ -178,16 +199,30 @@
                         else
                         {
                             var ev = _selectedTabItem.Event!;
+                            var isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
+
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                                 <div>
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
                                         <FrameworkBadge Text="@ev.SlideType.ToUpperInvariant()" Variant="@ev.SlideType" />
                                         <h2 style="margin: 0;">@ev.Title</h2>
                                         <FrameworkBadge Text="@(ev.Mode == "active" ? "Aktiv" : "Passiv")" Variant="@(ev.Mode == "active" ? "primary" : "secondary")" />
+                                        @if (isBeamer)
+                                        {
+                                            <FrameworkBadge Text="📺 Beamer Aktiv" Variant="primary" />
+                                        }
                                     </div>
                                     <p style="margin: 0; font-size: 13px; color: #657276;">Spontanes Event • Aktiv seit @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss") Uhr</p>
                                 </div>
                                 <div class="framework-button-row">
+                                    @if (isBeamer)
+                                    {
+                                        <FrameworkButton Label="Beamer trennen" Variant="secondary" OnClick="() => SetCanvasEvent(null)" />
+                                    }
+                                    else
+                                    {
+                                        <FrameworkButton Label="📺 Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
+                                    }
                                     @if (ev.Mode == "active")
                                     {
                                         <FrameworkButton Label="Zu Passiv" Variant="secondary" OnClick='() => ChangeEventMode(ev.EventId, "passive")' />
@@ -358,6 +393,7 @@
     private ActiveShowState[] _activeShows = [];
     private EventState? _activeEvent;
     private EventState[] _passiveEvents = [];
+    private Guid? _activeCanvasEventId;
 
     private Dictionary<Guid, SlideSummary[]> _showSlidesMap = new();
 
@@ -407,19 +443,24 @@
         // 1. Add active shows (1 tab per show)
         foreach (var show in _activeShows)
         {
-            _tabs.Add(new SessionTabViewModel(show.InstanceShowId, show.ShowName, show.Mode == "active" ? "Show (Aktiv)" : "Show (Passiv)", show.Mode == "active" ? "primary" : "secondary", true, show, null));
+            var currentShowEvent = _activeEvent?.InstanceShowId == show.InstanceShowId ? _activeEvent : _passiveEvents.FirstOrDefault(e => e.InstanceShowId == show.InstanceShowId);
+            bool isBeamer = _activeCanvasEventId.HasValue && currentShowEvent is not null && currentShowEvent.EventId == _activeCanvasEventId.Value;
+
+            _tabs.Add(new SessionTabViewModel(show.InstanceShowId, show.ShowName, show.Mode == "active" ? "Show (Aktiv)" : "Show (Passiv)", show.Mode == "active" ? "primary" : "secondary", true, show, null, isBeamer));
             _ = LoadShowSlidesIfMissingAsync(show.ShowId);
         }
 
         // 2. Add standalone events (where InstanceShowId == null)
         if (_activeEvent is not null && !_activeEvent.InstanceShowId.HasValue)
         {
-            _tabs.Add(new SessionTabViewModel(_activeEvent.EventId, _activeEvent.Title, "Aktiv", "primary", false, null, _activeEvent));
+            bool isBeamer = _activeCanvasEventId.HasValue && _activeEvent.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new SessionTabViewModel(_activeEvent.EventId, _activeEvent.Title, "Aktiv", "primary", false, null, _activeEvent, isBeamer));
         }
 
         foreach (var ev in _passiveEvents.Where(e => !e.InstanceShowId.HasValue))
         {
-            _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, "Passiv", "secondary", false, null, ev));
+            bool isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, "Passiv", "secondary", false, null, ev, isBeamer));
         }
 
         if (_tabs.Count > 0)
@@ -505,6 +546,7 @@
                         _activeEvent = state.ActiveEvent;
                         _passiveEvents = state.PassiveEvents;
                         _activeShows = state.ActiveShows;
+                        _activeCanvasEventId = state.ActiveCanvasEventId;
                         await BuildTabsAsync();
                         StateHasChanged();
                     });
@@ -544,6 +586,7 @@
                 _activeEvent = state.ActiveEvent;
                 _passiveEvents = state.PassiveEvents;
                 _activeShows = state.ActiveShows;
+                _activeCanvasEventId = state.ActiveCanvasEventId;
                 await BuildTabsAsync();
             }
             catch
@@ -557,6 +600,24 @@
 
             _projectShows = await showsTask;
         });
+    }
+
+    private async Task SetCanvasEvent(Guid? eventId)
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.SetCanvasEventAsync(token, ProjectId, eventId);
+                _activeCanvasEventId = eventId;
+                await BuildTabsAsync();
+                StateHasChanged();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
     }
 
     private void OpenLinkShowModal() => _isLinkShowModalOpen = true;
@@ -812,5 +873,6 @@
         string BadgeVariant,
         bool IsShow,
         ActiveShowState? Show,
-        EventState? Event);
+        EventState? Event,
+        bool IsBeamerActive);
 }

@@ -11,9 +11,10 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive Zuordnungszeitpunkt. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert optional `ActiveCanvasEventId` für die Beamer/Leinwand-Anzeige. |
 | `GameInstanceShow` | Instanz einer in der aktiven Session gestarteten Show (Modus `active`/`passive`, `CurrentSlideIndex`). |
 | `GameInstanceEvent` | Konkretes aktives oder passives Event einer Show-Slide oder On-The-Fly Spontanevents (Status `active`/`completed`). |
+| `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für ein Event. Unique Index auf `(GameInstanceEventId, ParticipantId)` erzwingt Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
@@ -28,7 +29,7 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 | Typ | Parameterbeispiele |
 | --- | --- |
-| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige |
+| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
 | Announcement | Interner Name, Regie-Notizen, Deaktivieren, Titel, Nachricht |
 | Quiz | Interner Name, Regie-Notizen, Deaktivieren, Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
 | Ranking | Interner Name, Regie-Notizen, Deaktivieren, Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |

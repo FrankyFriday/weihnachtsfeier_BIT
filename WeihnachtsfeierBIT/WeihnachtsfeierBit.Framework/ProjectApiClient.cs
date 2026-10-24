@@ -443,6 +443,13 @@ public class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task SetCanvasEventAsync(string accessToken, Guid projectId, Guid? eventId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/canvas", accessToken, new { eventId });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<ProjectGameState> GetSessionStateAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/session/state", accessToken);
@@ -542,4 +549,5 @@ public sealed record ProjectGameState(
     EventState? ActiveEvent,
     EventState[] PassiveEvents,
     ActiveShowState[] ActiveShows,
+    Guid? ActiveCanvasEventId,
     DateTime UpdatedAtUtc);
