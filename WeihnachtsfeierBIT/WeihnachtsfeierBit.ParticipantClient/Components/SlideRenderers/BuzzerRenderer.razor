@@ -27,11 +27,28 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _buzzed;
     private bool _isSubmitting;
     private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        CheckExistingResponse();
+    }
+
+    private void CheckExistingResponse()
+    {
+        if (ParticipantId == Guid.Empty) return;
+
+        var myResp = Event.Responses.FirstOrDefault(r => r.ParticipantId == ParticipantId);
+        if (myResp is not null)
+        {
+            _buzzed = true;
+        }
+    }
 
     private async Task SubmitBuzzer()
     {

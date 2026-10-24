@@ -9,17 +9,27 @@
         <div class="mobile-alert error" style="font-size: 15px; padding: 12px 16px; margin-bottom: 16px;">@_errorMessage</div>
     }
 
-    @if (_submitted)
+    @if (_submitted && !AllowChangeVote)
     {
-        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">Deine Stimme wurde erfolgreich abgegeben!</div>
+        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">
+            Deine Stimme für "<strong>@_selectedOption</strong>" wurde abgegeben!
+        </div>
     }
     else
     {
+        @if (_submitted && AllowChangeVote)
+        {
+            <div style="margin-bottom: 16px; font-size: 14px; color: #105c4d; font-weight: 700;">
+                Gewählt: "@_selectedOption" • Klicke eine andere Option, um deine Meinung zu ändern.
+            </div>
+        }
+
         <div style="display: grid; gap: 12px; width: 100%; max-width: 450px;">
             @foreach (var opt in ReadStringList(Event.Parameters, "options"))
             {
-                <button type="button" class="mobile-button secondary" @onclick="() => SubmitPoll(opt)" disabled="@_isSubmitting" style="min-height: 56px; font-size: 18px; font-weight: 700;">
-                    @opt
+                var isSelected = string.Equals(opt, _selectedOption, StringComparison.Ordinal);
+                <button type="button" class="mobile-button @(isSelected ? "primary" : "secondary")" @onclick="() => SubmitPoll(opt)" disabled="@_isSubmitting" style="min-height: 56px; font-size: 18px; font-weight: 700; border: @(isSelected ? "3px solid #105c4d" : "none");">
+                    @(isSelected ? "✓ " : "")@opt
                 </button>
             }
         </div>
@@ -30,11 +40,35 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _submitted;
+    private string? _selectedOption;
     private bool _isSubmitting;
     private string? _errorMessage;
+
+    private bool AllowChangeVote => ReadBool(Event.Parameters, "allowChangeVote", defaultValue: true);
+
+    protected override void OnParametersSet()
+    {
+        CheckExistingResponse();
+    }
+
+    private void CheckExistingResponse()
+    {
+        if (ParticipantId == Guid.Empty) return;
+
+        var myResp = Event.Responses.FirstOrDefault(r => r.ParticipantId == ParticipantId);
+        if (myResp is not null && myResp.ResponseData.ValueKind == JsonValueKind.Object)
+        {
+            if (myResp.ResponseData.TryGetProperty("selectedOption", out var optVal) && optVal.ValueKind == JsonValueKind.String)
+            {
+                _selectedOption = optVal.GetString();
+                _submitted = !string.IsNullOrEmpty(_selectedOption);
+            }
+        }
+    }
 
     private async Task SubmitPoll(string option)
     {
@@ -47,6 +81,7 @@
             {
                 var payload = JsonSerializer.SerializeToElement(new { selectedOption = option });
                 await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+                _selectedOption = option;
                 _submitted = true;
             }
             else
@@ -68,6 +103,11 @@
         elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
             ? val.GetString() ?? string.Empty
             : string.Empty;
+
+    private static bool ReadBool(JsonElement elem, string prop, bool defaultValue = false) =>
+        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && (val.ValueKind == JsonValueKind.True || val.ValueKind == JsonValueKind.False)
+            ? val.GetBoolean()
+            : defaultValue;
 
     private static List<string> ReadStringList(JsonElement elem, string prop)
     {

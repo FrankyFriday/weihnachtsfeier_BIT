@@ -87,22 +87,24 @@ public static class SessionControlEndpoints
 
         dbContext.GameInstanceShows.Add(instanceShow);
 
+        // Generate a stable GameInstanceEvent for EVERY slide in the show!
         var orderedSlides = show.Slides.OrderBy(s => s.Position).ToList();
-        if (orderedSlides.Count > 0)
+        for (int i = 0; i < orderedSlides.Count; i++)
         {
-            var firstSlide = orderedSlides[0];
-            var title = GetSlideTitle(firstSlide);
+            var slide = orderedSlides[i];
+            var slideMode = (i == 0) ? mode : "passive";
+            var title = GetSlideTitle(slide);
 
             var instanceEvent = new GameInstanceEvent
             {
                 GameInstanceId = instance.Id,
                 GameInstanceShow = instanceShow,
-                SourceSlideId = firstSlide.Id,
-                SlideType = GetSlideType(firstSlide),
+                SourceSlideId = slide.Id,
+                SlideType = GetSlideType(slide),
                 Title = title,
-                Mode = mode,
+                Mode = slideMode,
                 Status = "active",
-                ParametersJson = firstSlide.ParametersJson
+                ParametersJson = slide.ParametersJson
             };
 
             dbContext.GameInstanceEvents.Add(instanceEvent);
@@ -142,6 +144,7 @@ public static class SessionControlEndpoints
         var instanceShow = await dbContext.GameInstanceShows
             .Include(gis => gis.Show)
                 .ThenInclude(s => s.Slides)
+            .Include(gis => gis.Events)
             .FirstOrDefaultAsync(gis => gis.Id == instanceShowId && gis.GameInstanceId == instance.Id, cancellationToken);
 
         if (instanceShow is null)
@@ -162,34 +165,41 @@ public static class SessionControlEndpoints
         int targetIndex = Math.Clamp(request.CurrentSlideIndex, 0, Math.Max(0, orderedSlides.Count - 1));
         instanceShow.CurrentSlideIndex = targetIndex;
 
-        var previousEvents = await dbContext.GameInstanceEvents
-            .Where(e => e.GameInstanceShowId == instanceShowId && e.Status == "active")
-            .ToListAsync(cancellationToken);
-
-        foreach (var oldEvent in previousEvents)
-        {
-            oldEvent.Status = "completed";
-            oldEvent.ClosedAtUtc = DateTime.UtcNow;
-        }
-
         if (orderedSlides.Count > targetIndex)
         {
             var targetSlide = orderedSlides[targetIndex];
-            var title = GetSlideTitle(targetSlide);
 
-            var newEvent = new GameInstanceEvent
+            // Ensure event exists for target slide (reuse existing GameInstanceEvent)
+            var targetEvent = instanceShow.Events.FirstOrDefault(e => e.SourceSlideId == targetSlide.Id);
+            if (targetEvent is null)
             {
-                GameInstanceId = instance.Id,
-                GameInstanceShowId = instanceShow.Id,
-                SourceSlideId = targetSlide.Id,
-                SlideType = GetSlideType(targetSlide),
-                Title = title,
-                Mode = mode,
-                Status = "active",
-                ParametersJson = targetSlide.ParametersJson
-            };
+                targetEvent = new GameInstanceEvent
+                {
+                    GameInstanceId = instance.Id,
+                    GameInstanceShowId = instanceShow.Id,
+                    SourceSlideId = targetSlide.Id,
+                    SlideType = GetSlideType(targetSlide),
+                    Title = GetSlideTitle(targetSlide),
+                    Mode = mode,
+                    Status = "active",
+                    ParametersJson = targetSlide.ParametersJson
+                };
+                dbContext.GameInstanceEvents.Add(targetEvent);
+            }
 
-            dbContext.GameInstanceEvents.Add(newEvent);
+            // Update modes for all slide events of this show: target slide gets active/passive mode, others become passive
+            foreach (var ev in instanceShow.Events)
+            {
+                if (ev.SourceSlideId == targetSlide.Id)
+                {
+                    ev.Mode = mode;
+                    ev.Status = "active";
+                }
+                else
+                {
+                    ev.Mode = "passive";
+                }
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

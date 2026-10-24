@@ -136,6 +136,8 @@ public sealed class PollSlideParameters : SlideParameters
     public bool HideResultsUntilRevealed { get; set; }
 
     public bool ShowPercentage { get; set; }
+
+    public bool AllowChangeVote { get; set; } = true;
 }
 
 public sealed class AnnouncementSlideParameters : SlideParameters

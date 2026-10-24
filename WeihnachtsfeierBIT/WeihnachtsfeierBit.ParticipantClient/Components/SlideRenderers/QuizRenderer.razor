@@ -11,7 +11,13 @@
 
     @if (_submitted)
     {
-        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">Deine Antwort wurde abgegeben!</div>
+        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">
+            Deine Antwort wurde eingereicht!
+            @if (_selectedAnswerText is not null)
+            {
+                <div style="font-size: 15px; margin-top: 8px; font-weight: 700;">Gewählt: @_selectedAnswerText</div>
+            }
+        </div>
     }
     else
     {
@@ -32,11 +38,38 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _submitted;
+    private string? _selectedAnswerText;
     private bool _isSubmitting;
     private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        CheckExistingResponse();
+    }
+
+    private void CheckExistingResponse()
+    {
+        if (ParticipantId == Guid.Empty) return;
+
+        var myResp = Event.Responses.FirstOrDefault(r => r.ParticipantId == ParticipantId);
+        if (myResp is not null && myResp.ResponseData.ValueKind == JsonValueKind.Object)
+        {
+            if (myResp.ResponseData.TryGetProperty("answerIndex", out var ansVal) && ansVal.ValueKind == JsonValueKind.Number)
+            {
+                int ansIdx = ansVal.GetInt32();
+                var answers = ReadStringList(Event.Parameters, "answers");
+                if (ansIdx >= 0 && ansIdx < answers.Count)
+                {
+                    _selectedAnswerText = $"{ansIdx + 1}. {answers[ansIdx]}";
+                }
+                _submitted = true;
+            }
+        }
+    }
 
     private async Task SubmitQuiz(int answerIndex)
     {
@@ -49,6 +82,11 @@
             {
                 var payload = JsonSerializer.SerializeToElement(new { answerIndex });
                 await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+                var answers = ReadStringList(Event.Parameters, "answers");
+                if (answerIndex >= 0 && answerIndex < answers.Count)
+                {
+                    _selectedAnswerText = $"{answerIndex + 1}. {answers[answerIndex]}";
+                }
                 _submitted = true;
             }
             else

@@ -30,6 +30,7 @@ public sealed class EditableSlide
     public bool PollAllowMultiple { get; set; }
     public bool PollHideResultsUntilRevealed { get; set; }
     public bool PollShowPercentage { get; set; }
+    public bool PollAllowChangeVote { get; set; } = true;
 
     // Quiz
     public string QuizQuestion { get; set; } = string.Empty;
@@ -77,6 +78,7 @@ public sealed class EditableSlide
                 PollAllowMultiple = ReadBool(parameters, "allowMultipleAnswers");
                 PollHideResultsUntilRevealed = ReadBool(parameters, "hideResultsUntilRevealed");
                 PollShowPercentage = ReadBool(parameters, "showPercentage");
+                PollAllowChangeVote = ReadBool(parameters, "allowChangeVote", defaultValue: true);
                 if (PollOptions.Count < 2)
                 {
                     while (PollOptions.Count < 2) PollOptions.Add(string.Empty);
@@ -183,7 +185,8 @@ public sealed class EditableSlide
                     options = validPollOptions,
                     allowMultipleAnswers = PollAllowMultiple,
                     hideResultsUntilRevealed = PollHideResultsUntilRevealed,
-                    showPercentage = PollShowPercentage
+                    showPercentage = PollShowPercentage,
+                    allowChangeVote = PollAllowChangeVote
                 };
                 break;
 
@@ -324,10 +327,10 @@ public sealed class EditableSlide
             ? val.GetString() ?? string.Empty
             : string.Empty;
 
-    private static bool ReadBool(JsonElement element, string prop) =>
+    private static bool ReadBool(JsonElement element, string prop, bool defaultValue = false) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && (val.ValueKind == JsonValueKind.True || val.ValueKind == JsonValueKind.False)
             ? val.GetBoolean()
-            : false;
+            : defaultValue;
 
     private static int? ReadNullableInt(JsonElement element, string prop) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Number

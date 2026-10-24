@@ -14,19 +14,19 @@
                 <AnnouncementRenderer Event="Event" />
                 break;
             case "poll":
-                <PollRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                <PollRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                 break;
             case "quiz":
-                <QuizRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                <QuizRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                 break;
             case "ranking":
                 <RankingRenderer Event="Event" />
                 break;
             case "estimation":
-                <EstimationRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                <EstimationRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                 break;
             case "buzzer":
-                <BuzzerRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                <BuzzerRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                 break;
             default:
                 <FallbackRenderer Event="Event" />
@@ -39,6 +39,7 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public bool ShowBackButton { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
 
