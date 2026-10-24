@@ -4,6 +4,11 @@
     <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">BUZZER-RUNDE</span>
     <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 32px 0; color: #1d2528; max-width: 500px;">@ReadString(Event.Parameters, "question")</h1>
 
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mobile-alert error" style="font-size: 15px; padding: 12px 16px; margin-bottom: 16px;">@_errorMessage</div>
+    }
+
     @if (_buzzed)
     {
         <div class="mobile-alert success" style="font-size: 22px; padding: 28px 40px;">Du hast gebuzzert! 🚀</div>
@@ -22,14 +27,33 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _buzzed;
     private bool _isSubmitting;
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        CheckExistingResponse();
+    }
+
+    private void CheckExistingResponse()
+    {
+        if (ParticipantId == Guid.Empty) return;
+
+        var myResp = Event.Responses.FirstOrDefault(r => r.ParticipantId == ParticipantId);
+        if (myResp is not null)
+        {
+            _buzzed = true;
+        }
+    }
 
     private async Task SubmitBuzzer()
     {
         if (_isSubmitting) return;
+        _errorMessage = null;
         _isSubmitting = true;
         try
         {
@@ -37,12 +61,16 @@
             {
                 var payload = JsonSerializer.SerializeToElement(new { buzzedAtUtc = DateTime.UtcNow });
                 await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+                _buzzed = true;
             }
-            _buzzed = true;
+            else
+            {
+                _errorMessage = "Keine aktive Sitzung vorhanden.";
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            _buzzed = true;
+            _errorMessage = "Fehler beim Übertragen: " + ex.Message;
         }
         finally
         {

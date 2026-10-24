@@ -30,7 +30,7 @@ public static class ProjectEndpoints
         ProjectShowEndpoints.Map(reader, admin);
         ShowSlideEndpoints.Map(admin);
         GameInstanceEndpoints.Map(reader, admin);
-        SessionControlEndpoints.Map(admin);
+        SessionControlEndpoints.Map(reader, admin);
 
         return endpoints;
     }

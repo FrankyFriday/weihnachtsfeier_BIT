@@ -4,15 +4,22 @@
     <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">SCHÄTZFRAGE</span>
     <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 24px 0; color: #1d2528; max-width: 500px;">@ReadString(Event.Parameters, "question")</h1>
 
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mobile-alert error" style="font-size: 15px; padding: 12px 16px; margin-bottom: 16px;">@_errorMessage</div>
+    }
+
     @if (_submitted)
     {
-        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">Dein Schätzwert von @_estimationInput @ReadString(Event.Parameters, "unit") wurde gespeichert!</div>
+        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">
+            Dein Schätzwert von <strong>@_estimationInput @_unit</strong> wurde gespeichert!
+        </div>
     }
     else
     {
         <form @onsubmit="SubmitEstimation" @onsubmit:preventDefault="true" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;">
             <div class="mobile-field" style="text-align: left;">
-                <label for="est-val" style="font-size: 15px; font-weight: 700;">Dein Schätzwert (@ReadString(Event.Parameters, "unit"))</label>
+                <label for="est-val" style="font-size: 15px; font-weight: 700;">Dein Schätzwert (@_unit)</label>
                 <input id="est-val" type="number" step="any" class="mobile-input large-text" @bind="_estimationInput" required style="font-size: 28px; text-align: center; min-height: 60px;" />
             </div>
             <button type="submit" class="mobile-button primary" disabled="@_isSubmitting" style="min-height: 52px; font-size: 18px;">
@@ -26,15 +33,40 @@
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private double _estimationInput;
     private bool _submitted;
     private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private string _unit => ReadString(Event.Parameters, "unit");
+
+    protected override void OnParametersSet()
+    {
+        CheckExistingResponse();
+    }
+
+    private void CheckExistingResponse()
+    {
+        if (ParticipantId == Guid.Empty) return;
+
+        var myResp = Event.Responses.FirstOrDefault(r => r.ParticipantId == ParticipantId);
+        if (myResp is not null && myResp.ResponseData.ValueKind == JsonValueKind.Object)
+        {
+            if (myResp.ResponseData.TryGetProperty("estimationValue", out var estVal) && estVal.ValueKind == JsonValueKind.Number)
+            {
+                _estimationInput = estVal.GetDouble();
+                _submitted = true;
+            }
+        }
+    }
 
     private async Task SubmitEstimation()
     {
         if (_isSubmitting) return;
+        _errorMessage = null;
         _isSubmitting = true;
         try
         {
@@ -42,12 +74,16 @@
             {
                 var payload = JsonSerializer.SerializeToElement(new { estimationValue = _estimationInput });
                 await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, payload);
+                _submitted = true;
             }
-            _submitted = true;
+            else
+            {
+                _errorMessage = "Keine aktive Sitzung vorhanden.";
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            _submitted = true;
+            _errorMessage = "Fehler beim Übertragen: " + ex.Message;
         }
         finally
         {

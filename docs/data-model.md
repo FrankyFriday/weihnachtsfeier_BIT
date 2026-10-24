@@ -11,7 +11,10 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive Zuordnungszeitpunkt. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert optional `ActiveCanvasEventId` für die Beamer/Leinwand-Anzeige. |
+| `GameInstanceShow` | Instanz einer in der aktiven Session gestarteten Show (Modus `active`/`passive`, `CurrentSlideIndex`). |
+| `GameInstanceEvent` | Konkretes aktives oder passives Event einer Show-Slide oder On-The-Fly Spontanevents (Status `active`/`completed`). |
+| `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für ein Event. Unique Index auf `(GameInstanceEventId, ParticipantId)` erzwingt Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
@@ -26,7 +29,7 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 | Typ | Parameterbeispiele |
 | --- | --- |
-| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige |
+| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
 | Announcement | Interner Name, Regie-Notizen, Deaktivieren, Titel, Nachricht |
 | Quiz | Interner Name, Regie-Notizen, Deaktivieren, Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
 | Ranking | Interner Name, Regie-Notizen, Deaktivieren, Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
@@ -46,6 +49,13 @@ Teilnehmer und Teilnehmernummern gehören zu genau einem Projekt. Eine aktive Si
 ## Shows und Projekte
 
 Eine Show wird global erstellt und kann zunächst ohne Projektverknüpfung existieren. `ShowProjektZuo` gewährt dem Projekt Zugriff auf diese Show. Eine Verknüpfung zu lösen entfernt nur den Join-Datensatz; die Show und ihre Slides bleiben bestehen. Der Showname ist auf 120 Zeichen begrenzt. Die Migration `AddGlobalShowName` setzt für bestehende Shows den Defaultnamen `Neue Show`.
+
+## Multi-Show & Live Event Ausführung
+
+In einer aktiven `GameInstance` (Play-Session) können mehrere Shows und spontane Events gleichzeitig betrieben werden:
+
+- **`GameInstanceShow`**: Verknüpft eine gestartete Show mit der Play-Session. Besitzt den Modus (`active` = Vordergrund / `passive` = Menüliste) und den aktuellen Slide-Index (`CurrentSlideIndex`).
+- **`GameInstanceEvent`**: Repräsentiert ein konkretes Live-Event auf Teilnehmer-Smartphones. Es entsteht entweder automatisch durch die aktuell aktive Slide einer `GameInstanceShow` oder als On-The-Fly spontanes Event. Speichert `SlideType`, `Title`, `Mode` (`active`/`passive`), `Status` (`active`/`completed`), Start-/Endzeitpunkt und Parameter-JSON.
 
 ## Migrationen
 

@@ -115,7 +115,8 @@
 
 .framework-modal-dialog {
     width: 100%;
-    max-width: 520px;
+    max-width: 600px;
+    max-height: 85vh;
     background: #ffffff;
     border: 1px solid #dce5e2;
     border-radius: 8px;
@@ -161,6 +162,8 @@
 
 .framework-modal-body {
     padding: 20px 24px 24px;
+    overflow-y: auto;
+    max-height: calc(85vh - 65px);
 }
 
 @keyframes framework-fade-in {

@@ -15,6 +15,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
     public DbSet<GameInstanceShow> GameInstanceShows => Set<GameInstanceShow>();
     public DbSet<GameInstanceEvent> GameInstanceEvents => Set<GameInstanceEvent>();
+    public DbSet<GameInstanceEventResponse> GameInstanceEventResponses => Set<GameInstanceEventResponse>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -114,6 +115,18 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         gameInstanceEvents.HasOne(gie => gie.GameInstanceShow)
             .WithMany(gis => gis.Events)
             .HasForeignKey(gie => gie.GameInstanceShowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var gameInstanceResponses = modelBuilder.Entity<GameInstanceEventResponse>();
+        gameInstanceResponses.Property(gir => gir.ResponseJson).HasColumnType("jsonb").IsRequired();
+        gameInstanceResponses.HasIndex(gir => new { gir.GameInstanceEventId, gir.ParticipantId }).IsUnique();
+        gameInstanceResponses.HasOne(gir => gir.GameInstanceEvent)
+            .WithMany(gie => gie.Responses)
+            .HasForeignKey(gir => gir.GameInstanceEventId)
+            .OnDelete(DeleteBehavior.Cascade);
+        gameInstanceResponses.HasOne(gir => gir.Participant)
+            .WithMany()
+            .HasForeignKey(gir => gir.ParticipantId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()

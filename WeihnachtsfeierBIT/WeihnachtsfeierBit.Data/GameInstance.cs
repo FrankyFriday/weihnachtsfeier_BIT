@@ -11,4 +11,5 @@ public class GameInstance
     public List<Sitzung> Sitzungen { get; set; } = [];
     public List<GameInstanceShow> Shows { get; set; } = [];
     public List<GameInstanceEvent> Events { get; set; } = [];
+    public Guid? ActiveCanvasEventId { get; set; }
 }

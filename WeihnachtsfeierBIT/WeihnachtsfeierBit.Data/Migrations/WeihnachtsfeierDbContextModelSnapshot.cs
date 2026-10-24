@@ -17,7 +17,7 @@ namespace WeihnachtsfeierBit.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -32,6 +32,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(6)
                         .HasColumnType("character varying(6)");
+
+                    b.Property<Guid?>("ActiveCanvasEventId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -104,6 +107,35 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasIndex("GameInstanceShowId");
 
                     b.ToTable("GameInstanceEvents");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceEventResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GameInstanceEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("GameInstanceEventId", "ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("GameInstanceEventResponses");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>
@@ -508,6 +540,25 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("GameInstanceShow");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceEventResponse", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.GameInstanceEvent", "GameInstanceEvent")
+                        .WithMany("Responses")
+                        .HasForeignKey("GameInstanceEventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GameInstanceEvent");
+
+                    b.Navigation("Participant");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.GameInstance", "GameInstance")
@@ -640,6 +691,11 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Shows");
 
                     b.Navigation("Sitzungen");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceEvent", b =>
+                {
+                    b.Navigation("Responses");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>

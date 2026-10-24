@@ -13,7 +13,8 @@ builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
 
 builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("weihnachtsfeierdb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("weihnachtsfeierdb"))
+           .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier, WeihnachtsfeierBit.ApiService.Services.GameStateNotifier>();

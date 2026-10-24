@@ -48,4 +48,4 @@ Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-
 
 ## Produktgrenzen
 
-Datenmodell, Login und CRUD-Grundlagen existieren. Live-Showzustand, Antworten, Punktehistorie, Teilnehmerclient und Leinwand-Dashboard fehlen noch. Siehe [Produktvision und Rollen](product-and-roles.md).
+Datenmodell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, SignalR-Echtzeitsynchronisation sowie mobiler Teilnehmer-Client sind umgesetzt. Das Leinwand-Dashboard (Projektor-Anzeige) ist der nächste geplante Schritt. Siehe [Produktvision und Rollen](product-and-roles.md).
