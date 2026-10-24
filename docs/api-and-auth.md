@@ -66,18 +66,20 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
+| `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState`) abrufen. |
 | `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show in Session starten (Modus `"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Show-Slide wechseln oder Modus ändern. |
 | `DELETE /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Laufende Show aus Session stoppen. |
 | `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen (Aktiv oder Passiv). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/responses` | Teilnehmer / Admin | Antwort oder Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für ein Event einreichen. |
 
 ## Fachliche Endpunkte
 
-Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
+Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`, `/session/state`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
 
-SignalR WebSockets: `/hubs/gamestate` erlaubt Clients, per `JoinProject(projectId)` Live-Updates (`GameStateUpdated`) von Punkteständen, Rängen und Teammitgliedern zu empfangen.
+SignalR WebSockets: `/hubs/gamestate` erlaubt Clients, per `JoinProject(projectId)` Live-Updates (`GameStateUpdated`) mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows) zu empfangen.
 
 Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `POST /participants/generate` (automatische 2-, 3- oder 4-stellige Nummern-Generierung), `POST /participants/randomize-teams` (gleichmäßige Zufallsverteilung auf Teams), `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
 
@@ -85,4 +87,4 @@ Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{p
 
 ## Noch nicht umgesetzt
 
-Der Adminclient kann Projekte, Play-Sessions (`GameInstance`), Teams, Teilnehmer sowie Show-Projekt-Verknüpfungen verwalten. Der Show-Editor kann Slides anlegen, löschen, sortieren und deren JSON-Parameter bearbeiten. Der Teilnehmerclient unter `/play/{code}` erlaubt 6-stellige Code-Logins, Profilnamenseingabe und Live-Dashboard-Ansichten. Antwortabgabe für Slides und das Leinwand-Dashboard sind noch nicht umgesetzt. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+Das Leinwand-Dashboard (Projektor-Anzeige für Großbildschirme) ist als Nächstes geplant. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.

@@ -12,6 +12,8 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
 | `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. |
+| `GameInstanceShow` | Instanz einer in der aktiven Session gestarteten Show (Modus `active`/`passive`, `CurrentSlideIndex`). |
+| `GameInstanceEvent` | Konkretes aktives oder passives Event einer Show-Slide oder On-The-Fly Spontanevents (Status `active`/`completed`). |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
@@ -46,6 +48,13 @@ Teilnehmer und Teilnehmernummern gehören zu genau einem Projekt. Eine aktive Si
 ## Shows und Projekte
 
 Eine Show wird global erstellt und kann zunächst ohne Projektverknüpfung existieren. `ShowProjektZuo` gewährt dem Projekt Zugriff auf diese Show. Eine Verknüpfung zu lösen entfernt nur den Join-Datensatz; die Show und ihre Slides bleiben bestehen. Der Showname ist auf 120 Zeichen begrenzt. Die Migration `AddGlobalShowName` setzt für bestehende Shows den Defaultnamen `Neue Show`.
+
+## Multi-Show & Live Event Ausführung
+
+In einer aktiven `GameInstance` (Play-Session) können mehrere Shows und spontane Events gleichzeitig betrieben werden:
+
+- **`GameInstanceShow`**: Verknüpft eine gestartete Show mit der Play-Session. Besitzt den Modus (`active` = Vordergrund / `passive` = Menüliste) und den aktuellen Slide-Index (`CurrentSlideIndex`).
+- **`GameInstanceEvent`**: Repräsentiert ein konkretes Live-Event auf Teilnehmer-Smartphones. Es entsteht entweder automatisch durch die aktuell aktive Slide einer `GameInstanceShow` oder als On-The-Fly spontanes Event. Speichert `SlideType`, `Title`, `Mode` (`active`/`passive`), `Status` (`active`/`completed`), Start-/Endzeitpunkt und Parameter-JSON.
 
 ## Migrationen
 
