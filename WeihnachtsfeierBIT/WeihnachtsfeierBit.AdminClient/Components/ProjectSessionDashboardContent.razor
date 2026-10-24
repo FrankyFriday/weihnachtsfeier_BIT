@@ -53,11 +53,11 @@
 
         @if (_instance is not null)
         {
-            <!-- TABS BAR FOR RUNNING SHOWS & EVENTS -->
-            <div style="display: flex; gap: 6px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 24px; align-items: center; overflow-x: auto; flex-wrap: wrap;">
+            <!-- TABS BAR FOR RUNNING SHOWS & STANDALONE EVENTS -->
+            <div style="display: flex; gap: 8px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 24px; align-items: center; overflow-x: auto; flex-wrap: wrap;">
                 @foreach (var tab in _tabs)
                 {
-                    <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 16px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#333"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 8px; align-items: center;">
+                    <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 16px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 8px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
                         <span>@tab.Title</span>
                         <FrameworkBadge Text="@tab.BadgeText" Variant="@tab.BadgeVariant" />
                     </button>
@@ -79,10 +79,10 @@
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                                 <div>
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                                        <h2>@show.ShowName</h2>
+                                        <h2 style="margin: 0;">@show.ShowName</h2>
                                         <FrameworkBadge Text="@(show.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(show.Mode == "active" ? "primary" : "secondary")" />
                                     </div>
-                                    <p style="margin: 0; font-size: 14px; color: #657276;">Slide @(show.CurrentSlideIndex + 1) von @show.TotalSlides</p>
+                                    <p style="margin: 0; font-size: 14px; color: #657276;">Laufende Show-Instanz</p>
                                 </div>
                                 <div class="framework-button-row">
                                     <FrameworkButton Label="◄ Vorherige Slide" Variant="secondary" OnClick="() => StepShowSlide(show, -1)" Disabled="@(show.CurrentSlideIndex == 0)" />
@@ -98,6 +98,49 @@
                                     <FrameworkButton Label="Show beenden" Variant="danger" OnClick="() => StopShowAsync(show.InstanceShowId)" />
                                 </div>
                             </div>
+
+                            <!-- POWERPOINT-STYLE HORIZONTAL SLIDE SORTER STRIP -->
+                            <div style="margin-top: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-weight: 700; font-size: 12px; color: #556265; letter-spacing: 0.5px; text-transform: uppercase;">Folien-Übersicht (Klick zum Springen)</span>
+                                    <span style="font-size: 13px; font-weight: 600; color: #105c4d;">Slide @(show.CurrentSlideIndex + 1) von @show.TotalSlides</span>
+                                </div>
+
+                                <div style="display: flex; gap: 12px; overflow-x: auto; padding: 12px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #f8faf9; scrollbar-width: thin;">
+                                    @if (_showSlidesMap.TryGetValue(show.ShowId, out var slides))
+                                    {
+                                        @for (int i = 0; i < slides.Length; i++)
+                                        {
+                                            var slideIndex = i;
+                                            var slide = slides[slideIndex];
+                                            var isActive = slideIndex == show.CurrentSlideIndex;
+
+                                            <div @onclick="() => StepShowSlideTo(show, slideIndex)"
+                                                 style="min-width: 140px; max-width: 160px; height: 105px; padding: 10px; border-radius: 8px; border: 2px solid @(isActive ? "#197b67" : "#cbd7d3"); background: @(isActive ? "#e8f3ef" : "#ffffff"); cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; box-shadow: @(isActive ? "0 4px 12px rgba(25, 123, 103, 0.2)" : "0 2px 4px rgba(0,0,0,0.03)"); transition: all 0.15s ease;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <span style="font-size: 12px; font-weight: 800; color: @(isActive ? "#105c4d" : "#657276");">#@(slideIndex + 1)</span>
+                                                    <FrameworkBadge Text="@slide.Type.ToUpperInvariant()" Variant="@slide.Type" />
+                                                </div>
+                                                <strong style="font-size: 13px; color: #1d2528; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 4px;">
+                                                    @GetSlideTitle(slide)
+                                                </strong>
+                                                @if (isActive)
+                                                {
+                                                    <span style="font-size: 10px; font-weight: 800; color: #197b67; text-transform: uppercase;">▶ LIVE AKTIV</span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="font-size: 10px; color: #889698;">Klick zum Springen</span>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div style="padding: 12px; color: #657276;">Lade Folien ...</div>
+                                    }
+                                </div>
+                            </div>
                         }
                         else
                         {
@@ -109,7 +152,7 @@
                                         <h2 style="margin: 0;">@ev.Title</h2>
                                         <FrameworkBadge Text="@(ev.Mode == "active" ? "Aktiv" : "Passiv")" Variant="@(ev.Mode == "active" ? "primary" : "secondary")" />
                                     </div>
-                                    <p style="margin: 0; font-size: 13px; color: #657276;">Aktiv seit @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss") Uhr</p>
+                                    <p style="margin: 0; font-size: 13px; color: #657276;">Spontanes Event • Aktiv seit @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss") Uhr</p>
                                 </div>
                                 <div class="framework-button-row">
                                     @if (ev.Mode == "active")
@@ -129,7 +172,7 @@
             }
             else
             {
-                <EmptyState Title="Keine laufenden Shows oder Events" Description="Klicke auf '+ Show hinzufügen' oder '+ Spontan', um Inhalte zu starten." />
+                <EmptyState Title="Keine laufenden Shows oder Events" Description="Klicke oben rechts auf '+ Show hinzufügen' oder '+ Spontan', um Inhalte in der Session zu starten." />
             }
         }
 
@@ -191,9 +234,9 @@
     </div>
 </FrameworkModal>
 
-<!-- SPONTANES EVENT MODAL MIT SLIDE EDITOR -->
+<!-- SPONTANES EVENT MODAL MIT SLIDE EDITOR & SCROLLING -->
 <FrameworkModal IsOpen="@_isSpontaneousModalOpen" Title="Spontanes Event erstellen" OnClose="CloseSpontaneousModal">
-    <div class="modal-form">
+    <div class="modal-form" style="max-height: 70vh; overflow-y: auto; padding-right: 6px;">
         <FrameworkFormGroup Label="Event- bzw. Slide-Typ" ForId="modal-slide-type">
             <FrameworkSelect Id="modal-slide-type" Value="@_spontaneousType" ValueChanged="OnSpontaneousTypeChanged" Options="@_slideTypeOptions" />
         </FrameworkFormGroup>
@@ -256,6 +299,8 @@
     private EventState? _activeEvent;
     private EventState[] _passiveEvents = [];
 
+    private Dictionary<Guid, SlideSummary[]> _showSlidesMap = new();
+
     private List<SessionTabViewModel> _tabs = [];
     private Guid? _selectedTabId;
     private SessionTabViewModel? _selectedTabItem => _tabs.FirstOrDefault(t => t.Id == _selectedTabId);
@@ -294,22 +339,25 @@
         await LoadDataAsync();
     }
 
-    private void BuildTabs()
+    private async Task BuildTabsAsync()
     {
         var prevSelected = _selectedTabId;
         _tabs.Clear();
 
-        if (_activeEvent is not null)
+        // 1. Add active shows (1 tab per show)
+        foreach (var show in _activeShows)
+        {
+            _tabs.Add(new SessionTabViewModel(show.InstanceShowId, show.ShowName, show.Mode == "active" ? "Show (Aktiv)" : "Show (Passiv)", show.Mode == "active" ? "primary" : "secondary", true, show, null));
+            _ = LoadShowSlidesIfMissingAsync(show.ShowId);
+        }
+
+        // 2. Add standalone events (where InstanceShowId == null)
+        if (_activeEvent is not null && !_activeEvent.InstanceShowId.HasValue)
         {
             _tabs.Add(new SessionTabViewModel(_activeEvent.EventId, _activeEvent.Title, "Aktiv", "primary", false, null, _activeEvent));
         }
 
-        foreach (var show in _activeShows)
-        {
-            _tabs.Add(new SessionTabViewModel(show.InstanceShowId, show.ShowName, show.Mode == "active" ? "Show (Aktiv)" : "Show (Passiv)", show.Mode == "active" ? "primary" : "secondary", true, show, null));
-        }
-
-        foreach (var ev in _passiveEvents)
+        foreach (var ev in _passiveEvents.Where(e => !e.InstanceShowId.HasValue))
         {
             _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, "Passiv", "secondary", false, null, ev));
         }
@@ -331,6 +379,48 @@
         }
     }
 
+    private async Task LoadShowSlidesIfMissingAsync(Guid showId)
+    {
+        if (_showSlidesMap.ContainsKey(showId)) return;
+
+        await RunAuthenticatedAsync(async token =>
+        {
+            var slides = await ProjectApiClient.GetAdminShowSlidesAsync(token, showId);
+            _showSlidesMap[showId] = slides;
+            StateHasChanged();
+        });
+    }
+
+    private static string GetSlideTitle(SlideSummary slide)
+    {
+        if (slide.Parameters.ValueKind == JsonValueKind.Object)
+        {
+            if (slide.Parameters.TryGetProperty("internalName", out var internalName) && internalName.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(internalName.GetString()))
+            {
+                return internalName.GetString()!;
+            }
+            if (slide.Parameters.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(title.GetString()))
+            {
+                return title.GetString()!;
+            }
+            if (slide.Parameters.TryGetProperty("question", out var question) && question.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(question.GetString()))
+            {
+                return question.GetString()!;
+            }
+        }
+
+        return slide.Type.ToLowerInvariant() switch
+        {
+            "announcement" => "Ankündigung",
+            "poll" => "Abstimmung",
+            "quiz" => "Quiz",
+            "ranking" => "Zwischenstand",
+            "estimation" => "Schätzfrage",
+            "buzzer" => "Buzzer",
+            _ => "Slide"
+        };
+    }
+
     private void SelectTab(Guid id) => _selectedTabId = id;
 
     private async Task ConnectSignalRAsync()
@@ -342,15 +432,15 @@
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<ProjectGameState>("GameStateUpdated", (state) =>
+            _hubConnection.On<ProjectGameState>("GameStateUpdated", async (state) =>
             {
-                InvokeAsync(() =>
+                await InvokeAsync(async () =>
                 {
                     _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
                     _activeEvent = state.ActiveEvent;
                     _passiveEvents = state.PassiveEvents;
                     _activeShows = state.ActiveShows;
-                    BuildTabs();
+                    await BuildTabsAsync();
                     StateHasChanged();
                 });
             });
@@ -388,7 +478,7 @@
                 _activeEvent = state.ActiveEvent;
                 _passiveEvents = state.PassiveEvents;
                 _activeShows = state.ActiveShows;
-                BuildTabs();
+                await BuildTabsAsync();
             }
             catch
             {
@@ -432,12 +522,16 @@
     {
         var targetIndex = show.CurrentSlideIndex + direction;
         if (targetIndex < 0 || targetIndex >= show.TotalSlides) return;
+        await StepShowSlideTo(show, targetIndex);
+    }
 
+    private async Task StepShowSlideTo(ActiveShowState show, int targetSlideIndex)
+    {
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.UpdateSessionShowAsync(token, ProjectId, show.InstanceShowId, targetIndex, show.Mode);
+                await ProjectApiClient.UpdateSessionShowAsync(token, ProjectId, show.InstanceShowId, targetSlideIndex, show.Mode);
                 await LoadDataAsync();
             });
         }
