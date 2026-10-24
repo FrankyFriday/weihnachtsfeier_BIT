@@ -27,4 +27,6 @@ public class GameInstanceEvent
     public DateTime StartedAtUtc { get; set; } = DateTime.UtcNow;
 
     public DateTime? ClosedAtUtc { get; set; }
+
+    public ICollection<GameInstanceEventResponse> Responses { get; set; } = new List<GameInstanceEventResponse>();
 }

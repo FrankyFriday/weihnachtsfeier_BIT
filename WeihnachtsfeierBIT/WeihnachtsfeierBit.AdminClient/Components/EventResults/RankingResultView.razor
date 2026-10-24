@@ -1,0 +1,13 @@
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0;">Zwischenstand Status</h3>
+        <FrameworkBadge Text="Ranglisten-Slide" Variant="secondary" />
+    </div>
+    <p style="color: #657276; font-size: 14px; margin: 0;">Diese Slide präsentiert die aktuellen Team-Punktestände.</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+}

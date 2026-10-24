@@ -2,10 +2,12 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using WeihnachtsfeierBit.Framework
 @using WeihnachtsfeierBit.AdminClient.Components.SlideEditors
+@using WeihnachtsfeierBit.AdminClient.Components.EventResults
 @using WeihnachtsfeierBit.AdminClient.Models
 @inherits AuthenticatedComponentBase
 @implements IAsyncDisposable
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
 
 <FrameworkPage>
     @if (IsLoading)
@@ -141,6 +143,37 @@
                                     }
                                 </div>
                             </div>
+
+                            <!-- EMBEDDED RESULT VIEW FOR CURRENT SHOW SLIDE -->
+                            var currentShowEvent = _activeEvent?.InstanceShowId == show.InstanceShowId ? _activeEvent : _passiveEvents.FirstOrDefault(e => e.InstanceShowId == show.InstanceShowId);
+                            if (currentShowEvent is not null)
+                            {
+                                <FrameworkDivider />
+                                @switch (currentShowEvent.SlideType.ToLowerInvariant())
+                                {
+                                    case "announcement":
+                                        <AnnouncementResultView Event="currentShowEvent" />
+                                        break;
+                                    case "poll":
+                                        <PollResultView Event="currentShowEvent" />
+                                        break;
+                                    case "quiz":
+                                        <QuizResultView Event="currentShowEvent" />
+                                        break;
+                                    case "ranking":
+                                        <RankingResultView Event="currentShowEvent" />
+                                        break;
+                                    case "estimation":
+                                        <EstimationResultView Event="currentShowEvent" />
+                                        break;
+                                    case "buzzer":
+                                        <BuzzerResultView Event="currentShowEvent" />
+                                        break;
+                                    default:
+                                        <FallbackResultView Event="currentShowEvent" />
+                                        break;
+                                }
+                            }
                         }
                         else
                         {
@@ -166,6 +199,33 @@
                                     <FrameworkButton Label="Event beenden" Variant="danger" OnClick="() => CloseEventAsync(ev.EventId)" />
                                 </div>
                             </div>
+
+                            <!-- EMBEDDED RESULT VIEW FOR SPONTANEOUS EVENT -->
+                            <FrameworkDivider />
+                            @switch (ev.SlideType.ToLowerInvariant())
+                            {
+                                case "announcement":
+                                    <AnnouncementResultView Event="ev" />
+                                    break;
+                                case "poll":
+                                    <PollResultView Event="ev" />
+                                    break;
+                                case "quiz":
+                                    <QuizResultView Event="ev" />
+                                    break;
+                                case "ranking":
+                                    <RankingResultView Event="ev" />
+                                    break;
+                                case "estimation":
+                                    <EstimationResultView Event="ev" />
+                                    break;
+                                case "buzzer":
+                                    <BuzzerResultView Event="ev" />
+                                    break;
+                                default:
+                                    <FallbackResultView Event="ev" />
+                                    break;
+                            }
                         }
                     </ChildContent>
                 </Card>
@@ -427,22 +487,28 @@
     {
         try
         {
+            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(Navigation.ToAbsoluteUri("/hubs/gamestate"))
+                .WithUrl(hubUrl)
                 .WithAutomaticReconnect()
                 .Build();
 
             _hubConnection.On<ProjectGameState>("GameStateUpdated", async (state) =>
             {
-                await InvokeAsync(async () =>
+                if (state.ProjectId == ProjectId)
                 {
-                    _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
-                    _activeEvent = state.ActiveEvent;
-                    _passiveEvents = state.PassiveEvents;
-                    _activeShows = state.ActiveShows;
-                    await BuildTabsAsync();
-                    StateHasChanged();
-                });
+                    await InvokeAsync(async () =>
+                    {
+                        _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
+                        _activeEvent = state.ActiveEvent;
+                        _passiveEvents = state.PassiveEvents;
+                        _activeShows = state.ActiveShows;
+                        await BuildTabsAsync();
+                        StateHasChanged();
+                    });
+                }
             });
 
             await _hubConnection.StartAsync();
@@ -672,6 +738,7 @@
             await RunAuthenticatedAsync(async token =>
             {
                 await ProjectApiClient.UpdateTeamPointsAsync(token, ProjectId, team.Id, points);
+                await LoadDataAsync();
             });
         }
         catch (HttpRequestException ex)

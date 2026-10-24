@@ -29,11 +29,11 @@ else if (!_isLoggedIn)
 }
 else if (_liveGameState?.ActiveEvent is EventState activeEv)
 {
-    <ParticipantEventView Event="activeEv" AccessToken="_accessToken" ProjectId="ProjectId" ShowBackButton="false" />
+    <ParticipantEventView Event="activeEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ShowBackButton="false" />
 }
 else if (_selectedPassiveEvent is EventState passiveEv)
 {
-    <ParticipantEventView Event="passiveEv" AccessToken="_accessToken" ProjectId="ProjectId" ShowBackButton="true" OnBack="ClosePassiveEvent" />
+    <ParticipantEventView Event="passiveEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ShowBackButton="true" OnBack="ClosePassiveEvent" />
 }
 else
 {

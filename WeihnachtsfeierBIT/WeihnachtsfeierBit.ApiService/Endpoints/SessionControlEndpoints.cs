@@ -9,31 +9,25 @@ namespace WeihnachtsfeierBit.ApiService.Endpoints;
 
 public static class SessionControlEndpoints
 {
-    public static void Map(RouteGroupBuilder projects)
+    public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
-        projects.MapGet("/session/state", GetSessionStateAsync).WithName("GetSessionState");
-        projects.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
-        projects.MapPut("/session/shows/{instanceShowId:guid}", UpdateShowInSessionAsync).WithName("UpdateShowInSession");
-        projects.MapDelete("/session/shows/{instanceShowId:guid}", StopShowInSessionAsync).WithName("StopShowInSession");
+        reader.MapGet("/session/state", GetSessionStateAsync).WithName("GetSessionState");
+        reader.MapPost("/session/events/{eventId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
 
-        projects.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
-        projects.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
-        projects.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
-        projects.MapPost("/session/events/{eventId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
+        admin.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
+        admin.MapPut("/session/shows/{instanceShowId:guid}", UpdateShowInSessionAsync).WithName("UpdateShowInSession");
+        admin.MapDelete("/session/shows/{instanceShowId:guid}", StopShowInSessionAsync).WithName("StopShowInSession");
+
+        admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
+        admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
+        admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
     }
 
     private static async Task<IResult> GetSessionStateAsync(
         Guid projectId,
-        HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
-        {
-            return Results.Unauthorized();
-        }
-
         var state = await GameStateNotifier.BuildProjectGameStateAsync(projectId, dbContext, cancellationToken);
         if (state is null)
         {
@@ -379,9 +373,19 @@ public static class SessionControlEndpoints
         Guid projectId,
         Guid eventId,
         SubmitResponseRequest request,
+        HttpContext httpContext,
+        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
+        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        if (access is null)
+        {
+            return Results.Unauthorized();
+        }
+
         var ev = await dbContext.GameInstanceEvents
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
 
@@ -389,6 +393,55 @@ public static class SessionControlEndpoints
         {
             return Results.NotFound(new ApiError("Event ist nicht aktiv."));
         }
+
+        Guid participantId;
+        if (access.ParticipantId is Guid pId)
+        {
+            participantId = pId;
+        }
+        else
+        {
+            var adminParticipant = await dbContext.Teilnehmer
+                .FirstOrDefaultAsync(t => t.ProjektId == projectId && t.Nummer == 0, cancellationToken);
+
+            if (adminParticipant is null)
+            {
+                var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
+                adminParticipant = new Teilnehmer
+                {
+                    ProjektId = projectId,
+                    Projekt = project!,
+                    Nummer = 0,
+                    Name = "Admin (Test)"
+                };
+                dbContext.Teilnehmer.Add(adminParticipant);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            participantId = adminParticipant.Id;
+        }
+
+        var existingResponse = await dbContext.GameInstanceEventResponses
+            .FirstOrDefaultAsync(r => r.GameInstanceEventId == eventId && r.ParticipantId == participantId, cancellationToken);
+
+        if (existingResponse is not null)
+        {
+            existingResponse.ResponseJson = request.ResponseData.GetRawText();
+            existingResponse.SubmittedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            var newResponse = new GameInstanceEventResponse
+            {
+                GameInstanceEventId = eventId,
+                ParticipantId = participantId,
+                ResponseJson = request.ResponseData.GetRawText(),
+                SubmittedAtUtc = DateTime.UtcNow
+            };
+            dbContext.GameInstanceEventResponses.Add(newResponse);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.Ok();
     }

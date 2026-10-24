@@ -1,0 +1,79 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0;">Ergebnisse & Rückmeldungen (@TotalVotes Stimmen)</h3>
+        <FrameworkBadge Text="@($"{TotalVotes} Antworten")" Variant="primary" />
+    </div>
+
+    @if (TotalVotes == 0)
+    {
+        <p style="color: #657276; font-size: 14px;">Noch keine Rückmeldungen für diese Abstimmung eingetroffen.</p>
+    }
+    else
+    {
+        <div style="display: grid; gap: 12px; margin-top: 12px;">
+            @foreach (var opt in OptionStats)
+            {
+                <div style="padding: 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fff;">
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 6px;">
+                        <span>@opt.Option</span>
+                        <span>@opt.Count Stimmen (@opt.Percentage.ToString("F1")%)</span>
+                    </div>
+                    <div style="width: 100%; height: 10px; background: #e7ecea; border-radius: 5px; overflow: hidden;">
+                        <div style="width: @(opt.Percentage)%; height: 100%; background: #197b67; border-radius: 5px; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+
+    private int TotalVotes => Event.Responses.Length;
+
+    private List<OptionStat> OptionStats
+    {
+        get {
+            var options = ReadStringList(Event.Parameters, "options");
+            if (options.Count == 0) options = ["Ja", "Nein"];
+
+            var counts = options.ToDictionary(o => o, _ => 0);
+            foreach (var resp in Event.Responses)
+            {
+                if (resp.ResponseData.ValueKind == JsonValueKind.Object &&
+                    resp.ResponseData.TryGetProperty("selectedOption", out var sel) &&
+                    sel.ValueKind == JsonValueKind.String &&
+                    sel.GetString() is string optStr &&
+                    counts.ContainsKey(optStr))
+                {
+                    counts[optStr]++;
+                }
+            }
+
+            var total = Math.Max(1, TotalVotes);
+            return options.Select(o => new OptionStat(o, counts[o], (double)counts[o] / total * 100.0)).ToList();
+        }
+    }
+
+    private sealed record OptionStat(string Option, int Count, double Percentage);
+
+    private static List<string> ReadStringList(JsonElement elem, string prop)
+    {
+        var list = new List<string>();
+        if (elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in arr.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    list.Add(item.GetString() ?? string.Empty);
+                }
+            }
+        }
+        return list;
+    }
+}

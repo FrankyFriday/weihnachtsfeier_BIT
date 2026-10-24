@@ -515,7 +515,26 @@ public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string AccessC
 public sealed record ParticipantState(Guid Id, int Number, string? Name);
 public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
 public sealed record ActiveShowState(Guid InstanceShowId, Guid ShowId, string ShowName, string Mode, int CurrentSlideIndex, int TotalSlides, Guid? CurrentEventId);
-public sealed record EventState(Guid EventId, Guid? InstanceShowId, string SlideType, string Title, string Mode, string Status, JsonElement Parameters, DateTime StartedAtUtc);
+public sealed record EventResponseState(
+    Guid Id,
+    Guid ParticipantId,
+    int ParticipantNumber,
+    string? ParticipantName,
+    string? TeamName,
+    string? TeamColor,
+    JsonElement ResponseData,
+    DateTime SubmittedAtUtc);
+
+public sealed record EventState(
+    Guid EventId,
+    Guid? InstanceShowId,
+    string SlideType,
+    string Title,
+    string Mode,
+    string Status,
+    JsonElement Parameters,
+    DateTime StartedAtUtc,
+    EventResponseState[] Responses);
 public sealed record ProjectGameState(
     Guid ProjectId,
     string ProjectName,

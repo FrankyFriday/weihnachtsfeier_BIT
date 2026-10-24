@@ -73,6 +73,9 @@ public sealed class GameStateNotifier(
                 .ThenInclude(gis => gis.Show)
                     .ThenInclude(s => s.Slides)
             .Include(gi => gi.Events)
+                .ThenInclude(e => e.Responses)
+                    .ThenInclude(r => r.Participant)
+                        .ThenInclude(p => p.Team)
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
 
         if (instance is not null)
@@ -131,6 +134,33 @@ public sealed class GameStateNotifier(
             paramsElem = JsonSerializer.SerializeToElement(new { });
         }
 
+        var responseStates = gie.Responses
+            .OrderBy(r => r.SubmittedAtUtc)
+            .Select(r =>
+            {
+                JsonElement responseData;
+                try
+                {
+                    using var doc = JsonDocument.Parse(r.ResponseJson);
+                    responseData = doc.RootElement.Clone();
+                }
+                catch (JsonException)
+                {
+                    responseData = JsonSerializer.SerializeToElement(new { });
+                }
+
+                return new EventResponseState(
+                    r.Id,
+                    r.ParticipantId,
+                    r.Participant.Nummer,
+                    r.Participant.Name,
+                    r.Participant.Team?.DisplayName,
+                    r.Participant.Team?.Color,
+                    responseData,
+                    r.SubmittedAtUtc);
+            })
+            .ToArray();
+
         return new EventState(
             gie.Id,
             gie.GameInstanceShowId,
@@ -139,6 +169,7 @@ public sealed class GameStateNotifier(
             gie.Mode,
             gie.Status,
             paramsElem,
-            gie.StartedAtUtc);
+            gie.StartedAtUtc,
+            responseStates);
     }
 }
