@@ -12,8 +12,10 @@ public static class ChatEndpoints
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
         reader.MapGet("/chat/groups", GetChatGroupsAsync).WithName("GetChatGroups");
+        reader.MapGet("/chat/participants", GetChatParticipantsAndAdminsAsync).WithName("GetChatParticipantsAndAdmins");
         reader.MapGet("/chat/groups/{groupId:guid}/messages", GetChatMessagesAsync).WithName("GetChatMessages");
         reader.MapPost("/chat/groups/{groupId:guid}/messages", SendChatMessageAsync).WithName("SendChatMessage");
+        reader.MapPost("/chat/groups/{groupId:guid}/read", MarkGroupAsReadAsync).WithName("MarkGroupAsRead");
         reader.MapPost("/chat/direct/{targetParticipantId:guid}", GetOrCreateDirectChatAsync).WithName("GetOrCreateDirectChat");
         reader.MapPost("/chat/groups", CreateCustomGroupAsync).WithName("CreateCustomGroup");
     }
@@ -70,6 +72,11 @@ public static class ChatEndpoints
                     dbContext.ChatGroups.Add(supportGroup);
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
+                else if (!supportGroup.Members.Any(m => m.ParticipantId == pId))
+                {
+                    supportGroup.Members.Add(new ChatGroupMember { ParticipantId = pId });
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
 
                 if (participant.TeamId is Guid teamId && participant.Team is not null)
                 {
@@ -106,19 +113,24 @@ public static class ChatEndpoints
         }
 
         List<ChatGroup> groups;
-        if (access.ParticipantId is Guid partId)
+        Guid? partId = access.ParticipantId;
+        Guid? adminId = access.AdminId;
+
+        if (partId is Guid pid)
         {
-            var participant = await dbContext.Teilnehmer.AsNoTracking().FirstOrDefaultAsync(t => t.Id == partId, cancellationToken);
+            var participant = await dbContext.Teilnehmer.AsNoTracking().FirstOrDefaultAsync(t => t.Id == pid, cancellationToken);
             Guid? myTeamId = participant?.TeamId;
 
             groups = await dbContext.ChatGroups
                 .AsNoTracking()
+                .Include(cg => cg.Messages)
+                .Include(cg => cg.Members)
                 .Where(cg => cg.ProjektId == projectId && (
                     cg.Type == "global" ||
                     (cg.Type == "team" && cg.AssociatedTeamId == myTeamId) ||
-                    (cg.Type == "admin_support" && cg.Members.Any(m => m.ParticipantId == partId)) ||
-                    (cg.Type == "direct" && cg.Members.Any(m => m.ParticipantId == partId)) ||
-                    (cg.Type == "custom" && cg.Members.Any(m => m.ParticipantId == partId))
+                    (cg.Type == "admin_support" && cg.Members.Any(m => m.ParticipantId == pid)) ||
+                    (cg.Type == "direct" && cg.Members.Any(m => m.ParticipantId == pid)) ||
+                    (cg.Type == "custom" && cg.Members.Any(m => m.ParticipantId == pid))
                 ))
                 .OrderBy(cg => cg.Type == "global" ? 0 : cg.Type == "team" ? 1 : cg.Type == "admin_support" ? 2 : 3)
                 .ThenBy(cg => cg.Name)
@@ -128,20 +140,79 @@ public static class ChatEndpoints
         {
             groups = await dbContext.ChatGroups
                 .AsNoTracking()
+                .Include(cg => cg.Messages)
+                .Include(cg => cg.Members)
                 .Where(cg => cg.ProjektId == projectId)
                 .OrderBy(cg => cg.Type == "global" ? 0 : cg.Type == "team" ? 1 : cg.Type == "admin_support" ? 2 : 3)
                 .ThenBy(cg => cg.Name)
                 .ToListAsync(cancellationToken);
         }
 
-        var summaries = groups.Select(g => new ChatGroupSummary(
-            g.Id,
-            g.Name,
-            g.Type,
-            g.AssociatedTeamId,
-            g.Members.Count)).ToArray();
+        var summaries = new List<ChatGroupSummary>();
+        foreach (var g in groups)
+        {
+            var lastMsg = g.Messages.OrderByDescending(m => m.SentAtUtc).FirstOrDefault();
 
-        return Results.Ok(summaries);
+            ChatUserRead? userRead = null;
+            if (partId is Guid pGuid)
+            {
+                userRead = await dbContext.ChatUserReads
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.ChatGroupId == g.Id && r.ParticipantId == pGuid, cancellationToken);
+            }
+            else if (adminId is Guid aGuid)
+            {
+                userRead = await dbContext.ChatUserReads
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.ChatGroupId == g.Id && r.ProjektAdminId == aGuid, cancellationToken);
+            }
+
+            DateTime? lastRead = userRead?.LastReadAtUtc;
+            int unreadCount = lastRead.HasValue ? g.Messages.Count(m => m.SentAtUtc > lastRead.Value) : g.Messages.Count;
+
+            summaries.Add(new ChatGroupSummary(
+                g.Id,
+                g.Name,
+                g.Type,
+                g.AssociatedTeamId,
+                g.Members.Count,
+                lastMsg?.MessageText,
+                lastMsg?.SentAtUtc,
+                unreadCount));
+        }
+
+        return Results.Ok(summaries.ToArray());
+    }
+
+    private static async Task<IResult> GetChatParticipantsAndAdminsAsync(
+        Guid projectId,
+        HttpContext httpContext,
+        ProjectAccessService accessService,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
+        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        if (access is null) return Results.Unauthorized();
+
+        var participants = await dbContext.Teilnehmer
+            .AsNoTracking()
+            .Where(t => t.ProjektId == projectId && (access.ParticipantId == null || t.Id != access.ParticipantId.Value))
+            .OrderBy(t => t.Nummer)
+            .Select(t => new ChatContactDto(t.Id, $"Teilnehmer #{t.Nummer}" + (string.IsNullOrEmpty(t.Name) ? "" : $" ({t.Name})"), "participant"))
+            .ToListAsync(cancellationToken);
+
+        var admins = await dbContext.ProjektAdminProjekte
+            .AsNoTracking()
+            .Where(map => map.ProjektId == projectId)
+            .Select(map => new ChatContactDto(map.ProjektAdminId, $"{map.ProjektAdmin.Benutzername} (Moderator)", "admin"))
+            .ToListAsync(cancellationToken);
+
+        var list = new List<ChatContactDto>();
+        list.AddRange(participants);
+        list.AddRange(admins);
+
+        return Results.Ok(list.ToArray());
     }
 
     private static async Task<IResult> GetChatMessagesAsync(
@@ -193,6 +264,70 @@ public static class ChatEndpoints
             .ToListAsync(cancellationToken);
 
         return Results.Ok(messages);
+    }
+
+    private static async Task<IResult> MarkGroupAsReadAsync(
+        Guid projectId,
+        Guid groupId,
+        HttpContext httpContext,
+        ProjectAccessService accessService,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
+        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        if (access is null) return Results.Unauthorized();
+
+        Guid? partId = access.ParticipantId;
+        Guid? adminId = access.AdminId;
+
+        var latestMsgTime = await dbContext.ChatMessages
+            .Where(m => m.ChatGroupId == groupId && m.ChatGroup.ProjektId == projectId)
+            .MaxAsync(m => (DateTime?)m.SentAtUtc, cancellationToken) ?? DateTime.UtcNow;
+
+        if (partId is Guid pGuid)
+        {
+            var existingRead = await dbContext.ChatUserReads
+                .FirstOrDefaultAsync(r => r.ChatGroupId == groupId && r.ParticipantId == pGuid, cancellationToken);
+
+            if (existingRead is not null)
+            {
+                existingRead.LastReadAtUtc = latestMsgTime;
+            }
+            else
+            {
+                dbContext.ChatUserReads.Add(new ChatUserRead
+                {
+                    ChatGroupId = groupId,
+                    ParticipantId = pGuid,
+                    ProjektAdminId = null,
+                    LastReadAtUtc = latestMsgTime
+                });
+            }
+        }
+        else if (adminId is Guid aGuid)
+        {
+            var existingRead = await dbContext.ChatUserReads
+                .FirstOrDefaultAsync(r => r.ChatGroupId == groupId && r.ProjektAdminId == aGuid, cancellationToken);
+
+            if (existingRead is not null)
+            {
+                existingRead.LastReadAtUtc = latestMsgTime;
+            }
+            else
+            {
+                dbContext.ChatUserReads.Add(new ChatUserRead
+                {
+                    ChatGroupId = groupId,
+                    ParticipantId = null,
+                    ProjektAdminId = aGuid,
+                    LastReadAtUtc = latestMsgTime
+                });
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok();
     }
 
     private static async Task<IResult> SendChatMessageAsync(
@@ -299,14 +434,42 @@ public static class ChatEndpoints
     {
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
-        if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (access is null || (access.ParticipantId is null && access.AdminId is null)) return Results.Unauthorized();
 
-        Guid p1 = access.ParticipantId.Value;
+        if (access.AdminId is Guid adminId)
+        {
+            var target = await dbContext.Teilnehmer.FirstOrDefaultAsync(t => t.Id == targetParticipantId && t.ProjektId == projectId, cancellationToken);
+            if (target is null) return Results.NotFound();
+
+            var supportGroup = await dbContext.ChatGroups
+                .Include(cg => cg.Members)
+                .Where(cg => cg.ProjektId == projectId && cg.Type == "admin_support" && cg.Members.Any(m => m.ParticipantId == targetParticipantId))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (supportGroup is not null)
+            {
+                return Results.Ok(new ChatGroupSummary(supportGroup.Id, supportGroup.Name, supportGroup.Type, supportGroup.AssociatedTeamId, supportGroup.Members.Count, null, null, 0));
+            }
+
+            var newSupport = new ChatGroup
+            {
+                ProjektId = projectId,
+                Name = $"Support (Teilnehmer #{target.Nummer})",
+                Type = "admin_support"
+            };
+            newSupport.Members.Add(new ChatGroupMember { ParticipantId = targetParticipantId });
+            dbContext.ChatGroups.Add(newSupport);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(new ChatGroupSummary(newSupport.Id, newSupport.Name, newSupport.Type, newSupport.AssociatedTeamId, newSupport.Members.Count, null, null, 0));
+        }
+
+        Guid p1 = access.ParticipantId!.Value;
         Guid p2 = targetParticipantId;
         if (p1 == p2) return Results.BadRequest(new ApiError("Selbstgespräche nicht möglich."));
 
-        var target = await dbContext.Teilnehmer.FirstOrDefaultAsync(t => t.Id == p2 && t.ProjektId == projectId, cancellationToken);
-        if (target is null) return Results.NotFound();
+        var targetParticipant = await dbContext.Teilnehmer.FirstOrDefaultAsync(t => t.Id == p2 && t.ProjektId == projectId, cancellationToken);
+        if (targetParticipant is null) return Results.NotFound();
 
         var existingGroup = await dbContext.ChatGroups
             .Include(cg => cg.Members)
@@ -315,11 +478,11 @@ public static class ChatEndpoints
 
         if (existingGroup is not null)
         {
-            return Results.Ok(new ChatGroupSummary(existingGroup.Id, existingGroup.Name, existingGroup.Type, existingGroup.AssociatedTeamId, existingGroup.Members.Count));
+            return Results.Ok(new ChatGroupSummary(existingGroup.Id, existingGroup.Name, existingGroup.Type, existingGroup.AssociatedTeamId, existingGroup.Members.Count, null, null, 0));
         }
 
         var sender = await dbContext.Teilnehmer.FindAsync([p1], cancellationToken);
-        string groupName = $"{sender?.Name ?? $"#{sender?.Nummer}"} & {target.Name ?? $"#{target.Nummer}"}";
+        string groupName = $"{sender?.Name ?? $"#{sender?.Nummer}"} & {targetParticipant.Name ?? $"#{targetParticipant.Nummer}"}";
 
         var newGroup = new ChatGroup
         {
@@ -333,7 +496,7 @@ public static class ChatEndpoints
         dbContext.ChatGroups.Add(newGroup);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(new ChatGroupSummary(newGroup.Id, newGroup.Name, newGroup.Type, newGroup.AssociatedTeamId, newGroup.Members.Count));
+        return Results.Ok(new ChatGroupSummary(newGroup.Id, newGroup.Name, newGroup.Type, newGroup.AssociatedTeamId, newGroup.Members.Count, null, null, 0));
     }
 
     private static async Task<IResult> CreateCustomGroupAsync(
@@ -346,7 +509,7 @@ public static class ChatEndpoints
     {
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
-        if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (access is null || (access.ParticipantId is null && access.AdminId is null)) return Results.Unauthorized();
 
         var name = request.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 60)
@@ -361,12 +524,16 @@ public static class ChatEndpoints
             Type = "custom"
         };
 
-        group.Members.Add(new ChatGroupMember { ParticipantId = access.ParticipantId.Value });
+        if (access.ParticipantId is Guid pId)
+        {
+            group.Members.Add(new ChatGroupMember { ParticipantId = pId });
+        }
+
         if (request.ParticipantIds is not null)
         {
             foreach (var pid in request.ParticipantIds.Distinct())
             {
-                if (pid != access.ParticipantId.Value)
+                if (access.ParticipantId is null || pid != access.ParticipantId.Value)
                 {
                     group.Members.Add(new ChatGroupMember { ParticipantId = pid });
                 }
@@ -376,6 +543,6 @@ public static class ChatEndpoints
         dbContext.ChatGroups.Add(group);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count));
+        return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count, null, null, 0));
     }
 }

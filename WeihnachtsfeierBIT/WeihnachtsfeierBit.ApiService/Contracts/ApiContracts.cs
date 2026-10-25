@@ -69,7 +69,10 @@ public sealed record ChatGroupSummary(
     string Name,
     string Type,
     Guid? AssociatedTeamId,
-    int MemberCount);
+    int MemberCount,
+    string? LastMessageText,
+    DateTime? LastMessageAtUtc,
+    int UnreadCount);
 
 public sealed record ChatMessageResponse(
     Guid Id,
@@ -84,3 +87,4 @@ public sealed record ChatMessageResponse(
 
 public sealed record SendChatMessageRequest(string MessageText);
 public sealed record CreateCustomGroupRequest(string Name, Guid[] ParticipantIds);
+public sealed record ChatContactDto(Guid Id, string Name, string Kind);

@@ -213,12 +213,7 @@
                     <FrameworkChat ProjectId="@ProjectId"
                                    AccessToken="@AccessToken"
                                    ParticipantId="@ParticipantId"
-                                   IsAdmin="false"
-                                   Groups="@ChatGroups"
-                                   SelectedGroupId="@SelectedChatGroupId"
-                                   Messages="@ChatMessages"
-                                   OnSelectGroup="@OnSelectChatGroup"
-                                   OnSendMessage="@OnSendChatMessage" />
+                                   IsAdmin="false" />
                 </div>
             }
             else if (_activeTab == "actions")
@@ -344,9 +339,6 @@
     [Parameter] public TeamState[] AllTeams { get; set; } = [];
     [Parameter] public EventState[] PassiveEvents { get; set; } = [];
     [Parameter] public EventState[] ScheduledEvents { get; set; } = [];
-    [Parameter] public ChatGroupSummary[] ChatGroups { get; set; } = [];
-    [Parameter] public Guid? SelectedChatGroupId { get; set; }
-    [Parameter] public ChatMessageResponse[] ChatMessages { get; set; } = [];
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
@@ -354,8 +346,6 @@
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
-    [Parameter] public EventCallback<Guid> OnSelectChatGroup { get; set; }
-    [Parameter] public EventCallback<string> OnSendChatMessage { get; set; }
 
     private string _activeTab = "home";
     private string? _activeActionView;
