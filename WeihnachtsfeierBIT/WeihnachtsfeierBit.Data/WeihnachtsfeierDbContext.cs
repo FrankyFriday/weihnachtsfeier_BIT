@@ -13,7 +13,6 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
-    public DbSet<GameInstanceShow> GameInstanceShows => Set<GameInstanceShow>();
     public DbSet<GameInstanceEvent> GameInstanceEvents => Set<GameInstanceEvent>();
     public DbSet<GameInstanceEventResponse> GameInstanceEventResponses => Set<GameInstanceEventResponse>();
     public DbSet<Show> Shows => Set<Show>();
@@ -92,34 +91,19 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasForeignKey(gi => gi.ProjektId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        var gameInstanceShows = modelBuilder.Entity<GameInstanceShow>();
-        gameInstanceShows.Property(gis => gis.Mode).HasMaxLength(16).HasDefaultValue("active");
-        gameInstanceShows.HasOne(gis => gis.GameInstance)
-            .WithMany(gi => gi.Shows)
-            .HasForeignKey(gis => gis.GameInstanceId)
-            .OnDelete(DeleteBehavior.Cascade);
-        gameInstanceShows.HasOne(gis => gis.Show)
-            .WithMany()
-            .HasForeignKey(gis => gis.ShowId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         var gameInstanceEvents = modelBuilder.Entity<GameInstanceEvent>();
-        gameInstanceEvents.Property(gie => gie.SlideType).HasMaxLength(32).IsRequired();
         gameInstanceEvents.Property(gie => gie.Mode).HasMaxLength(16).HasDefaultValue("active");
         gameInstanceEvents.Property(gie => gie.Status).HasMaxLength(16).HasDefaultValue("active");
-        gameInstanceEvents.Property(gie => gie.ParametersJson).HasColumnType("jsonb").IsRequired();
+        gameInstanceEvents.Property(gie => gie.NavigationMode).HasMaxLength(32).HasDefaultValue("host_controlled");
+        gameInstanceEvents.Property(gie => gie.SlidesJson).HasColumnType("jsonb").IsRequired();
         gameInstanceEvents.HasOne(gie => gie.GameInstance)
             .WithMany(gi => gi.Events)
             .HasForeignKey(gie => gie.GameInstanceId)
             .OnDelete(DeleteBehavior.Cascade);
-        gameInstanceEvents.HasOne(gie => gie.GameInstanceShow)
-            .WithMany(gis => gis.Events)
-            .HasForeignKey(gie => gie.GameInstanceShowId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         var gameInstanceResponses = modelBuilder.Entity<GameInstanceEventResponse>();
         gameInstanceResponses.Property(gir => gir.ResponseJson).HasColumnType("jsonb").IsRequired();
-        gameInstanceResponses.HasIndex(gir => new { gir.GameInstanceEventId, gir.ParticipantId }).IsUnique();
+        gameInstanceResponses.HasIndex(gir => new { gir.GameInstanceEventId, gir.SlideId, gir.ParticipantId }).IsUnique();
         gameInstanceResponses.HasOne(gir => gir.GameInstanceEvent)
             .WithMany(gie => gie.Responses)
             .HasForeignKey(gir => gir.GameInstanceEventId)

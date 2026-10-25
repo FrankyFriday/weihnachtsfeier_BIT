@@ -12,6 +12,8 @@ public class GameInstanceEventResponse
     public Guid GameInstanceEventId { get; set; }
     public GameInstanceEvent GameInstanceEvent { get; set; } = null!;
 
+    public Guid SlideId { get; set; }
+
     public Guid ParticipantId { get; set; }
     public Teilnehmer Participant { get; set; } = null!;
 

@@ -32,17 +32,19 @@
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 
-    private int TotalVotes => Event.Responses.Length;
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
+    private int TotalVotes => SlideResponses.Count();
 
     private List<OptionStat> OptionStats
     {
         get {
-            var options = ReadStringList(Event.Parameters, "options");
+            var options = ReadStringList(CurrentSlide.Parameters, "options");
             if (options.Count == 0) options = ["Ja", "Nein"];
 
             var counts = options.ToDictionary(o => o, _ => 0);
-            foreach (var resp in Event.Responses)
+            foreach (var resp in SlideResponses)
             {
                 if (resp.ResponseData.ValueKind == JsonValueKind.Object &&
                     resp.ResponseData.TryGetProperty("selectedOption", out var sel) &&

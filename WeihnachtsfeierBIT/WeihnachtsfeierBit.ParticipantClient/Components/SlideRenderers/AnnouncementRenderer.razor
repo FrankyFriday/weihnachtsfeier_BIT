@@ -1,13 +1,14 @@
 @using System.Text.Json
 
-<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: #ffffff;">
-    <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">ANKÜNDIGUNG</span>
-    <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 16px 0; color: #1d2528;">@ReadString(Event.Parameters, "title")</h1>
-    <p style="white-space: pre-wrap; font-size: 18px; color: #556265; line-height: 1.5; margin: 0; max-width: 500px;">@ReadString(Event.Parameters, "message")</p>
+<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 32px; box-sizing: border-box; text-align: center; background: #ffffff;">
+    <span class="mobile-eyebrow" style="margin-bottom: 16px; font-size: 15px;">ANKÜNDIGUNG</span>
+    <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 16px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "title")</h1>
+    <p style="font-size: 18px; line-height: 1.5; color: #556265; max-width: 480px; margin: 0;">@ReadString(CurrentSlide.Parameters, "message")</p>
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 
     private static string ReadString(JsonElement elem, string prop) =>
         elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String

@@ -66,12 +66,8 @@ public sealed class GameStateNotifier(
 
         EventState? activeEvent = null;
         var passiveEvents = new List<EventState>();
-        var activeShows = new List<ActiveShowState>();
 
         var instance = await dbContext.GameInstances.AsNoTracking()
-            .Include(gi => gi.Shows)
-                .ThenInclude(gis => gis.Show)
-                    .ThenInclude(s => s.Slides)
             .Include(gi => gi.Events)
                 .ThenInclude(e => e.Responses)
                     .ThenInclude(r => r.Participant)
@@ -95,20 +91,6 @@ public sealed class GameStateNotifier(
             {
                 passiveEvents.Add(ToEventState(passiveGie));
             }
-
-            foreach (var gis in instance.Shows.OrderBy(s => s.CreatedAtUtc))
-            {
-                var currentShowEvent = liveEvents.FirstOrDefault(e => e.GameInstanceShowId == gis.Id);
-                var totalSlides = gis.Show.Slides.Count;
-                activeShows.Add(new ActiveShowState(
-                    gis.Id,
-                    gis.ShowId,
-                    gis.Show.Name,
-                    gis.Mode,
-                    gis.CurrentSlideIndex,
-                    totalSlides,
-                    currentShowEvent?.Id));
-            }
         }
 
         return new ProjectGameState(
@@ -117,22 +99,31 @@ public sealed class GameStateNotifier(
             teamStates.ToArray(),
             activeEvent,
             passiveEvents.ToArray(),
-            activeShows.ToArray(),
             instance?.ActiveCanvasEventId,
             DateTime.UtcNow);
     }
 
     private static EventState ToEventState(GameInstanceEvent gie)
     {
-        JsonElement paramsElem;
+        var slideStates = new List<EventSlideState>();
         try
         {
-            using var doc = JsonDocument.Parse(gie.ParametersJson);
-            paramsElem = doc.RootElement.Clone();
+            using var doc = JsonDocument.Parse(gie.SlidesJson);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var elem in doc.RootElement.EnumerateArray())
+                {
+                    Guid slideId = elem.TryGetProperty("slideId", out var idProp) && idProp.ValueKind == JsonValueKind.String && Guid.TryParse(idProp.GetString(), out var parsedId) ? parsedId : Guid.NewGuid();
+                    string type = elem.TryGetProperty("type", out var typeProp) && typeProp.ValueKind == JsonValueKind.String ? typeProp.GetString() ?? "announcement" : "announcement";
+                    int pos = elem.TryGetProperty("position", out var posProp) && posProp.ValueKind == JsonValueKind.Number ? posProp.GetInt32() : 0;
+                    JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
+
+                    slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));
+                }
+            }
         }
         catch (JsonException)
         {
-            paramsElem = JsonSerializer.SerializeToElement(new { });
         }
 
         var responseStates = gie.Responses
@@ -152,6 +143,7 @@ public sealed class GameStateNotifier(
 
                 return new EventResponseState(
                     r.Id,
+                    r.SlideId,
                     r.ParticipantId,
                     r.Participant.Nummer,
                     r.Participant.Name,
@@ -164,13 +156,14 @@ public sealed class GameStateNotifier(
 
         return new EventState(
             gie.Id,
-            gie.GameInstanceShowId,
-            gie.SlideType,
+            gie.SourceShowId,
             gie.Title,
             gie.Mode,
             gie.Status,
-            paramsElem,
-            gie.StartedAtUtc,
-            responseStates);
+            gie.NavigationMode,
+            gie.CurrentSlideIndex,
+            slideStates.ToArray(),
+            responseStates,
+            gie.StartedAtUtc);
     }
 }

@@ -232,23 +232,14 @@ else
                 // Live sync selected passive event if open (match by InstanceShowId for shows, or EventId for spontaneous events)
                 if (_selectedPassiveEvent is not null)
                 {
-                    EventState? updatedPassive = null;
-                    if (_selectedPassiveEvent.InstanceShowId.HasValue)
-                    {
-                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.InstanceShowId == _selectedPassiveEvent.InstanceShowId.Value);
-                    }
-                    else
-                    {
-                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
-                    }
-
+                    var updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
                     if (updatedPassive is null)
                     {
                         _selectedPassiveEvent = null; // Closed by admin
                     }
                     else
                     {
-                        _selectedPassiveEvent = updatedPassive; // Updated state / slide change
+                        _selectedPassiveEvent = updatedPassive;
                     }
                 }
 

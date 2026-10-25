@@ -31,7 +31,7 @@
                     {
                         <div style="padding: 12px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                             <div>
-                                <FrameworkBadge Text="@GetFriendlyTypeName(ev.SlideType)" Variant="@ev.SlideType" />
+                                <FrameworkBadge Text="@GetFriendlyTypeName(ev.Slides.Length > 0 ? ev.Slides[0].Type : "announcement")" Variant="@(ev.Slides.Length > 0 ? ev.Slides[0].Type : "announcement")" />
                                 <strong style="display: block; margin-top: 4px;">@ev.Title</strong>
                             </div>
                             <FrameworkButton Label="Öffnen" Variant="primary" OnClick="() => OnSelectPassiveEvent.InvokeAsync(ev)" />

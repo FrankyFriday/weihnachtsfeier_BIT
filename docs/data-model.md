@@ -11,10 +11,9 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive Zuordnungszeitpunkt. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert optional `ActiveCanvasEventId` für die Beamer/Leinwand-Anzeige. |
-| `GameInstanceShow` | Instanz einer in der aktiven Session gestarteten Show (Modus `active`/`passive`, `CurrentSlideIndex`). |
-| `GameInstanceEvent` | Konkretes aktives oder passives Event einer Show-Slide oder On-The-Fly Spontanevents (Status `active`/`completed`). |
-| `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für ein Event. Unique Index auf `(GameInstanceEventId, ParticipantId)` erzwingt Upserts ohne Duplikate. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige. |
+| `GameInstanceEvent` | Vereinheitlichtes Live-Event (Multi-Slide Show oder Spontanevent). Enthält `Title`, `Mode` (`active`/`passive`), `NavigationMode` (`host_controlled`/`self_paced`), `CurrentSlideIndex` und `SlidesJson` (`jsonb` Array aller Folien). |
+| `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für eine konkrete Folie eines Events. Unique Index auf `(GameInstanceEventId, SlideId, ParticipantId)` erzwingt eindeutige Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
@@ -52,10 +51,12 @@ Eine Show wird global erstellt und kann zunächst ohne Projektverknüpfung exist
 
 ## Multi-Show & Live Event Ausführung
 
-In einer aktiven `GameInstance` (Play-Session) können mehrere Shows und spontane Events gleichzeitig betrieben werden:
+In einer aktiven `GameInstance` (Play-Session) werden Shows und Spontanevents in einheitlichen `GameInstanceEvent`-Containern betrieben:
 
-- **`GameInstanceShow`**: Verknüpft eine gestartete Show mit der Play-Session. Besitzt den Modus (`active` = Vordergrund / `passive` = Menüliste) und den aktuellen Slide-Index (`CurrentSlideIndex`).
-- **`GameInstanceEvent`**: Repräsentiert ein konkretes Live-Event auf Teilnehmer-Smartphones. Es entsteht entweder automatisch durch die aktuell aktive Slide einer `GameInstanceShow` oder als On-The-Fly spontanes Event. Speichert `SlideType`, `Title`, `Mode` (`active`/`passive`), `Status` (`active`/`completed`), Start-/Endzeitpunkt und Parameter-JSON.
+- **Unified `GameInstanceEvent`**: Repräsentiert ein eigenständiges Live-Ablauf-Element (Multi-Slide Show oder 1-Slide Spontanevent).
+  - **`NavigationMode`**: Unterscheidet zwischen `"host_controlled"` (Moderator schaltet `CurrentSlideIndex` weiter) und `"self_paced"` (Teilnehmer können eigenständig vor- und zurückblättern).
+  - **`SlidesJson`**: PostgreSQL-`jsonb` Array aller Folien des Events.
+  - **Eindeutiges Teilnehmer-Feedback**: Jede Antwort ist an `(GameInstanceEventId, SlideId, ParticipantId)` gebunden, wodurch alle Ergebnisse auch beim Wechseln von Folien erhalten bleiben.
 
 ## Migrationen
 

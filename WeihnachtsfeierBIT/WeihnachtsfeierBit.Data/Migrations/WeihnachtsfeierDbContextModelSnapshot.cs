@@ -61,10 +61,10 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<DateTime?>("ClosedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("GameInstanceId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("CurrentSlideIndex")
+                        .HasColumnType("integer");
 
-                    b.Property<Guid?>("GameInstanceShowId")
+                    b.Property<Guid>("GameInstanceId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Mode")
@@ -74,16 +74,18 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasDefaultValue("active");
 
-                    b.Property<string>("ParametersJson")
+                    b.Property<string>("NavigationMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("host_controlled");
+
+                    b.Property<string>("SlidesJson")
                         .IsRequired()
                         .HasColumnType("jsonb");
 
-                    b.Property<string>("SlideType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid?>("SourceSlideId")
+                    b.Property<Guid?>("SourceShowId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("StartedAtUtc")
@@ -104,8 +106,6 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.HasIndex("GameInstanceId");
 
-                    b.HasIndex("GameInstanceShowId");
-
                     b.ToTable("GameInstanceEvents");
                 });
 
@@ -125,6 +125,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.Property<Guid>("SlideId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("SubmittedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -132,44 +135,10 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.HasIndex("ParticipantId");
 
-                    b.HasIndex("GameInstanceEventId", "ParticipantId")
+                    b.HasIndex("GameInstanceEventId", "SlideId", "ParticipantId")
                         .IsUnique();
 
                     b.ToTable("GameInstanceEventResponses");
-                });
-
-            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("CurrentSlideIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("GameInstanceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Mode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasDefaultValue("active");
-
-                    b.Property<Guid>("ShowId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GameInstanceId");
-
-                    b.HasIndex("ShowId");
-
-                    b.ToTable("GameInstanceShows");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
@@ -530,14 +499,7 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("WeihnachtsfeierBit.Data.GameInstanceShow", "GameInstanceShow")
-                        .WithMany("Events")
-                        .HasForeignKey("GameInstanceShowId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.Navigation("GameInstance");
-
-                    b.Navigation("GameInstanceShow");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceEventResponse", b =>
@@ -557,25 +519,6 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("GameInstanceEvent");
 
                     b.Navigation("Participant");
-                });
-
-            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>
-                {
-                    b.HasOne("WeihnachtsfeierBit.Data.GameInstance", "GameInstance")
-                        .WithMany("Shows")
-                        .HasForeignKey("GameInstanceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("WeihnachtsfeierBit.Data.Show", "Show")
-                        .WithMany()
-                        .HasForeignKey("ShowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("GameInstance");
-
-                    b.Navigation("Show");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
@@ -688,19 +631,12 @@ namespace WeihnachtsfeierBit.Data.Migrations
                 {
                     b.Navigation("Events");
 
-                    b.Navigation("Shows");
-
                     b.Navigation("Sitzungen");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceEvent", b =>
                 {
                     b.Navigation("Responses");
-                });
-
-            modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstanceShow", b =>
-                {
-                    b.Navigation("Events");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>

@@ -12,16 +12,14 @@ public static class SessionControlEndpoints
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
         reader.MapGet("/session/state", GetSessionStateAsync).WithName("GetSessionState");
-        reader.MapPost("/session/events/{eventId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
+        reader.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
 
         admin.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
-        admin.MapPut("/session/shows/{instanceShowId:guid}", UpdateShowInSessionAsync).WithName("UpdateShowInSession");
-        admin.MapDelete("/session/shows/{instanceShowId:guid}", StopShowInSessionAsync).WithName("StopShowInSession");
-
-        admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
+        admin.MapPut("/session/events/{eventId:guid}", UpdateSessionEventAsync).WithName("UpdateSessionEvent");
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
+        admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
     }
 
     private static async Task<IResult> GetSessionStateAsync(
@@ -53,7 +51,6 @@ public static class SessionControlEndpoints
         }
 
         var instance = await dbContext.GameInstances
-            .Include(gi => gi.Shows)
             .Include(gi => gi.Events)
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
 
@@ -75,52 +72,40 @@ public static class SessionControlEndpoints
 
         if (mode == "active")
         {
-            MakeAllItemsPassive(instance);
+            MakeAllEventsPassive(instance);
         }
 
-        var instanceShow = new GameInstanceShow
+        var slidesPayload = show.Slides.OrderBy(s => s.Position).Select(s => new
+        {
+            slideId = s.Id,
+            type = GetSlideType(s),
+            position = s.Position,
+            parameters = JsonDocument.Parse(s.ParametersJson).RootElement
+        }).ToList();
+
+        var showEvent = new GameInstanceEvent
         {
             GameInstanceId = instance.Id,
-            ShowId = show.Id,
+            SourceShowId = show.Id,
+            Title = show.Name,
             Mode = mode,
-            CurrentSlideIndex = 0
+            Status = "active",
+            NavigationMode = "host_controlled",
+            CurrentSlideIndex = 0,
+            SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 
-        dbContext.GameInstanceShows.Add(instanceShow);
-
-        // Generate a stable GameInstanceEvent for EVERY slide in the show!
-        var orderedSlides = show.Slides.OrderBy(s => s.Position).ToList();
-        for (int i = 0; i < orderedSlides.Count; i++)
-        {
-            var slide = orderedSlides[i];
-            var slideMode = (i == 0) ? mode : "passive";
-            var title = GetSlideTitle(slide);
-
-            var instanceEvent = new GameInstanceEvent
-            {
-                GameInstanceId = instance.Id,
-                GameInstanceShow = instanceShow,
-                SourceSlideId = slide.Id,
-                SlideType = GetSlideType(slide),
-                Title = title,
-                Mode = slideMode,
-                Status = "active",
-                ParametersJson = slide.ParametersJson
-            };
-
-            dbContext.GameInstanceEvents.Add(instanceEvent);
-        }
-
+        dbContext.GameInstanceEvents.Add(showEvent);
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
-        return Results.Ok();
+        return Results.Ok(new { eventId = showEvent.Id });
     }
 
-    private static async Task<IResult> UpdateShowInSessionAsync(
+    private static async Task<IResult> UpdateSessionEventAsync(
         Guid projectId,
-        Guid instanceShowId,
-        UpdateSessionShowRequest request,
+        Guid eventId,
+        UpdateSessionEventRequest request,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
@@ -132,23 +117,10 @@ public static class SessionControlEndpoints
             return Results.Unauthorized();
         }
 
-        var instance = await dbContext.GameInstances
-            .Include(gi => gi.Shows)
-            .Include(gi => gi.Events)
-            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+        var ev = await dbContext.GameInstanceEvents
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.GameInstance.ProjektId == projectId, cancellationToken);
 
-        if (instance is null)
-        {
-            return Results.NotFound();
-        }
-
-        var instanceShow = await dbContext.GameInstanceShows
-            .Include(gis => gis.Show)
-                .ThenInclude(s => s.Slides)
-            .Include(gis => gis.Events)
-            .FirstOrDefaultAsync(gis => gis.Id == instanceShowId && gis.GameInstanceId == instance.Id, cancellationToken);
-
-        if (instanceShow is null)
+        if (ev is null)
         {
             return Results.NotFound();
         }
@@ -157,92 +129,26 @@ public static class SessionControlEndpoints
 
         if (mode == "active")
         {
-            MakeAllItemsPassive(instance, excludeShowId: instanceShowId);
+            var instance = await dbContext.GameInstances
+                .Include(gi => gi.Events)
+                .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+            if (instance is not null)
+            {
+                MakeAllEventsPassive(instance, excludeEventId: ev.Id);
+            }
         }
 
-        instanceShow.Mode = mode;
-
-        var orderedSlides = instanceShow.Show.Slides.OrderBy(s => s.Position).ToList();
-        int targetIndex = Math.Clamp(request.CurrentSlideIndex, 0, Math.Max(0, orderedSlides.Count - 1));
-        instanceShow.CurrentSlideIndex = targetIndex;
-
-        if (orderedSlides.Count > targetIndex)
+        ev.Mode = mode;
+        if (request.CurrentSlideIndex.HasValue && request.CurrentSlideIndex.Value >= 0)
         {
-            var targetSlide = orderedSlides[targetIndex];
-
-            // Ensure event exists for target slide (reuse existing GameInstanceEvent)
-            var targetEvent = instanceShow.Events.FirstOrDefault(e => e.SourceSlideId == targetSlide.Id);
-            if (targetEvent is null)
-            {
-                targetEvent = new GameInstanceEvent
-                {
-                    GameInstanceId = instance.Id,
-                    GameInstanceShowId = instanceShow.Id,
-                    SourceSlideId = targetSlide.Id,
-                    SlideType = GetSlideType(targetSlide),
-                    Title = GetSlideTitle(targetSlide),
-                    Mode = mode,
-                    Status = "active",
-                    ParametersJson = targetSlide.ParametersJson
-                };
-                dbContext.GameInstanceEvents.Add(targetEvent);
-            }
-
-            // Update modes for all slide events of this show: target slide gets active/passive mode, others become passive
-            foreach (var ev in instanceShow.Events)
-            {
-                if (ev.SourceSlideId == targetSlide.Id)
-                {
-                    ev.Mode = mode;
-                    ev.Status = "active";
-                }
-                else
-                {
-                    ev.Mode = "passive";
-                }
-            }
+            ev.CurrentSlideIndex = request.CurrentSlideIndex.Value;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.Ok();
-    }
-
-    private static async Task<IResult> StopShowInSessionAsync(
-        Guid projectId,
-        Guid instanceShowId,
-        HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
-        WeihnachtsfeierDbContext dbContext,
-        IGameStateNotifier gameStateNotifier,
-        CancellationToken cancellationToken)
-    {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
-        {
-            return Results.Unauthorized();
-        }
-
-        var instanceShow = await dbContext.GameInstanceShows
-            .Include(gis => gis.Events)
-            .FirstOrDefaultAsync(gis => gis.Id == instanceShowId, cancellationToken);
-
-        if (instanceShow is null)
-        {
-            return Results.NotFound();
-        }
-
-        foreach (var ev in instanceShow.Events.Where(e => e.Status == "active"))
-        {
-            ev.Status = "completed";
-            ev.ClosedAtUtc = DateTime.UtcNow;
-        }
-
-        dbContext.GameInstanceShows.Remove(instanceShow);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-
-        return Results.NoContent();
     }
 
     private static async Task<IResult> CreateSpontaneousEventAsync(
@@ -260,7 +166,6 @@ public static class SessionControlEndpoints
         }
 
         var instance = await dbContext.GameInstances
-            .Include(gi => gi.Shows)
             .Include(gi => gi.Events)
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
 
@@ -273,26 +178,39 @@ public static class SessionControlEndpoints
 
         if (mode == "active")
         {
-            MakeAllItemsPassive(instance);
+            MakeAllEventsPassive(instance);
         }
 
         string title = ReadTitleFromParameters(request.Parameters, request.SlideType);
+        var slideId = Guid.NewGuid();
+
+        var slidesPayload = new[]
+        {
+            new
+            {
+                slideId = slideId,
+                type = request.SlideType.Trim().ToLowerInvariant(),
+                position = 0,
+                parameters = request.Parameters
+            }
+        };
 
         var newEvent = new GameInstanceEvent
         {
             GameInstanceId = instance.Id,
-            SlideType = request.SlideType.Trim().ToLowerInvariant(),
             Title = title,
             Mode = mode,
             Status = "active",
-            ParametersJson = request.Parameters.GetRawText()
+            NavigationMode = "host_controlled",
+            CurrentSlideIndex = 0,
+            SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 
         dbContext.GameInstanceEvents.Add(newEvent);
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
-        return Results.Created($"/api/projects/{projectId}/session/events/{newEvent.Id}", new { newEvent.Id });
+        return Results.Created($"/api/projects/{projectId}/session/events/{newEvent.Id}", new { eventId = newEvent.Id });
     }
 
     private static async Task<IResult> UpdateEventModeAsync(
@@ -323,26 +241,16 @@ public static class SessionControlEndpoints
         if (mode == "active")
         {
             var instance = await dbContext.GameInstances
-                .Include(gi => gi.Shows)
                 .Include(gi => gi.Events)
                 .FirstOrDefaultAsync(gi => gi.Id == ev.GameInstanceId, cancellationToken);
 
             if (instance is not null)
             {
-                MakeAllItemsPassive(instance, excludeEventId: ev.Id);
+                MakeAllEventsPassive(instance, excludeEventId: ev.Id);
             }
         }
 
         ev.Mode = mode;
-        if (ev.GameInstanceShowId is Guid showInstId)
-        {
-            var showInst = await dbContext.GameInstanceShows.FirstOrDefaultAsync(gis => gis.Id == showInstId, cancellationToken);
-            if (showInst is not null)
-            {
-                showInst.Mode = mode;
-            }
-        }
-
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
@@ -383,6 +291,7 @@ public static class SessionControlEndpoints
     private static async Task<IResult> SubmitEventResponseAsync(
         Guid projectId,
         Guid eventId,
+        Guid slideId,
         SubmitResponseRequest request,
         HttpContext httpContext,
         ProjectAccessService accessService,
@@ -432,7 +341,7 @@ public static class SessionControlEndpoints
         }
 
         var existingResponse = await dbContext.GameInstanceEventResponses
-            .FirstOrDefaultAsync(r => r.GameInstanceEventId == eventId && r.ParticipantId == participantId, cancellationToken);
+            .FirstOrDefaultAsync(r => r.GameInstanceEventId == eventId && r.SlideId == slideId && r.ParticipantId == participantId, cancellationToken);
 
         if (existingResponse is not null)
         {
@@ -444,6 +353,7 @@ public static class SessionControlEndpoints
             var newResponse = new GameInstanceEventResponse
             {
                 GameInstanceEventId = eventId,
+                SlideId = slideId,
                 ParticipantId = participantId,
                 ResponseJson = request.ResponseData.GetRawText(),
                 SubmittedAtUtc = DateTime.UtcNow
@@ -486,35 +396,14 @@ public static class SessionControlEndpoints
         return Results.Ok();
     }
 
-    private static void MakeAllItemsPassive(GameInstance instance, Guid? excludeShowId = null, Guid? excludeEventId = null)
+    private static void MakeAllEventsPassive(GameInstance instance, Guid? excludeEventId = null)
     {
-        foreach (var show in instance.Shows)
-        {
-            if (show.Id != excludeShowId)
-            {
-                show.Mode = "passive";
-            }
-        }
-
         foreach (var ev in instance.Events)
         {
             if (ev.Id != excludeEventId && ev.Status == "active")
             {
                 ev.Mode = "passive";
             }
-        }
-    }
-
-    private static string GetSlideTitle(Slide slide)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(slide.ParametersJson);
-            return ReadTitleFromParameters(doc.RootElement, GetSlideType(slide));
-        }
-        catch (JsonException)
-        {
-            return GetSlideType(slide);
         }
     }
 

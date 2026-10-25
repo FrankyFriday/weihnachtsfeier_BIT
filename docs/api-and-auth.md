@@ -67,13 +67,11 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
 | `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState`) abrufen. |
-| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show in Session starten (Modus `"active"` oder `"passive"`). Generiert stabile `GameInstanceEvent`-IDs für alle Slides der Show. |
-| `PUT /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Show-Slide wechseln oder Modus ändern (erhält bestehende Folien-Events und Teilnehmerantworten). |
-| `DELETE /api/projects/{projectId}/session/shows/{instanceShowId}` | Projektadmin | Laufende Show aus Session stoppen. |
-| `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen (Aktiv oder Passiv). |
+| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als vereinheitlichtes `GameInstanceEvent` mit n Slides in der Session starten (`"active"` / `"passive"`). |
+| `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`) wechseln oder Modus ändern (`"active"` / `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
-| `POST /api/projects/{projectId}/session/events/{eventId}/responses` | Teilnehmer / Admin | Antwort oder Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für ein Event einreichen (Eindeutiges Upsert pro Teilnehmer). |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
 
 ## Fachliche Endpunkte

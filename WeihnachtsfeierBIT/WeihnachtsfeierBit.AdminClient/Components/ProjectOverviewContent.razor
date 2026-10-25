@@ -8,7 +8,10 @@
     }
     else if (!string.IsNullOrEmpty(ErrorMessage))
     {
-        <FrameworkNotice Message="@ErrorMessage" />
+        <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+        <div style="margin-top: 16px;">
+            <FrameworkLink Href="/projects" Label="◄ Zurück zur Projektliste" Variant="primary" />
+        </div>
     }
     else if (_overview is not null)
     {

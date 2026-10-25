@@ -57,11 +57,13 @@
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 
-    private int TotalEstimations => Event.Responses.Length;
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
+    private int TotalEstimations => SlideResponses.Count();
 
-    private double TargetValue => ReadDouble(Event.Parameters, "correctValue");
-    private string Unit => ReadString(Event.Parameters, "unit");
+    private double TargetValue => ReadDouble(CurrentSlide.Parameters, "correctValue");
+    private string Unit => ReadString(CurrentSlide.Parameters, "unit");
 
     private double AverageEstimate => TotalEstimations == 0 ? 0 : RankedEstimations.Average(r => r.Value);
     private double MinEstimate => TotalEstimations == 0 ? 0 : RankedEstimations.Min(r => r.Value);
@@ -71,7 +73,7 @@
     {
         get {
             var list = new List<RankedEstimation>();
-            foreach (var r in Event.Responses)
+            foreach (var r in SlideResponses)
             {
                 if (r.ResponseData.ValueKind == JsonValueKind.Object &&
                     r.ResponseData.TryGetProperty("estimationValue", out var val) &&

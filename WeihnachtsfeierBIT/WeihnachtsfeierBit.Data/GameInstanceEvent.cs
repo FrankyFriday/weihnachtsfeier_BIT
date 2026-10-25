@@ -1,20 +1,16 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace WeihnachtsfeierBit.Data;
 
 public class GameInstanceEvent
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid GameInstanceId { get; set; }
 
     public GameInstance GameInstance { get; set; } = null!;
 
-    public Guid? GameInstanceShowId { get; set; }
-
-    public GameInstanceShow? GameInstanceShow { get; set; }
-
-    public Guid? SourceSlideId { get; set; }
-
-    public string SlideType { get; set; } = "announcement";
+    public Guid? SourceShowId { get; set; }
 
     public string Title { get; set; } = string.Empty;
 
@@ -22,7 +18,12 @@ public class GameInstanceEvent
 
     public string Status { get; set; } = "active"; // "active" or "completed"
 
-    public string ParametersJson { get; set; } = "{}";
+    public string NavigationMode { get; set; } = "host_controlled"; // "host_controlled" or "self_paced"
+
+    public int CurrentSlideIndex { get; set; } = 0;
+
+    [Column(TypeName = "jsonb")]
+    public string SlidesJson { get; set; } = "[]";
 
     public DateTime StartedAtUtc { get; set; } = DateTime.UtcNow;
 
