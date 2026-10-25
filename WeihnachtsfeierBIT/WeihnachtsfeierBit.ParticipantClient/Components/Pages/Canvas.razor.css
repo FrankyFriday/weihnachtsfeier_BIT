@@ -9,9 +9,7 @@
     overflow: auto;
     padding: clamp(1.25rem, 4vw, 4rem);
     color: #1d2528;
-    background:
-        radial-gradient(ellipse at 0 0, #dcefe8 0, transparent 38%),
-        #f0f4f3;
+    background: #f0f4f3;
 }
 
 .canvas-header,
@@ -47,7 +45,7 @@
     gap: 0.6rem;
     padding: 0.65rem 1rem;
     border: 1px solid #dce5e2;
-    border-radius: 999px;
+    border-radius: 20px;
     background: #fff;
     color: #556265;
     font-size: clamp(0.75rem, 0.9vw, 0.95rem);
@@ -80,9 +78,8 @@
     min-width: 0;
     min-height: 0;
     border: 1px solid #dce5e2;
-    border-radius: clamp(1rem, 2vw, 1.75rem);
+    border-radius: 6px;
     background: #fff;
-    box-shadow: 0 0.75rem 2.5rem #1d25280b;
 }
 
 .canvas-event {
@@ -91,6 +88,7 @@
     justify-content: center;
     overflow-y: auto;
     padding: clamp(1.5rem, 4vw, 4rem);
+    border-top: 5px solid #197b67;
 }
 
 .canvas-event h2 {
@@ -128,8 +126,8 @@
     counter-increment: canvas-option;
     padding: clamp(0.8rem, 1.5vh, 1.15rem) clamp(0.9rem, 1.5vw, 1.4rem);
     border: 1px solid #dce5e2;
-    border-radius: 0.9rem;
-    background: #f8faf9;
+    border-radius: 6px;
+    background: #fafcfb;
     color: #1d2528;
     font-size: clamp(1rem, 1.7vw, 1.7rem);
     font-weight: 650;
@@ -176,7 +174,7 @@
 .canvas-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 0.35rem;
+    border-spacing: 0 0.25rem;
     font-size: clamp(1rem, 1.5vw, 1.6rem);
 }
 
@@ -196,11 +194,11 @@
 }
 
 .canvas-table tbody tr td:first-child {
-    border-radius: 0.8rem 0 0 0.8rem;
+    border-radius: 5px 0 0 5px;
 }
 
 .canvas-table tbody tr td:last-child {
-    border-radius: 0 0.8rem 0.8rem 0;
+    border-radius: 0 5px 5px 0;
 }
 
 .canvas-table tbody tr.canvas-leading-team td {
@@ -216,7 +214,7 @@
     width: 2rem;
     height: 2rem;
     place-items: center;
-    border-radius: 50%;
+    border-radius: 5px;
     background: #edf1ef;
     color: #556265;
     font-size: 0.85em;
