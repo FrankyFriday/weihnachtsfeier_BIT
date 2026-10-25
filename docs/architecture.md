@@ -34,7 +34,7 @@ flowchart LR
 
 ## Codepfade
 
-- API-Komposition & SignalR Hubs: `WeihnachtsfeierBit.ApiService/Program.cs` (`GameStateHub` unter `/hubs/gamestate`)
+- API-Komposition & SignalR Hubs: `WeihnachtsfeierBit.ApiService/Program.cs` (`GameStateHub` unter `/hubs/gamestate`), Hintergrund-Worker `ScheduledEventsBackgroundService.cs` für automatische Event-Starts.
 - Routenmodule: `WeihnachtsfeierBit.ApiService/Endpoints/`
 - Authentifizierung und Projektfilter: `WeihnachtsfeierBit.ApiService/Auth/`
 - Request-/Response-Verträge: `WeihnachtsfeierBit.ApiService/Contracts/`
@@ -48,4 +48,4 @@ Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-
 
 ## Produktgrenzen
 
-Datenmodell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, SignalR-Echtzeitsynchronisation, mobiler Teilnehmer-Client und Beameransicht sind umgesetzt. Siehe [Produktvision und Rollen](product-and-roles.md).
+Vereinheitlichtes Event-Modell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, zeitliche Event-Planung & Auto-Start, Event-Sichtbarkeitssteuerung, freie Teilnehmer-Navigation (`self_paced`), Beamer-Fokussierung (`ActiveCanvasEventId`), SignalR-Echtzeitsynchronisation, mobiler Teilnehmer-Client und Beameransicht sind umgesetzt sind vollständig umgesetzt. Das Leinwand-Dashboard (Projektor-Anzeige) ist der nächste geplante Schritt. Siehe [Produktvision und Rollen](product-and-roles.md).

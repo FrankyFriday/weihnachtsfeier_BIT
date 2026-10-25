@@ -46,13 +46,15 @@
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 
-    private int TotalBuzzers => Event.Responses.Length;
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
+    private int TotalBuzzers => SlideResponses.Count();
 
     private List<BuzzerItem> RankedBuzzers
     {
         get {
-            var ordered = Event.Responses.OrderBy(r => r.SubmittedAtUtc).ToList();
+            var ordered = SlideResponses.OrderBy(r => r.SubmittedAtUtc).ToList();
             if (ordered.Count == 0) return [];
 
             var firstTime = ordered[0].SubmittedAtUtc;

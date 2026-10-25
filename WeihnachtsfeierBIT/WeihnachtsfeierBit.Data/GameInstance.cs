@@ -9,7 +9,6 @@ public class GameInstance
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public List<Sitzung> Sitzungen { get; set; } = [];
-    public List<GameInstanceShow> Shows { get; set; } = [];
     public List<GameInstanceEvent> Events { get; set; } = [];
     public Guid? ActiveCanvasEventId { get; set; }
 }

@@ -42,7 +42,7 @@ public static class ProjectEndpoints
     {
         var project = await dbContext.Projekte.AsNoTracking()
             .Where(item => item.Id == projectId)
-            .Select(item => new ProjectResponse(item.Id, item.Name))
+            .Select(item => new WeihnachtsfeierBit.ApiService.Contracts.ProjectResponse(item.Id, item.Name))
             .FirstOrDefaultAsync(cancellationToken);
         return project is null ? Results.NotFound() : Results.Ok(project);
     }
@@ -54,7 +54,7 @@ public static class ProjectEndpoints
     {
         var overview = await dbContext.Projekte.AsNoTracking()
             .Where(project => project.Id == projectId)
-            .Select(project => new ProjectOverviewResponse(
+            .Select(project => new WeihnachtsfeierBit.ApiService.Contracts.ProjectOverviewResponse(
                 project.Id,
                 project.Name,
                 dbContext.ShowProjektZuos.Count(link => link.ProjektId == project.Id),
@@ -66,7 +66,7 @@ public static class ProjectEndpoints
 
     private static async Task<IResult> UpdateProjectAsync(
         Guid projectId,
-        RenameProjectRequest request,
+        WeihnachtsfeierBit.ApiService.Contracts.RenameProjectRequest request,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
@@ -84,7 +84,7 @@ public static class ProjectEndpoints
 
         project.Name = name;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new ProjectResponse(project.Id, project.Name));
+        return Results.Ok(new WeihnachtsfeierBit.ApiService.Contracts.ProjectResponse(project.Id, project.Name));
     }
 
     private static async Task<IResult> DeleteProjectAsync(

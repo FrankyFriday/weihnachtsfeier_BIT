@@ -3,36 +3,54 @@
     {
         <div style="background: #f8faf9; padding: 12px 16px; border-bottom: 1px solid #dce5e2; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
             <FrameworkButton Label="◄ Zurück" Variant="secondary" OnClick="OnBack" />
-            <FrameworkBadge Text="@GetFriendlyTypeName(Event.SlideType)" Variant="@Event.SlideType" />
+            @if (Event.Slides.Length > 0 && _currentSlideIndex < Event.Slides.Length)
+            {
+                <FrameworkBadge Text="@GetFriendlyTypeName(Event.Slides[_currentSlideIndex].Type)" Variant="@Event.Slides[_currentSlideIndex].Type" />
+            }
         </div>
     }
 
-    <div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; overflow: hidden; box-sizing: border-box;">
-        @switch (Event.SlideType.ToLowerInvariant())
+    @if (Event.Slides.Length > 0)
+    {
+        var slideIndex = Math.Clamp(_currentSlideIndex, 0, Event.Slides.Length - 1);
+        var currentSlide = Event.Slides[slideIndex];
+
+        <div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: stretch; overflow: hidden; box-sizing: border-box;">
+            @switch (currentSlide.Type.ToLowerInvariant())
+            {
+                case "announcement":
+                    <AnnouncementRenderer Event="Event" CurrentSlide="currentSlide" />
+                    break;
+                case "poll":
+                    <PollRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
+                    break;
+                case "quiz":
+                    <QuizRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
+                    break;
+                case "ranking":
+                    <RankingRenderer Event="Event" CurrentSlide="currentSlide" />
+                    break;
+                case "estimation":
+                    <EstimationRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
+                    break;
+                case "buzzer":
+                    <BuzzerRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
+                    break;
+                default:
+                    <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
+                    break;
+            }
+        </div>
+
+        @if (Event.NavigationMode == "self_paced" && Event.Slides.Length > 1)
         {
-            case "announcement":
-                <AnnouncementRenderer Event="Event" />
-                break;
-            case "poll":
-                <PollRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
-                break;
-            case "quiz":
-                <QuizRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
-                break;
-            case "ranking":
-                <RankingRenderer Event="Event" />
-                break;
-            case "estimation":
-                <EstimationRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
-                break;
-            case "buzzer":
-                <BuzzerRenderer Event="Event" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
-                break;
-            default:
-                <FallbackRenderer Event="Event" />
-                break;
+            <div style="background: #f8faf9; padding: 12px 16px; border-top: 1px solid #dce5e2; display: flex; align-items: center; justify-content: space-between;">
+                <button type="button" class="mobile-button secondary" @onclick="() => StepSelfPacedSlide(-1)" disabled="@(_currentSlideIndex == 0)">◄ Vorherige</button>
+                <span style="font-size: 13px; font-weight: 700; color: #105c4d;">Folie @(_currentSlideIndex + 1) von @Event.Slides.Length</span>
+                <button type="button" class="mobile-button secondary" @onclick="() => StepSelfPacedSlide(1)" disabled="@(_currentSlideIndex >= Event.Slides.Length - 1)">Nächste ►</button>
+            </div>
         }
-    </div>
+    }
 </div>
 
 @code {
@@ -42,6 +60,21 @@
     [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public bool ShowBackButton { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
+
+    private int _currentSlideIndex;
+
+    protected override void OnParametersSet()
+    {
+        if (Event.NavigationMode == "host_controlled")
+        {
+            _currentSlideIndex = Event.CurrentSlideIndex;
+        }
+    }
+
+    private void StepSelfPacedSlide(int delta)
+    {
+        _currentSlideIndex = Math.Clamp(_currentSlideIndex + delta, 0, Math.Max(0, Event.Slides.Length - 1));
+    }
 
     private static string GetFriendlyTypeName(string type) => type.ToLowerInvariant() switch
     {

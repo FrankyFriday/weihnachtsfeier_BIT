@@ -2,9 +2,10 @@
 
 <div style="margin-top: 16px;">
     <h3 style="margin: 0 0 8px 0;">Ergebnisse</h3>
-    <p style="color: #657276; font-size: 14px; margin: 0;">Keine spezielle Auswertungsansicht für den Typ '@Event.SlideType' vorhanden.</p>
+    <p style="color: #657276; font-size: 14px; margin: 0;">Keine spezielle Auswertungsansicht für den Typ '@CurrentSlide.Type' vorhanden.</p>
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 }

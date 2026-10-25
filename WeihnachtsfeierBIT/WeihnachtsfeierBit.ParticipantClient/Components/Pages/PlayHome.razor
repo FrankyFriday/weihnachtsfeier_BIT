@@ -27,7 +27,7 @@ else if (!_isLoggedIn)
                           OnLogin="LoginByCodeAsync"
                           OnResetCode="ResetCode" />
 }
-else if (_liveGameState?.ActiveEvent is EventState activeEv)
+else if (_liveGameState?.ActiveEvent is EventState activeEv && !activeEv.IsHidden)
 {
     <ParticipantEventView Event="activeEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="false" />
 }
@@ -43,6 +43,7 @@ else
                               TeamState="CurrentTeamState"
                               AllTeams="AllTeamStates"
                               PassiveEvents="_liveGameState?.PassiveEvents ?? []"
+                              ScheduledEvents="_liveGameState?.ScheduledEvents ?? []"
                               NameInput="@_nameInput"
                               IsSavingName="@_isSavingName"
                               ErrorMessage="@_errorMessage"
@@ -232,23 +233,14 @@ else
                 // Live sync selected passive event if open (match by InstanceShowId for shows, or EventId for spontaneous events)
                 if (_selectedPassiveEvent is not null)
                 {
-                    EventState? updatedPassive = null;
-                    if (_selectedPassiveEvent.InstanceShowId.HasValue)
-                    {
-                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.InstanceShowId == _selectedPassiveEvent.InstanceShowId.Value);
-                    }
-                    else
-                    {
-                        updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
-                    }
-
+                    var updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
                     if (updatedPassive is null)
                     {
                         _selectedPassiveEvent = null; // Closed by admin
                     }
                     else
                     {
-                        _selectedPassiveEvent = updatedPassive; // Updated state / slide change
+                        _selectedPassiveEvent = updatedPassive;
                     }
                 }
 

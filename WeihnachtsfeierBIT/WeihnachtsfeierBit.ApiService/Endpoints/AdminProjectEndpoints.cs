@@ -37,7 +37,7 @@ public static class AdminProjectEndpoints
     }
 
     private static async Task<IResult> CreateProjectAsync(
-        CreateProjectRequest request,
+        WeihnachtsfeierBit.ApiService.Contracts.CreateProjectRequest request,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,

@@ -4,7 +4,7 @@
 <div style="margin-top: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3 style="margin: 0;">Quiz-Auswertung (@TotalAnswers Antworten)</h3>
-        <FrameworkBadge Text="@($"{CorrectCount} / {TotalAnswers} Richtig ({Accuracy.ToString("F0")}%)")" Variant="@(Accuracy >= 50 ? "success" : "warning")" />
+        <FrameworkBadge Text="@($"{CorrectCount} / {TotalAnswers} Richtig ({Accuracy.ToString("F0")}%)")" Variant="@(Accuracy >= 50 ? "primary" : "secondary")" />
     </div>
 
     @if (TotalAnswers == 0)
@@ -36,11 +36,13 @@
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
 
-    private int TotalAnswers => Event.Responses.Length;
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
+    private int TotalAnswers => SlideResponses.Count();
 
-    private List<int> CorrectIndices => ReadIntList(Event.Parameters, "correctAnswerIndices");
-    private List<string> Answers => ReadStringList(Event.Parameters, "answers");
+    private List<int> CorrectIndices => ReadIntList(CurrentSlide.Parameters, "correctAnswerIndices");
+    private List<string> Answers => ReadStringList(CurrentSlide.Parameters, "answers");
 
     private int CorrectCount => AnswerList.Count(a => a.IsCorrect);
     private double Accuracy => TotalAnswers == 0 ? 0 : (double)CorrectCount / TotalAnswers * 100.0;
@@ -49,7 +51,7 @@
     {
         get {
             var result = new List<ParticipantQuizAnswer>();
-            foreach (var r in Event.Responses)
+            foreach (var r in SlideResponses)
             {
                 int ansIdx = -1;
                 if (r.ResponseData.ValueKind == JsonValueKind.Object &&
