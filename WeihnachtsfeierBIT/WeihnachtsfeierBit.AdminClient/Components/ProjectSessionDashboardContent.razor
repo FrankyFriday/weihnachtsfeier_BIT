@@ -62,7 +62,7 @@
                     <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 16px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 8px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
                         @if (tab.IsBeamerActive)
                         {
-                            <span title="Wird aktuell auf dem Beamer angezeigt">📺</span>
+                            <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt" style="font-size: 18px;">present_to_all</span>
                         }
                         <span>@tab.Title</span>
                         <FrameworkBadge Text="@tab.BadgeText" Variant="@tab.BadgeVariant" />
@@ -90,19 +90,19 @@
                                     <FrameworkBadge Text="@(ev.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(ev.Mode == "active" ? "primary" : "secondary")" />
                                     @if (ev.IsHidden)
                                     {
-                                        <FrameworkBadge Text="👁 Ausgeblendet" Variant="warning" />
+                                        <FrameworkBadge Text="Ausgeblendet" Variant="warning" />
                                     }
                                     @if (ev.NavigationMode == "self_paced")
                                     {
-                                        <FrameworkBadge Text="📖 Selbstständig" Variant="secondary" />
+                                        <FrameworkBadge Text="Selbstständig" Variant="secondary" />
                                     }
                                     @if (ev.Status == "scheduled")
                                     {
-                                        <FrameworkBadge Text="@($"⏰ Geplant ({(ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "")})")" Variant="secondary" />
+                                        <FrameworkBadge Text="@($"Geplant ({(ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "")})")" Variant="secondary" />
                                     }
                                     @if (isBeamer)
                                     {
-                                        <FrameworkBadge Text="📺 Beamer Aktiv" Variant="primary" />
+                                        <FrameworkBadge Text="Beamer Aktiv" Variant="primary" />
                                     }
                                 </div>
                                 <p style="margin: 0; font-size: 13px; color: #657276;">
@@ -112,7 +112,7 @@
                             <div class="framework-button-row">
                                 @if (ev.Status == "scheduled")
                                 {
-                                    <FrameworkButton Label="🚀 Jetzt starten" Variant="primary" OnClick="() => StartScheduledEventNow(ev)" />
+                                    <FrameworkButton Label="Jetzt starten" Variant="primary" OnClick="() => StartScheduledEventNow(ev)" />
                                 }
 
                                 @if (isBeamer)
@@ -121,10 +121,10 @@
                                 }
                                 else
                                 {
-                                    <FrameworkButton Label="📺 Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
+                                    <FrameworkButton Label="Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
                                 }
 
-                                <FrameworkButton Label="@(ev.IsHidden ? "👁 Einblenden" : "👁 Ausblenden")" Variant="secondary" OnClick="() => ToggleEventVisibility(ev)" />
+                                <FrameworkButton Label="@(ev.IsHidden ? "Einblenden" : "Ausblenden")" Variant="secondary" OnClick="() => ToggleEventVisibility(ev)" />
 
                                 @if (isMultiSlide && ev.NavigationMode == "host_controlled")
                                 {
