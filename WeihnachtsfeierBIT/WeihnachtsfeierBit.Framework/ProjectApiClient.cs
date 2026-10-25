@@ -531,6 +531,47 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die API hat keinen Session-Zustand zurückgegeben.");
     }
 
+    public async Task<ChatGroupSummary[]> GetChatGroupsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/chat/groups", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatGroupSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<ChatMessageResponse[]> GetChatMessagesAsync(string accessToken, Guid projectId, Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/chat/groups/{groupId}/messages", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatMessageResponse[]>(cancellationToken) ?? [];
+    }
+
+    public async Task SendChatMessageAsync(string accessToken, Guid projectId, Guid groupId, string messageText, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/chat/groups/{groupId}/messages", accessToken, new { messageText });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<ChatGroupSummary> GetOrCreateDirectChatAsync(string accessToken, Guid projectId, Guid targetParticipantId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/chat/direct/{targetParticipantId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatGroupSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Direktchat konnte nicht erstellt werden.");
+    }
+
+    public async Task<ChatGroupSummary> CreateCustomGroupAsync(string accessToken, Guid projectId, string name, Guid[] participantIds, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/chat/groups", accessToken, new { name, participantIds });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatGroupSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Gruppe konnte nicht erstellt werden.");
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -644,3 +685,21 @@ public sealed record CanvasGameState(
     CanvasTeamState[] Teams,
     CanvasEventState? Event,
     DateTime UpdatedAtUtc);
+
+public sealed record ChatGroupSummary(
+    Guid Id,
+    string Name,
+    string Type,
+    Guid? AssociatedTeamId,
+    int MemberCount);
+
+public sealed record ChatMessageResponse(
+    Guid Id,
+    Guid ChatGroupId,
+    Guid? SenderParticipantId,
+    Guid? SenderAdminId,
+    string SenderName,
+    string? TeamColor,
+    string MessageText,
+    bool IsAdminSender,
+    DateTime SentAtUtc);

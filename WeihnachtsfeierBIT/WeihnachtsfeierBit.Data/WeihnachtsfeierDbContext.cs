@@ -15,6 +15,9 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
     public DbSet<GameInstanceEvent> GameInstanceEvents => Set<GameInstanceEvent>();
     public DbSet<GameInstanceEventResponse> GameInstanceEventResponses => Set<GameInstanceEventResponse>();
+    public DbSet<ChatGroup> ChatGroups => Set<ChatGroup>();
+    public DbSet<ChatGroupMember> ChatGroupMembers => Set<ChatGroupMember>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -112,6 +115,39 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .WithMany()
             .HasForeignKey(gir => gir.ParticipantId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var chatGroups = modelBuilder.Entity<ChatGroup>();
+        chatGroups.Property(cg => cg.Type).HasMaxLength(32).HasDefaultValue("global");
+        chatGroups.HasOne(cg => cg.Projekt)
+            .WithMany()
+            .HasForeignKey(cg => cg.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var chatGroupMembers = modelBuilder.Entity<ChatGroupMember>();
+        chatGroupMembers.HasIndex(cgm => new { cgm.ChatGroupId, cgm.ParticipantId }).IsUnique();
+        chatGroupMembers.HasOne(cgm => cgm.ChatGroup)
+            .WithMany(cg => cg.Members)
+            .HasForeignKey(cgm => cgm.ChatGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        chatGroupMembers.HasOne(cgm => cgm.Participant)
+            .WithMany()
+            .HasForeignKey(cgm => cgm.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var chatMessages = modelBuilder.Entity<ChatMessage>();
+        chatMessages.Property(cm => cm.MessageText).HasMaxLength(1000).IsRequired();
+        chatMessages.HasOne(cm => cm.ChatGroup)
+            .WithMany(cg => cg.Messages)
+            .HasForeignKey(cm => cm.ChatGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        chatMessages.HasOne(cm => cm.SenderParticipant)
+            .WithMany()
+            .HasForeignKey(cm => cm.SenderParticipantId)
+            .OnDelete(DeleteBehavior.SetNull);
+        chatMessages.HasOne(cm => cm.SenderAdmin)
+            .WithMany()
+            .HasForeignKey(cm => cm.SenderAdminId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Teilnehmer>()
             .HasIndex(teilnehmer => new { teilnehmer.ProjektId, teilnehmer.Nummer })

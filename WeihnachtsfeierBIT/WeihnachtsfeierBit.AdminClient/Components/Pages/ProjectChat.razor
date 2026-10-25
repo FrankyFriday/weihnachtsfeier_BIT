@@ -1,0 +1,8 @@
+@page "/projects/{ProjectId:guid}/chat"
+
+<PageTitle>Live-Chat & Support | Admin</PageTitle>
+<ProjectChatContent ProjectId="ProjectId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+}

@@ -63,3 +63,24 @@ public sealed record UpdateSessionEventRequest(
 public sealed record UpdateEventModeRequest(string Mode);
 public sealed record SubmitResponseRequest(JsonElement ResponseData);
 public sealed record SetCanvasEventRequest(Guid? EventId);
+
+public sealed record ChatGroupSummary(
+    Guid Id,
+    string Name,
+    string Type,
+    Guid? AssociatedTeamId,
+    int MemberCount);
+
+public sealed record ChatMessageResponse(
+    Guid Id,
+    Guid ChatGroupId,
+    Guid? SenderParticipantId,
+    Guid? SenderAdminId,
+    string SenderName,
+    string? TeamColor,
+    string MessageText,
+    bool IsAdminSender,
+    DateTime SentAtUtc);
+
+public sealed record SendChatMessageRequest(string MessageText);
+public sealed record CreateCustomGroupRequest(string Name, Guid[] ParticipantIds);

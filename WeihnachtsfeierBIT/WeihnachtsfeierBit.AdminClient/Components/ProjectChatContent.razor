@@ -1,0 +1,127 @@
+@using Microsoft.AspNetCore.SignalR.Client
+@using WeihnachtsfeierBit.Framework
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+<FrameworkPage>
+    <PageHeading Eyebrow="PROJEKT-CHAT & SUPPORT" Title="Live-Chat & Moderation" Description="Kommuniziere mit Teams, Teilnehmern und beantworte Support-Anfragen in Echtzeit." />
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Chat wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+    }
+    else
+    {
+        <div style="height: 65vh; min-height: 450px;">
+            <FrameworkChat ProjectId="@ProjectId"
+                           AccessToken="@_accessToken"
+                           IsAdmin="true"
+                           Groups="_groups"
+                           SelectedGroupId="_selectedGroupId"
+                           Messages="_messages"
+                           OnSelectGroup="SelectGroupAsync"
+                           OnSendMessage="SendMessageAsync" />
+        </div>
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private string? _accessToken;
+    private ChatGroupSummary[] _groups = [];
+    private Guid? _selectedGroupId;
+    private ChatMessageResponse[] _messages = [];
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        _accessToken = token;
+        await LoadGroupsAsync(token);
+        await SetupSignalRAsync();
+    });
+
+    private async Task LoadGroupsAsync(string token)
+    {
+        try
+        {
+            _groups = await ProjectApiClient.GetChatGroupsAsync(token, ProjectId);
+            if (_selectedGroupId is null && _groups.Length > 0)
+            {
+                var globalGroup = _groups.FirstOrDefault(g => g.Type == "global") ?? _groups[0];
+                await SelectGroupAsync(globalGroup.Id);
+            }
+            else if (_selectedGroupId.HasValue)
+            {
+                await SelectGroupAsync(_selectedGroupId.Value);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // Error handled by base
+        }
+    }
+
+    private async Task SelectGroupAsync(Guid groupId)
+    {
+        _selectedGroupId = groupId;
+        if (string.IsNullOrEmpty(_accessToken)) return;
+        try
+        {
+            _messages = await ProjectApiClient.GetChatMessagesAsync(_accessToken, ProjectId, groupId);
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private async Task SendMessageAsync(string text)
+    {
+        if (!_selectedGroupId.HasValue || string.IsNullOrEmpty(_accessToken) || string.IsNullOrWhiteSpace(text)) return;
+        try
+        {
+            await ProjectApiClient.SendChatMessageAsync(_accessToken, ProjectId, _selectedGroupId.Value, text);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Error handling
+        }
+    }
+
+    private async Task SetupSignalRAsync()
+    {
+        if (_hubConnection is not null) return;
+        try
+        {
+            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", (msg) =>
+            {
+                if (_selectedGroupId.HasValue && msg.ChatGroupId == _selectedGroupId.Value)
+                {
+                    _messages = [.. _messages, msg];
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.SendAsync("JoinProject", ProjectId);
+        }
+        catch
+        {
+        }
+    }
+}

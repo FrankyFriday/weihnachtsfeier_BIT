@@ -14,7 +14,7 @@
 
     <!-- MAIN SCROLLABLE CONTENT AREA -->
     <div style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 12px 75px 12px; box-sizing: border-box;">
-        <div style="max-width: 100%; margin: 0 auto;">
+        <div style="max-width: 580px; margin: 0 auto; height: 100%;">
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
                 <div style="margin-bottom: 12px;"><FrameworkNotice Message="@ErrorMessage" Severity="error" /></div>
@@ -207,6 +207,20 @@
                     </Card>
                 }
             }
+            else if (_activeTab == "chat")
+            {
+                <div style="height: calc(100vh - 140px);">
+                    <FrameworkChat ProjectId="@ProjectId"
+                                   AccessToken="@AccessToken"
+                                   ParticipantId="@ParticipantId"
+                                   IsAdmin="false"
+                                   Groups="@ChatGroups"
+                                   SelectedGroupId="@SelectedChatGroupId"
+                                   Messages="@ChatMessages"
+                                   OnSelectGroup="@OnSelectChatGroup"
+                                   OnSendMessage="@OnSendChatMessage" />
+                </div>
+            }
             else if (_activeTab == "actions")
             {
                 if (_activeActionView == "name")
@@ -309,6 +323,10 @@
             <span class="material-symbols-outlined" style="font-size: 22px;">home</span>
             <span style="font-size: 11px; font-weight: @(_activeTab == "home" ? "800" : "600");">Home</span>
         </button>
+        <button type="button" @onclick='() => SetTab("chat")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
+            <span class="material-symbols-outlined" style="font-size: 22px;">chat</span>
+            <span style="font-size: 11px; font-weight: @(_activeTab == "chat" ? "800" : "600");">Chat</span>
+        </button>
         <button type="button" @onclick='() => SetTab("actions")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "actions" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
             <span class="material-symbols-outlined" style="font-size: 22px;">tune</span>
             <span style="font-size: 11px; font-weight: @(_activeTab == "actions" ? "800" : "600");">Aktionen</span>
@@ -320,10 +338,15 @@
     [Parameter] public string ProjectName { get; set; } = string.Empty;
     [Parameter] public int ParticipantNumber { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
+    [Parameter] public string AccessToken { get; set; } = string.Empty;
+    [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public TeamState? TeamState { get; set; }
     [Parameter] public TeamState[] AllTeams { get; set; } = [];
     [Parameter] public EventState[] PassiveEvents { get; set; } = [];
     [Parameter] public EventState[] ScheduledEvents { get; set; } = [];
+    [Parameter] public ChatGroupSummary[] ChatGroups { get; set; } = [];
+    [Parameter] public Guid? SelectedChatGroupId { get; set; }
+    [Parameter] public ChatMessageResponse[] ChatMessages { get; set; } = [];
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
@@ -331,6 +354,8 @@
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
+    [Parameter] public EventCallback<Guid> OnSelectChatGroup { get; set; }
+    [Parameter] public EventCallback<string> OnSendChatMessage { get; set; }
 
     private string _activeTab = "home";
     private string? _activeActionView;
