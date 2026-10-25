@@ -1,0 +1,214 @@
+.canvas-page {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: clamp(1rem, 2.5vh, 2rem);
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    padding: clamp(1rem, 3vw, 3rem);
+    color: #f5f7fa;
+    background: radial-gradient(ellipse at top left, #1c3442 0, #101820 55%, #0b1118 100%);
+}
+
+.canvas-header,
+.canvas-connection {
+    display: flex;
+    align-items: center;
+}
+
+.canvas-header {
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.canvas-header h1 {
+    margin: 0.2rem 0 0;
+    font-size: clamp(1.2rem, 2.4vw, 2.4rem);
+    font-weight: 800;
+}
+
+.canvas-eyebrow,
+.canvas-event-type {
+    color: #8fe0c4;
+    font-size: clamp(0.7rem, 1.1vw, 1rem);
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.canvas-connection {
+    gap: 0.6rem;
+    color: #c1cbd2;
+    font-size: clamp(0.7rem, 1vw, 0.95rem);
+    white-space: nowrap;
+}
+
+.canvas-connection-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: #e6a84b;
+}
+
+.canvas-connection-dot.connected {
+    background: #55d69e;
+    box-shadow: 0 0 1rem #55d69e88;
+}
+
+.canvas-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr);
+    gap: clamp(1rem, 2.5vw, 2.5rem);
+    min-height: 0;
+}
+
+.canvas-event,
+.canvas-scoreboard {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid #ffffff20;
+    border-radius: clamp(1rem, 2vw, 2rem);
+    background: #ffffff0b;
+    box-shadow: 0 1rem 3rem #00000020;
+}
+
+.canvas-event {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+    padding: clamp(1.5rem, 4vw, 4rem);
+}
+
+.canvas-event h2 {
+    margin: 1rem 0;
+    font-size: clamp(2rem, 5vw, 6rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+}
+
+.canvas-message-text,
+.canvas-unit {
+    margin: 0;
+    color: #d3dce1;
+    font-size: clamp(1.15rem, 2.2vw, 2.5rem);
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.canvas-options {
+    display: grid;
+    gap: clamp(0.5rem, 1.4vh, 1rem);
+    margin: clamp(1rem, 3vh, 2rem) 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: canvas-option;
+}
+
+.canvas-options li {
+    counter-increment: canvas-option;
+    padding: clamp(0.7rem, 1.4vh, 1.2rem) clamp(0.8rem, 1.5vw, 1.5rem);
+    border: 1px solid #ffffff20;
+    border-radius: 0.8rem;
+    background: #ffffff0c;
+    color: #f5f7fa;
+    font-size: clamp(1rem, 1.8vw, 2rem);
+}
+
+.canvas-options li::before {
+    content: counter(canvas-option, upper-alpha) ". ";
+    color: #8fe0c4;
+    font-weight: 800;
+}
+
+.canvas-scoreboard {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: clamp(1rem, 2.4vw, 2.5rem);
+}
+
+.canvas-scoreboard-heading h2 {
+    margin: 0.25rem 0 clamp(0.6rem, 1.5vh, 1.2rem);
+    font-size: clamp(1.6rem, 3vw, 3.5rem);
+}
+
+.canvas-table-wrap {
+    min-height: 0;
+    overflow: auto;
+}
+
+.canvas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(0.95rem, 1.6vw, 1.8rem);
+}
+
+.canvas-table th {
+    padding: clamp(0.45rem, 1vh, 0.8rem) 0.5rem;
+    color: #aab7bf;
+    font-size: 0.72em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.canvas-table td {
+    padding: clamp(0.55rem, 1.25vh, 1rem) 0.5rem;
+    border-top: 1px solid #ffffff18;
+}
+
+.canvas-rank {
+    width: 3.5rem;
+    color: #8fe0c4;
+    font-weight: 900;
+}
+
+.canvas-team-name {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.canvas-points,
+.canvas-points-heading {
+    text-align: right !important;
+    white-space: nowrap;
+}
+
+.canvas-points {
+    font-variant-numeric: tabular-nums;
+    font-weight: 900;
+}
+
+.canvas-empty,
+.canvas-message {
+    align-self: center;
+    margin: auto;
+    color: #c1cbd2;
+    font-size: clamp(1.1rem, 2vw, 2rem);
+    text-align: center;
+}
+
+.canvas-message {
+    max-width: 40rem;
+    padding: 2rem;
+}
+
+.canvas-error {
+    color: #ffb4ab;
+}
+
+@media (max-width: 900px) {
+    .canvas-page {
+        overflow-y: auto;
+    }
+
+    .canvas-content {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(18rem, auto) minmax(14rem, auto);
+    }
+}

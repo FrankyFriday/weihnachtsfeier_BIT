@@ -73,6 +73,7 @@ public static class GameInstanceEndpoints
             .Where(gi => gi.ProjektId == projectId)
             .ToListAsync(cancellationToken);
 
+        var previousAccessCodes = previousInstances.Select(instance => instance.AccessCode).ToArray();
         dbContext.GameInstances.RemoveRange(previousInstances);
 
         var newCode = await GenerateUniqueCodeAsync(dbContext, cancellationToken);
@@ -86,7 +87,8 @@ public static class GameInstanceEndpoints
         dbContext.GameInstances.Add(newInstance);
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+        await gameStateNotifier.NotifyCanvasSessionsEndedAsync(previousAccessCodes, cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.Created($"/api/projects/{projectId}/game-instance",
             new GameInstanceResponse(newInstance.Id, newInstance.ProjektId, newInstance.AccessCode, newInstance.CreatedAtUtc));
@@ -102,9 +104,11 @@ public static class GameInstanceEndpoints
             .Where(gi => gi.ProjektId == projectId)
             .ToListAsync(cancellationToken);
 
+        var accessCodes = instances.Select(instance => instance.AccessCode).ToArray();
         dbContext.GameInstances.RemoveRange(instances);
         await dbContext.SaveChangesAsync(cancellationToken);
-        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+        await gameStateNotifier.NotifyCanvasSessionsEndedAsync(accessCodes, cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.NoContent();
     }

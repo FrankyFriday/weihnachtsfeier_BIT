@@ -6,7 +6,7 @@
 | --- | --- |
 | `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Projektberechtigungen und EF-Core-Migrationen beim Start |
 | `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, Workspace-Sidebar, globaler Show-Bibliothek und projektspezifischen Show-Verknüpfungen |
-| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` mit Nummern-Login, mobilem/desktop-optimiertem Team-Dashboard und SignalR Live-Anbindung |
+| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` und die Beameransicht unter `/play/canvas/{sessionCode}`, mit SignalR Live-Anbindung |
 | `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client und gemeinsam genutzten Verträgen; enthält keine Admin-/Projektseiten |
 | `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient und `/play` an den ParticipantClient |
 | `WeihnachtsfeierBit.Data` | EF-Core-Entities, PostgreSQL-Mappings und Migrationen |
@@ -44,8 +44,8 @@ flowchart LR
 - Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
 - Testclient und Proxy: `WeihnachtsfeierBit.Web/`
 
-Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Weitere Oberflächen wie Teilnehmerclient und Leinwand-Dashboard sollen später eigenständige Clients sein und können dieselbe Framework-Bibliothek verwenden.
+Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt nur freigegebene Eventinhalte sowie Team-Punktestände.
 
 ## Produktgrenzen
 
-Datenmodell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, SignalR-Echtzeitsynchronisation sowie mobiler Teilnehmer-Client sind umgesetzt. Das Leinwand-Dashboard (Projektor-Anzeige) ist der nächste geplante Schritt. Siehe [Produktvision und Rollen](product-and-roles.md).
+Datenmodell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, SignalR-Echtzeitsynchronisation, mobiler Teilnehmer-Client und Beameransicht sind umgesetzt. Siehe [Produktvision und Rollen](product-and-roles.md).

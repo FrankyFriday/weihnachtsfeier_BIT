@@ -165,13 +165,16 @@ public static class SessionControlEndpoints
         var orderedSlides = instanceShow.Show.Slides.OrderBy(s => s.Position).ToList();
         int targetIndex = Math.Clamp(request.CurrentSlideIndex, 0, Math.Max(0, orderedSlides.Count - 1));
         instanceShow.CurrentSlideIndex = targetIndex;
+        var canvasFollowsShow = instance.ActiveCanvasEventId is Guid canvasEventId &&
+            instanceShow.Events.Any(gameEvent => gameEvent.Id == canvasEventId);
+        GameInstanceEvent? targetEvent = null;
 
         if (orderedSlides.Count > targetIndex)
         {
             var targetSlide = orderedSlides[targetIndex];
 
             // Ensure event exists for target slide (reuse existing GameInstanceEvent)
-            var targetEvent = instanceShow.Events.FirstOrDefault(e => e.SourceSlideId == targetSlide.Id);
+            targetEvent = instanceShow.Events.FirstOrDefault(e => e.SourceSlideId == targetSlide.Id);
             if (targetEvent is null)
             {
                 targetEvent = new GameInstanceEvent
@@ -201,6 +204,11 @@ public static class SessionControlEndpoints
                     ev.Mode = "passive";
                 }
             }
+        }
+
+        if (canvasFollowsShow)
+        {
+            instance.ActiveCanvasEventId = targetEvent?.Id;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

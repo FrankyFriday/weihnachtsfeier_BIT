@@ -45,6 +45,7 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | --- | --- | --- |
 | `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`; verknüpft die Sitzung mit der aktiven `GameInstance`. |
 | `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
+| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; Teilnehmerantworten und Profile werden nicht ausgegeben. |
 | `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`; Teilnehmernummer ist alleiniger Kennzeichner. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
 | `GET /api/projects/{projectId}/me/sessions` | Teilnehmer | Eigene Sessions anzeigen. |
@@ -76,6 +77,8 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `POST /api/projects/{projectId}/session/events/{eventId}/responses` | Teilnehmer / Admin | Antwort oder Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für ein Event einreichen (Eindeutiges Upsert pro Teilnehmer). |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
 
+Die Beameransicht unter `/play/canvas/{sessionCode}` verbindet sich über `/hubs/canvas`. Sie tritt mit einem gültigen Session-Code ihrer Canvas-Gruppe bei und erhält ausschließlich den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus.
+
 ## Fachliche Endpunkte
 
 Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`, `/session/state`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
@@ -88,4 +91,4 @@ Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{p
 
 ## Noch nicht umgesetzt
 
-Das Leinwand-Dashboard (Projektor-Anzeige für Großbildschirme) ist als Nächstes geplant. Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
