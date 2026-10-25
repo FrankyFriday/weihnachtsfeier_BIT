@@ -539,6 +539,14 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<ChatGroupSummary[]>(cancellationToken) ?? [];
     }
 
+    public async Task<ChatContactDto[]> GetChatContactsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/chat/participants", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatContactDto[]>(cancellationToken) ?? [];
+    }
+
     public async Task<ChatMessageResponse[]> GetChatMessagesAsync(string accessToken, Guid projectId, Guid groupId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/chat/groups/{groupId}/messages", accessToken);
@@ -550,6 +558,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
     public async Task SendChatMessageAsync(string accessToken, Guid projectId, Guid groupId, string messageText, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/chat/groups/{groupId}/messages", accessToken, new { messageText });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task MarkGroupAsReadAsync(string accessToken, Guid projectId, Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/chat/groups/{groupId}/read", accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -691,7 +706,10 @@ public sealed record ChatGroupSummary(
     string Name,
     string Type,
     Guid? AssociatedTeamId,
-    int MemberCount);
+    int MemberCount,
+    string? LastMessageText,
+    DateTime? LastMessageAtUtc,
+    int UnreadCount);
 
 public sealed record ChatMessageResponse(
     Guid Id,
@@ -703,3 +721,5 @@ public sealed record ChatMessageResponse(
     string MessageText,
     bool IsAdminSender,
     DateTime SentAtUtc);
+
+public sealed record ChatContactDto(Guid Id, string Name, string Kind);

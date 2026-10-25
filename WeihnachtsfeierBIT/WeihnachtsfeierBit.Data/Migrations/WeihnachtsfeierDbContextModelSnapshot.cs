@@ -22,6 +22,31 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.AdminChatRead", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("LastReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektAdminId");
+
+                    b.HasIndex("ChatGroupId", "ProjektAdminId")
+                        .IsUnique();
+
+                    b.ToTable("AdminChatReads");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -67,6 +92,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("JoinedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastReadAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("ParticipantId")
@@ -121,6 +149,37 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasIndex("SenderParticipantId");
 
                     b.ToTable("ChatMessages");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatUserRead", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("LastReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("ProjektAdminId");
+
+                    b.HasIndex("ChatGroupId", "ParticipantId");
+
+                    b.HasIndex("ChatGroupId", "ProjektAdminId");
+
+                    b.ToTable("ChatUserReads");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
@@ -590,6 +649,25 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("ranking");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.AdminChatRead", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ChatGroup", "ChatGroup")
+                        .WithMany()
+                        .HasForeignKey("ChatGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany()
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatGroup");
+
+                    b.Navigation("ProjektAdmin");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.Team", "AssociatedTeam")
@@ -649,6 +727,31 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("SenderAdmin");
 
                     b.Navigation("SenderParticipant");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatUserRead", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ChatGroup", "ChatGroup")
+                        .WithMany()
+                        .HasForeignKey("ChatGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany()
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("ChatGroup");
+
+                    b.Navigation("Participant");
+
+                    b.Navigation("ProjektAdmin");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>

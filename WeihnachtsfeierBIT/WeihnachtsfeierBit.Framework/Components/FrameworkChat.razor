@@ -1,98 +1,346 @@
 @namespace WeihnachtsfeierBit.Framework
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Configuration
 @using Microsoft.JSInterop
+@inject ProjectApiClient ProjectApiClient
+@inject IConfiguration Configuration
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
-<div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-    <!-- CHANNEL SELECTOR BAR -->
-    <div style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px 0; flex-shrink: 0; scrollbar-width: none;">
-        @foreach (var group in Groups)
-        {
-            var isSelected = group.Id == SelectedGroupId;
-            string iconName = group.Type switch
-            {
-                "global" => "public",
-                "team" => "groups",
-                "admin_support" => "support_agent",
-                "direct" => "chat",
-                _ => "folder"
-            };
-
-            <button type="button" @onclick="() => OnSelectGroup.InvokeAsync(group.Id)" style="padding: 8px 14px; border-radius: 20px; border: 1.5px solid @(isSelected ? "#197b67" : "#dce5e2"); background: @(isSelected ? "#197b67" : "#ffffff"); color: @(isSelected ? "#ffffff" : "#1d2528"); font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; flex-shrink: 0; box-shadow: @(isSelected ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
-                <span class="material-symbols-outlined" style="font-size: 16px;">@iconName</span>
-                <span>@group.Name</span>
-            </button>
-        }
-    </div>
-
-    <!-- MESSAGES STREAM CONTAINER -->
-    <div style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box;">
-        @if (Messages.Length == 0)
-        {
-            <div style="margin: auto; text-align: center; color: #657276; padding: 24px;">
-                <span class="material-symbols-outlined" style="font-size: 36px; color: #cbd7d3; margin-bottom: 8px; display: block;">chat_bubble_outline</span>
-                <span style="font-size: 14px; font-weight: 600;">Noch keine Nachrichten in diesem Kanal.</span>
-                <span style="font-size: 12px; display: block; color: #94a3b8; margin-top: 4px;">Schreibe die erste Nachricht!</span>
+<div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; position: relative;">
+    @if (_currentView == "overview")
+    {
+        <!-- CHAT OVERVIEW LIST -->
+        <div style="flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span class="mobile-eyebrow">UNTERHALTUNGEN</span>
+                <span style="font-size: 12px; color: #657276;">@_groups.Length Chats</span>
             </div>
-        }
-        else
-        {
-            @foreach (var msg in Messages)
+
+            @if (_groups.Length == 0)
             {
-                bool isMe = IsAdmin ? msg.IsAdminSender : (msg.SenderParticipantId == ParticipantId);
-                bool isAdmin = msg.IsAdminSender;
-
-                <div style="display: flex; flex-direction: column; align-items: @(isMe ? "flex-end" : "flex-start"); margin-bottom: 4px;">
-                    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 2px; font-size: 11px; color: #657276;">
-                        @if (!isMe)
-                        {
-                            @if (!string.IsNullOrEmpty(msg.TeamColor))
-                            {
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @msg.TeamColor; display: inline-block;"></span>
-                            }
-                            <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
-                            @if (isAdmin)
-                            {
-                                <FrameworkBadge Text="Moderator" Variant="warning" />
-                            }
-                        }
-                        <span>@msg.SentAtUtc.ToLocalTime().ToString("HH:mm")</span>
-                    </div>
-
-                    <div style="max-width: 82%; padding: 10px 14px; border-radius: 12px; background: @(isMe ? "#197b67" : (isAdmin ? "#fffbeb" : "#ffffff")); color: @(isMe ? "#ffffff" : "#1d2528"); border: 1.5px solid @(isMe ? "#197b67" : (isAdmin ? "#f59e0b" : "#dce5e2")); box-shadow: 0 1px 3px rgba(0,0,0,0.03); word-break: break-word; font-size: 14px;">
-                        @msg.MessageText
-                    </div>
+                <div style="margin: auto; text-align: center; color: #657276; padding: 32px;">
+                    <span class="material-symbols-outlined" style="font-size: 40px; color: #cbd7d3; margin-bottom: 8px; display: block;">forum</span>
+                    <strong style="font-size: 15px;">Keine Chats vorhanden</strong>
                 </div>
             }
-        }
-    </div>
+            else
+            {
+                @foreach (var g in _groups)
+                {
+                    string iconName = g.Type switch
+                    {
+                        "global" => "public",
+                        "team" => "groups",
+                        "admin_support" => "support_agent",
+                        "direct" => "chat",
+                        _ => "folder"
+                    };
 
-    <!-- MESSAGE INPUT BAR -->
-    <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0;">
-        <div style="flex: 1;">
-            <FrameworkInputText @Value="_newMessageInput" ValueChanged="v => _newMessageInput = v" MaxLength="1000" Placeholder="Nachricht schreiben..." />
+                    <button type="button" @onclick="() => OpenChatRoom(g.Id)" style="width: 100%; padding: 14px 16px; border: 1.5px solid @(g.UnreadCount > 0 ? "#197b67" : "#dce5e2"); border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; text-align: left; box-shadow: 0 2px 6px rgba(0,0,0,0.02); box-sizing: border-box; transition: all 0.15s ease;">
+                        <div style="display: flex; gap: 14px; align-items: center; min-width: 0; flex: 1;">
+                            <div style="width: 44px; height: 44px; border-radius: 12px; background: @(g.UnreadCount > 0 ? "#197b67" : "#e8f3ef"); color: @(g.UnreadCount > 0 ? "#ffffff" : "#197b67"); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 22px;">@iconName</span>
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                                    <strong style="font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@g.Name</strong>
+                                    @if (g.LastMessageAtUtc.HasValue)
+                                    {
+                                        <span style="font-size: 11px; color: #889698; flex-shrink: 0;">@g.LastMessageAtUtc.Value.ToLocalTime().ToString("HH:mm")</span>
+                                    }
+                                </div>
+                                <span style="font-size: 13px; color: #657276; display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    @(string.IsNullOrEmpty(g.LastMessageText) ? "Noch keine Nachrichten" : g.LastMessageText)
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            @if (g.UnreadCount > 0)
+                            {
+                                <span style="background: #197b67; color: #fff; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 10px;">@g.UnreadCount</span>
+                            }
+                            <span class="material-symbols-outlined" style="color: #94a3b8;">chevron_right</span>
+                        </div>
+                    </button>
+                }
+            }
         </div>
-        <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
-    </form>
+
+        <!-- FLOATING ACTION BUTTON (FAB) -->
+        <button type="button" @onclick="OpenCreateModal" style="position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px; border-radius: 50%; background: #197b67; color: #ffffff; border: none; box-shadow: 0 4px 16px rgba(25, 123, 103, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: transform 0.15s ease;" title="Neuen Chat starten">
+            <span class="material-symbols-outlined" style="font-size: 28px;">add</span>
+        </button>
+    }
+    else
+    {
+        <!-- CHAT ROOM VIEW -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-shrink: 0;">
+            <button type="button" @onclick="BackToOverview" style="border: none; background: transparent; color: #197b67; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Übersicht</span>
+            </button>
+            <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@CurrentGroupName</h3>
+        </div>
+
+        <!-- MESSAGES STREAM CONTAINER -->
+        <div style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box;">
+            @if (_messages.Length == 0)
+            {
+                <div style="margin: auto; text-align: center; color: #657276; padding: 24px;">
+                    <span class="material-symbols-outlined" style="font-size: 36px; color: #cbd7d3; margin-bottom: 8px; display: block;">chat_bubble_outline</span>
+                    <span style="font-size: 14px; font-weight: 600;">Noch keine Nachrichten in diesem Kanal.</span>
+                    <span style="font-size: 12px; display: block; color: #94a3b8; margin-top: 4px;">Schreibe die erste Nachricht!</span>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in _messages)
+                {
+                    bool isMe = IsAdmin ? msg.IsAdminSender : (msg.SenderParticipantId == ParticipantId);
+                    bool isAdmin = msg.IsAdminSender;
+
+                    <div style="display: flex; flex-direction: column; align-items: @(isMe ? "flex-end" : "flex-start"); margin-bottom: 4px;">
+                        <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 2px; font-size: 11px; color: #657276;">
+                            @if (!isMe)
+                            {
+                                @if (!string.IsNullOrEmpty(msg.TeamColor))
+                                {
+                                    <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @msg.TeamColor; display: inline-block;"></span>
+                                }
+                                <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
+                                @if (isAdmin)
+                                {
+                                    <FrameworkBadge Text="Moderator" Variant="warning" />
+                                }
+                            }
+                            <span>@msg.SentAtUtc.ToLocalTime().ToString("HH:mm")</span>
+                        </div>
+
+                        <div style="max-width: 82%; padding: 10px 14px; border-radius: 12px; background: @(isMe ? "#197b67" : (isAdmin ? "#fffbeb" : "#ffffff")); color: @(isMe ? "#ffffff" : "#1d2528"); border: 1.5px solid @(isMe ? "#197b67" : (isAdmin ? "#f59e0b" : "#dce5e2")); box-shadow: 0 1px 3px rgba(0,0,0,0.03); word-break: break-word; font-size: 14px;">
+                            @msg.MessageText
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- MESSAGE INPUT BAR -->
+        <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0;">
+            <div style="flex: 1;">
+                <FrameworkInputText @Value="_newMessageInput" ValueChanged="v => _newMessageInput = v" MaxLength="1000" Placeholder="Nachricht schreiben..." />
+            </div>
+            <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
+        </form>
+    }
+
+    <!-- CREATE CHAT / GROUP MODAL -->
+    <FrameworkModal IsOpen="_isCreateModalOpen" Title="Neuen Chat oder Gruppe starten" OnClose="CloseCreateModal">
+        <div style="display: grid; gap: 16px; max-height: 65vh; overflow-y: auto; padding-right: 4px;">
+            <FrameworkFormGroup Label="Gruppenname (optional bei Direktchat)">
+                <FrameworkInputText @bind-Value="_newGroupName" Placeholder="z. B. Projektteam IT" />
+            </FrameworkFormGroup>
+
+            <FrameworkFormGroup Label="Teilnehmer & Moderatoren durchsuchen">
+                <FrameworkInputText @Value="_searchFilter" ValueChanged="v => _searchFilter = v" Placeholder="🔍 Name oder Nummer eingeben..." />
+            </FrameworkFormGroup>
+
+            <div style="border: 1px solid #dce5e2; border-radius: 8px; max-height: 220px; overflow-y: auto; padding: 8px; background: #fafcfb;">
+                @if (_filteredContacts.Length == 0)
+                {
+                    <p style="text-align: center; color: #657276; font-size: 13px; margin: 12px 0;">Keine Kontakte gefunden.</p>
+                }
+                else
+                {
+                    @foreach (var contact in _filteredContacts)
+                    {
+                        bool isSelected = _selectedContactIds.Contains(contact.Id);
+                        <div @onclick="() => ToggleContact(contact.Id)" style="padding: 10px 12px; border-radius: 6px; background: @(isSelected ? "#e8f3ef" : "#fff"); border: 1px solid @(isSelected ? "#197b67" : "#e2e8f0"); margin-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600; font-size: 14px; color: #1d2528;">@contact.Name</span>
+                            <span class="material-symbols-outlined" style="color: @(isSelected ? "#197b67" : "#cbd5e1");">@(isSelected ? "check_box" : "check_box_outline_blank")</span>
+                        </div>
+                    }
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(_modalError))
+            {
+                <FrameworkNotice Message="@_modalError" Severity="error" />
+            }
+
+            <div class="modal-footer-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseCreateModal" />
+                <FrameworkButton Label="Chat starten" Variant="primary" Type="button" OnClick="CreateChatOrGroupAsync" Busy="_isCreating" />
+            </div>
+        </div>
+    </FrameworkModal>
 </div>
 
 @code {
-    [Parameter] public Guid ProjectId { get; set; }
-    [Parameter] public string AccessToken { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public Guid ProjectId { get; set; }
+    [Parameter, EditorRequired] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public Guid? ParticipantId { get; set; }
     [Parameter] public bool IsAdmin { get; set; }
-    [Parameter, EditorRequired] public ChatGroupSummary[] Groups { get; set; } = [];
-    [Parameter, EditorRequired] public Guid? SelectedGroupId { get; set; }
-    [Parameter, EditorRequired] public ChatMessageResponse[] Messages { get; set; } = [];
-    [Parameter, EditorRequired] public EventCallback<Guid> OnSelectGroup { get; set; }
-    [Parameter, EditorRequired] public EventCallback<string> OnSendMessage { get; set; }
 
+    private string _currentView = "overview"; // "overview" or "room"
+    private ChatGroupSummary[] _groups = [];
+    private Guid? _selectedGroupId;
+    private ChatMessageResponse[] _messages = [];
     private string _newMessageInput = string.Empty;
+
+    private bool _isCreateModalOpen;
+    private string _newGroupName = string.Empty;
+    private string _searchFilter = string.Empty;
+    private ChatContactDto[] _allContacts = [];
+    private readonly HashSet<Guid> _selectedContactIds = [];
+    private string? _modalError;
+    private bool _isCreating;
+
+    private HubConnection? _hubConnection;
+
+    private string CurrentGroupName => _groups.FirstOrDefault(g => g.Id == _selectedGroupId)?.Name ?? "Chat";
+
+    private ChatContactDto[] _filteredContacts =>
+        string.IsNullOrWhiteSpace(_searchFilter)
+            ? _allContacts
+            : _allContacts.Where(c => c.Name.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroupsAsync();
+        await SetupSignalRAsync();
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            _groups = await ProjectApiClient.GetChatGroupsAsync(AccessToken, ProjectId);
+            StateHasChanged();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task OpenChatRoom(Guid groupId)
+    {
+        // Optimistic UI update: instantly set unread count to 0 locally
+        _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0) : g).ToArray();
+
+        _selectedGroupId = groupId;
+        _currentView = "room";
+        StateHasChanged();
+
+        try
+        {
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                await ProjectApiClient.MarkGroupAsReadAsync(AccessToken, ProjectId, groupId);
+                _messages = await ProjectApiClient.GetChatMessagesAsync(AccessToken, ProjectId, groupId);
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task BackToOverview()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(AccessToken) && _selectedGroupId.HasValue)
+            {
+                await ProjectApiClient.MarkGroupAsReadAsync(AccessToken, ProjectId, _selectedGroupId.Value);
+            }
+        }
+        catch
+        {
+        }
+
+        await LoadGroupsAsync();
+        _currentView = "overview";
+        StateHasChanged();
+    }
+
+    private async Task OpenCreateModal()
+    {
+        _newGroupName = string.Empty;
+        _searchFilter = string.Empty;
+        _selectedContactIds.Clear();
+        _modalError = null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(AccessToken))
+            {
+                _allContacts = await ProjectApiClient.GetChatContactsAsync(AccessToken, ProjectId);
+            }
+        }
+        catch
+        {
+            _allContacts = [];
+        }
+
+        _isCreateModalOpen = true;
+    }
+
+    private void CloseCreateModal() => _isCreateModalOpen = false;
+
+    private void ToggleContact(Guid id)
+    {
+        if (_selectedContactIds.Contains(id)) _selectedContactIds.Remove(id);
+        else _selectedContactIds.Add(id);
+    }
+
+    private async Task CreateChatOrGroupAsync()
+    {
+        if (_selectedContactIds.Count == 0)
+        {
+            _modalError = "Bitte wähle mindestens einen Teilnehmer oder Moderator aus.";
+            return;
+        }
+
+        _isCreating = true;
+        _modalError = null;
+        try
+        {
+            if (_selectedContactIds.Count == 1 && string.IsNullOrWhiteSpace(_newGroupName))
+            {
+                var targetId = _selectedContactIds.First();
+                var directGroup = await ProjectApiClient.GetOrCreateDirectChatAsync(AccessToken, ProjectId, targetId);
+                _isCreateModalOpen = false;
+                await LoadGroupsAsync();
+                await OpenChatRoom(directGroup.Id);
+            }
+            else
+            {
+                string groupName = string.IsNullOrWhiteSpace(_newGroupName) ? "Neue Gruppe" : _newGroupName.Trim();
+                var customGroup = await ProjectApiClient.CreateCustomGroupAsync(AccessToken, ProjectId, groupName, _selectedContactIds.ToArray());
+                _isCreateModalOpen = false;
+                await LoadGroupsAsync();
+                await OpenChatRoom(customGroup.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = "Fehler beim Erstellen: " + ex.Message;
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
 
     private async Task SubmitMessageAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newMessageInput)) return;
+        if (string.IsNullOrWhiteSpace(_newMessageInput) || !_selectedGroupId.HasValue) return;
         var text = _newMessageInput.Trim();
         _newMessageInput = string.Empty;
+        StateHasChanged();
 
         try
         {
@@ -102,6 +350,63 @@
         {
         }
 
-        await OnSendMessage.InvokeAsync(text);
+        try
+        {
+            await ProjectApiClient.SendChatMessageAsync(AccessToken, ProjectId, _selectedGroupId.Value, text);
+        }
+        catch
+        {
+        }
+
+        await LoadGroupsAsync();
+    }
+
+    private async Task SetupSignalRAsync()
+    {
+        if (_hubConnection is not null) return;
+        try
+        {
+            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", async (msg) =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (_selectedGroupId.HasValue && msg.ChatGroupId == _selectedGroupId.Value && _currentView == "room")
+                    {
+                        _messages = [.. _messages, msg];
+                        StateHasChanged();
+                    }
+                    await LoadGroupsAsync();
+                });
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.SendAsync("JoinProject", ProjectId);
+        }
+        catch
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            try
+            {
+                await _hubConnection.SendAsync("LeaveProject", ProjectId);
+                await _hubConnection.DisposeAsync();
+            }
+            catch
+            {
+            }
+        }
     }
 }

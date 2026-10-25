@@ -46,18 +46,13 @@ else
                               AllTeams="AllTeamStates"
                               PassiveEvents="_liveGameState?.PassiveEvents ?? []"
                               ScheduledEvents="_liveGameState?.ScheduledEvents ?? []"
-                              ChatGroups="_chatGroups"
-                              SelectedChatGroupId="_selectedChatGroupId"
-                              ChatMessages="_chatMessages"
                               NameInput="@_nameInput"
                               IsSavingName="@_isSavingName"
                               ErrorMessage="@_errorMessage"
                               SuccessMessage="@_successMessage"
                               NameInputChanged="v => _nameInput = v"
                               OnSaveName="SaveMyNameAsync"
-                              OnSelectPassiveEvent="OpenPassiveEvent"
-                              OnSelectChatGroup="async id => await SelectChatGroupAsync(id)"
-                              OnSendChatMessage="async text => await SendChatMessageAsync(text)" />
+                              OnSelectPassiveEvent="OpenPassiveEvent" />
 }
 
 @code {
@@ -72,10 +67,6 @@ else
     private ProjectResponse? _project;
     private ProjectGameState? _liveGameState;
     private EventState? _selectedPassiveEvent;
-
-    private ChatGroupSummary[] _chatGroups = [];
-    private Guid? _selectedChatGroupId;
-    private ChatMessageResponse[] _chatMessages = [];
 
     private bool _isLoggedIn;
     private bool _isLoading = true;
@@ -175,7 +166,6 @@ else
 
             await LoadProfileAsync();
             await LoadSessionStateAsync();
-            await LoadChatGroupsAsync();
             await SetupSignalRAsync();
         }
         catch (HttpRequestException ex)
@@ -215,55 +205,6 @@ else
         }
         catch
         {
-        }
-    }
-
-    private async Task LoadChatGroupsAsync()
-    {
-        if (string.IsNullOrEmpty(_accessToken)) return;
-        try
-        {
-            _chatGroups = await ProjectApiClient.GetChatGroupsAsync(_accessToken, ProjectId);
-            if (_selectedChatGroupId is null && _chatGroups.Length > 0)
-            {
-                var globalGroup = _chatGroups.FirstOrDefault(g => g.Type == "global") ?? _chatGroups[0];
-                await SelectChatGroupAsync(globalGroup.Id);
-            }
-            else if (_selectedChatGroupId.HasValue)
-            {
-                await SelectChatGroupAsync(_selectedChatGroupId.Value);
-            }
-            StateHasChanged();
-        }
-        catch
-        {
-        }
-    }
-
-    private async Task SelectChatGroupAsync(Guid groupId)
-    {
-        _selectedChatGroupId = groupId;
-        if (string.IsNullOrEmpty(_accessToken)) return;
-        try
-        {
-            _chatMessages = await ProjectApiClient.GetChatMessagesAsync(_accessToken, ProjectId, groupId);
-            StateHasChanged();
-        }
-        catch
-        {
-        }
-    }
-
-    private async Task SendChatMessageAsync(string text)
-    {
-        if (!_selectedChatGroupId.HasValue || string.IsNullOrEmpty(_accessToken) || string.IsNullOrWhiteSpace(text)) return;
-        try
-        {
-            await ProjectApiClient.SendChatMessageAsync(_accessToken, ProjectId, _selectedChatGroupId.Value, text);
-        }
-        catch (HttpRequestException ex)
-        {
-            _errorMessage = ex.Message;
         }
     }
 
@@ -320,15 +261,6 @@ else
                     }
                 }
 
-                InvokeAsync(StateHasChanged);
-            }
-        });
-
-        _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", (msg) =>
-        {
-            if (_selectedChatGroupId.HasValue && msg.ChatGroupId == _selectedChatGroupId.Value)
-            {
-                _chatMessages = [.. _chatMessages, msg];
                 InvokeAsync(StateHasChanged);
             }
         });

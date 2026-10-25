@@ -15,5 +15,7 @@ public class ChatGroupMember
     public Guid ParticipantId { get; set; }
     public Teilnehmer Participant { get; set; } = null!;
 
+    public DateTime? LastReadAtUtc { get; set; }
+
     public DateTime JoinedAtUtc { get; set; } = DateTime.UtcNow;
 }

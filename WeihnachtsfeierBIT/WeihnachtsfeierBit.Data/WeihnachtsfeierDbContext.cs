@@ -18,6 +18,8 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<ChatGroup> ChatGroups => Set<ChatGroup>();
     public DbSet<ChatGroupMember> ChatGroupMembers => Set<ChatGroupMember>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<AdminChatRead> AdminChatReads => Set<AdminChatRead>();
+    public DbSet<ChatUserRead> ChatUserReads => Set<ChatUserRead>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -148,6 +150,33 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .WithMany()
             .HasForeignKey(cm => cm.SenderAdminId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        var adminChatReads = modelBuilder.Entity<AdminChatRead>();
+        adminChatReads.HasIndex(acr => new { acr.ChatGroupId, acr.ProjektAdminId }).IsUnique();
+        adminChatReads.HasOne(acr => acr.ChatGroup)
+            .WithMany()
+            .HasForeignKey(acr => acr.ChatGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        adminChatReads.HasOne(acr => acr.ProjektAdmin)
+            .WithMany()
+            .HasForeignKey(acr => acr.ProjektAdminId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var chatUserReads = modelBuilder.Entity<ChatUserRead>();
+        chatUserReads.HasIndex(cur => new { cur.ChatGroupId, cur.ParticipantId });
+        chatUserReads.HasIndex(cur => new { cur.ChatGroupId, cur.ProjektAdminId });
+        chatUserReads.HasOne(cur => cur.ChatGroup)
+            .WithMany()
+            .HasForeignKey(cur => cur.ChatGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        chatUserReads.HasOne(cur => cur.Participant)
+            .WithMany()
+            .HasForeignKey(cur => cur.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+        chatUserReads.HasOne(cur => cur.ProjektAdmin)
+            .WithMany()
+            .HasForeignKey(cur => cur.ProjektAdminId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()
             .HasIndex(teilnehmer => new { teilnehmer.ProjektId, teilnehmer.Nummer })
