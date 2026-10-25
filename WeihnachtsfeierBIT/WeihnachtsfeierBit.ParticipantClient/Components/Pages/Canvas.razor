@@ -81,6 +81,10 @@
                 <div class="canvas-scoreboard-heading">
                     <div class="canvas-event-type">LIVE-PUNKTSTAND</div>
                     <h2>Teams</h2>
+                    @if (_state.Teams.Length > 0)
+                    {
+                        <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
+                    }
                 </div>
                 @if (_state.Teams.Length == 0)
                 {
@@ -100,8 +104,8 @@
                             <tbody>
                                 @foreach (var team in _state.Teams)
                                 {
-                                    <tr @key="team.Id">
-                                        <td class="canvas-rank">@team.Rank</td>
+                                    <tr @key="team.Id" class="@(team.Rank == 1 ? "canvas-leading-team" : null)">
+                                        <td class="canvas-rank"><span>@team.Rank</span></td>
                                         <td class="canvas-team-name">@team.DisplayName</td>
                                         <td class="canvas-points">@team.Points</td>
                                     </tr>

@@ -2,14 +2,14 @@
     box-sizing: border-box;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: clamp(1rem, 2.5vh, 2rem);
+    gap: clamp(1.25rem, 3vh, 2.5rem);
     width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-    padding: clamp(1rem, 3vw, 3rem);
-    color: #f5f7fa;
-    background: radial-gradient(ellipse at top left, #1c3442 0, #101820 55%, #0b1118 100%);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+    padding: clamp(1.25rem, 4vw, 4rem);
+    color: #1d2528;
+    background: #f0f4f3;
 }
 
 .canvas-header,
@@ -24,43 +24,52 @@
 }
 
 .canvas-header h1 {
-    margin: 0.2rem 0 0;
-    font-size: clamp(1.2rem, 2.4vw, 2.4rem);
+    margin: 0.3rem 0 0;
+    color: #1d2528;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 2.5rem);
     font-weight: 800;
+    letter-spacing: -0.04em;
 }
 
 .canvas-eyebrow,
 .canvas-event-type {
-    color: #8fe0c4;
-    font-size: clamp(0.7rem, 1.1vw, 1rem);
+    color: #197b67;
+    font-size: clamp(0.68rem, 0.9vw, 0.9rem);
     font-weight: 800;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
 .canvas-connection {
     gap: 0.6rem;
-    color: #c1cbd2;
-    font-size: clamp(0.7rem, 1vw, 0.95rem);
+    padding: 0.65rem 1rem;
+    border: 1px solid #dce5e2;
+    border-radius: 20px;
+    background: #fff;
+    color: #556265;
+    font-size: clamp(0.75rem, 0.9vw, 0.95rem);
+    font-weight: 700;
     white-space: nowrap;
 }
 
 .canvas-connection-dot {
-    width: 0.65rem;
-    height: 0.65rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    flex: 0 0 auto;
     border-radius: 50%;
     background: #e6a84b;
 }
 
 .canvas-connection-dot.connected {
-    background: #55d69e;
-    box-shadow: 0 0 1rem #55d69e88;
+    background: #197b67;
+    box-shadow: 0 0 0 4px #197b671c;
 }
 
 .canvas-content {
     display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr);
-    gap: clamp(1rem, 2.5vw, 2.5rem);
+    grid-template-columns: minmax(0, 1.25fr) minmax(19rem, 0.85fr);
+    gap: clamp(1rem, 2.5vw, 2rem);
     min-height: 0;
 }
 
@@ -68,10 +77,9 @@
 .canvas-scoreboard {
     min-width: 0;
     min-height: 0;
-    border: 1px solid #ffffff20;
-    border-radius: clamp(1rem, 2vw, 2rem);
-    background: #ffffff0b;
-    box-shadow: 0 1rem 3rem #00000020;
+    border: 1px solid #dce5e2;
+    border-radius: 6px;
+    background: #fff;
 }
 
 .canvas-event {
@@ -80,11 +88,17 @@
     justify-content: center;
     overflow-y: auto;
     padding: clamp(1.5rem, 4vw, 4rem);
+    border-top: 5px solid #197b67;
 }
 
 .canvas-event h2 {
+    max-width: 18ch;
     margin: 1rem 0;
-    font-size: clamp(2rem, 5vw, 6rem);
+    color: #1d2528;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: clamp(2rem, 5vw, 5.5rem);
+    font-weight: 800;
+    letter-spacing: -0.045em;
     line-height: 1.08;
     overflow-wrap: anywhere;
 }
@@ -92,16 +106,16 @@
 .canvas-message-text,
 .canvas-unit {
     margin: 0;
-    color: #d3dce1;
-    font-size: clamp(1.15rem, 2.2vw, 2.5rem);
-    line-height: 1.45;
+    color: #556265;
+    font-size: clamp(1.1rem, 2vw, 2rem);
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
 .canvas-options {
     display: grid;
-    gap: clamp(0.5rem, 1.4vh, 1rem);
+    gap: clamp(0.5rem, 1.4vh, 0.9rem);
     margin: clamp(1rem, 3vh, 2rem) 0 0;
     padding: 0;
     list-style: none;
@@ -110,17 +124,19 @@
 
 .canvas-options li {
     counter-increment: canvas-option;
-    padding: clamp(0.7rem, 1.4vh, 1.2rem) clamp(0.8rem, 1.5vw, 1.5rem);
-    border: 1px solid #ffffff20;
-    border-radius: 0.8rem;
-    background: #ffffff0c;
-    color: #f5f7fa;
-    font-size: clamp(1rem, 1.8vw, 2rem);
+    padding: clamp(0.8rem, 1.5vh, 1.15rem) clamp(0.9rem, 1.5vw, 1.4rem);
+    border: 1px solid #dce5e2;
+    border-radius: 6px;
+    background: #fafcfb;
+    color: #1d2528;
+    font-size: clamp(1rem, 1.7vw, 1.7rem);
+    font-weight: 650;
+    overflow-wrap: anywhere;
 }
 
 .canvas-options li::before {
     content: counter(canvas-option, upper-alpha) ". ";
-    color: #8fe0c4;
+    color: #197b67;
     font-weight: 800;
 }
 
@@ -128,12 +144,26 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: clamp(1rem, 2.4vw, 2.5rem);
+    padding: clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+.canvas-scoreboard-heading {
+    margin-bottom: clamp(0.75rem, 1.5vh, 1.25rem);
 }
 
 .canvas-scoreboard-heading h2 {
-    margin: 0.25rem 0 clamp(0.6rem, 1.5vh, 1.2rem);
-    font-size: clamp(1.6rem, 3vw, 3.5rem);
+    margin: 0.25rem 0 0;
+    color: #1d2528;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: clamp(1.8rem, 3vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.canvas-scoreboard-heading p {
+    margin: 0.35rem 0 0;
+    color: #657276;
+    font-size: clamp(0.85rem, 1vw, 1rem);
 }
 
 .canvas-table-wrap {
@@ -143,14 +173,15 @@
 
 .canvas-table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: clamp(0.95rem, 1.6vw, 1.8rem);
+    border-collapse: separate;
+    border-spacing: 0 0.25rem;
+    font-size: clamp(1rem, 1.5vw, 1.6rem);
 }
 
 .canvas-table th {
-    padding: clamp(0.45rem, 1vh, 0.8rem) 0.5rem;
-    color: #aab7bf;
-    font-size: 0.72em;
+    padding: 0.6rem 0.75rem;
+    color: #657276;
+    font-size: 0.68em;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-align: left;
@@ -158,18 +189,45 @@
 }
 
 .canvas-table td {
-    padding: clamp(0.55rem, 1.25vh, 1rem) 0.5rem;
-    border-top: 1px solid #ffffff18;
+    padding: clamp(0.7rem, 1.25vh, 1rem) 0.75rem;
+    background: #f8faf9;
+}
+
+.canvas-table tbody tr td:first-child {
+    border-radius: 5px 0 0 5px;
+}
+
+.canvas-table tbody tr td:last-child {
+    border-radius: 0 5px 5px 0;
+}
+
+.canvas-table tbody tr.canvas-leading-team td {
+    background: #e8f3ef;
 }
 
 .canvas-rank {
     width: 3.5rem;
-    color: #8fe0c4;
+}
+
+.canvas-rank span {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 5px;
+    background: #edf1ef;
+    color: #556265;
+    font-size: 0.85em;
     font-weight: 900;
 }
 
+.canvas-leading-team .canvas-rank span {
+    background: #197b67;
+    color: #fff;
+}
+
 .canvas-team-name {
-    font-weight: 700;
+    font-weight: 750;
     overflow-wrap: anywhere;
 }
 
@@ -180,6 +238,7 @@
 }
 
 .canvas-points {
+    color: #105c4d;
     font-variant-numeric: tabular-nums;
     font-weight: 900;
 }
@@ -188,8 +247,8 @@
 .canvas-message {
     align-self: center;
     margin: auto;
-    color: #c1cbd2;
-    font-size: clamp(1.1rem, 2vw, 2rem);
+    color: #556265;
+    font-size: clamp(1.1rem, 2vw, 1.8rem);
     text-align: center;
 }
 
@@ -198,17 +257,49 @@
     padding: 2rem;
 }
 
+.canvas-message h1 {
+    color: #1d2528;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: clamp(2rem, 5vw, 4rem);
+    letter-spacing: -0.04em;
+}
+
 .canvas-error {
-    color: #ffb4ab;
+    color: #9b1c1c;
 }
 
 @media (max-width: 900px) {
     .canvas-page {
-        overflow-y: auto;
+        grid-template-rows: auto auto;
     }
 
     .canvas-content {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(18rem, auto) minmax(14rem, auto);
+        grid-template-rows: minmax(18rem, auto) auto;
+    }
+
+    .canvas-scoreboard {
+        min-height: 14rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .canvas-page {
+        padding: 1rem 0.75rem;
+    }
+
+    .canvas-connection {
+        gap: 0.4rem;
+        padding: 0.5rem 0.65rem;
+        font-size: 0.7rem;
+    }
+
+    .canvas-content {
+        grid-template-rows: minmax(14rem, auto) auto;
+    }
+
+    .canvas-event,
+    .canvas-scoreboard {
+        padding: 1.1rem;
     }
 }
