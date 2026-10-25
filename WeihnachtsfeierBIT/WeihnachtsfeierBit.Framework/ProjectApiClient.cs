@@ -415,16 +415,52 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task StartSessionShowAsync(string accessToken, Guid projectId, Guid showId, string mode, CancellationToken cancellationToken = default)
+    public async Task StartSessionShowAsync(
+        string accessToken,
+        Guid projectId,
+        Guid showId,
+        string mode,
+        string navigationMode = "host_controlled",
+        bool isHidden = false,
+        DateTime? scheduledStartUtc = null,
+        bool autoStartOnSchedule = false,
+        CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/shows", accessToken, new { showId, mode });
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/shows", accessToken, new
+        {
+            showId,
+            mode,
+            navigationMode,
+            isHidden,
+            scheduledStartUtc,
+            autoStartOnSchedule
+        });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task CreateSpontaneousEventAsync(string accessToken, Guid projectId, string slideType, string mode, JsonElement parameters, CancellationToken cancellationToken = default)
+    public async Task CreateSpontaneousEventAsync(
+        string accessToken,
+        Guid projectId,
+        string slideType,
+        string mode,
+        JsonElement parameters,
+        string navigationMode = "host_controlled",
+        bool isHidden = false,
+        DateTime? scheduledStartUtc = null,
+        bool autoStartOnSchedule = false,
+        CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/events", accessToken, new { slideType, mode, parameters });
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/events", accessToken, new
+        {
+            slideType,
+            mode,
+            navigationMode,
+            isHidden,
+            scheduledStartUtc,
+            autoStartOnSchedule,
+            parameters
+        });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -436,9 +472,23 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task UpdateEventAsync(string accessToken, Guid projectId, Guid eventId, int currentSlideIndex, string mode, CancellationToken cancellationToken = default)
+    public async Task UpdateEventAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        int? currentSlideIndex = null,
+        string? mode = null,
+        bool? isHidden = null,
+        string? status = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}", accessToken, new { currentSlideIndex, mode });
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}", accessToken, new
+        {
+            currentSlideIndex,
+            mode,
+            isHidden,
+            status
+        });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -562,6 +612,9 @@ public sealed record EventState(
     string Status,
     string NavigationMode,
     int CurrentSlideIndex,
+    bool IsHidden,
+    DateTime? ScheduledStartUtc,
+    bool AutoStartOnSchedule,
     EventSlideState[] Slides,
     EventResponseState[] Responses,
     DateTime StartedAtUtc);
@@ -572,5 +625,6 @@ public sealed record ProjectGameState(
     TeamState[] Teams,
     EventState? ActiveEvent,
     EventState[] PassiveEvents,
+    EventState[] ScheduledEvents,
     Guid? ActiveCanvasEventId,
     DateTime UpdatedAtUtc);

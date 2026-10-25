@@ -58,6 +58,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AutoStartOnSchedule")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("ClosedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -66,6 +69,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.Property<Guid>("GameInstanceId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Mode")
                         .IsRequired()
@@ -80,6 +86,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasDefaultValue("host_controlled");
+
+                    b.Property<DateTime?>("ScheduledStartUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SlidesJson")
                         .IsRequired()

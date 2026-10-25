@@ -66,9 +66,10 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState`) abrufen. |
-| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als vereinheitlichtes `GameInstanceEvent` mit n Slides in der Session starten (`"active"` / `"passive"`). |
-| `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`) wechseln oder Modus ändern (`"active"` / `"passive"`). |
+| `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState` inkl. `ScheduledEvents` Timeline) abrufen. |
+| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als `GameInstanceEvent` mit n Slides in der Session starten/planen (`mode`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
+| `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen/planen (`slideType`, `mode`, `parameters`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
+| `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`), Modus (`mode`), Sichtbarkeit (`isHidden`) oder Status (`status`) ändern. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |

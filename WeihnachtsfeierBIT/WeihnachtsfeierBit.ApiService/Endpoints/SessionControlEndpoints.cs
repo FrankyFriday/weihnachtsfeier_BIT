@@ -69,8 +69,13 @@ public static class SessionControlEndpoints
         }
 
         var mode = string.Equals(request.Mode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
+        string navMode = string.Equals(request.NavigationMode, "self_paced", StringComparison.OrdinalIgnoreCase) ? "self_paced" : "host_controlled";
+        bool isHidden = request.IsHidden ?? false;
+        DateTime? schedUtc = request.ScheduledStartUtc;
+        bool autoStart = request.AutoStartOnSchedule ?? false;
+        string status = (schedUtc.HasValue && schedUtc.Value > DateTime.UtcNow) ? "scheduled" : "active";
 
-        if (mode == "active")
+        if (mode == "active" && status == "active")
         {
             MakeAllEventsPassive(instance);
         }
@@ -89,9 +94,12 @@ public static class SessionControlEndpoints
             SourceShowId = show.Id,
             Title = show.Name,
             Mode = mode,
-            Status = "active",
-            NavigationMode = "host_controlled",
+            Status = status,
+            NavigationMode = navMode,
             CurrentSlideIndex = 0,
+            IsHidden = isHidden,
+            ScheduledStartUtc = schedUtc,
+            AutoStartOnSchedule = autoStart,
             SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 
@@ -125,24 +133,40 @@ public static class SessionControlEndpoints
             return Results.NotFound();
         }
 
-        var mode = string.Equals(request.Mode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
-
-        if (mode == "active")
+        if (request.Mode is string newMode && !string.IsNullOrWhiteSpace(newMode))
         {
-            var instance = await dbContext.GameInstances
-                .Include(gi => gi.Events)
-                .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
-
-            if (instance is not null)
+            var cleanMode = string.Equals(newMode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
+            if (cleanMode == "active")
             {
-                MakeAllEventsPassive(instance, excludeEventId: ev.Id);
+                var instance = await dbContext.GameInstances
+                    .Include(gi => gi.Events)
+                    .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+                if (instance is not null)
+                {
+                    MakeAllEventsPassive(instance, excludeEventId: ev.Id);
+                }
             }
+            ev.Mode = cleanMode;
         }
 
-        ev.Mode = mode;
         if (request.CurrentSlideIndex.HasValue && request.CurrentSlideIndex.Value >= 0)
         {
             ev.CurrentSlideIndex = request.CurrentSlideIndex.Value;
+        }
+
+        if (request.IsHidden.HasValue)
+        {
+            ev.IsHidden = request.IsHidden.Value;
+        }
+
+        if (request.Status is string newStatus && !string.IsNullOrWhiteSpace(newStatus))
+        {
+            ev.Status = newStatus;
+            if (newStatus == "active")
+            {
+                ev.StartedAtUtc = DateTime.UtcNow;
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -175,8 +199,13 @@ public static class SessionControlEndpoints
         }
 
         var mode = string.Equals(request.Mode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
+        string navMode = string.Equals(request.NavigationMode, "self_paced", StringComparison.OrdinalIgnoreCase) ? "self_paced" : "host_controlled";
+        bool isHidden = request.IsHidden ?? false;
+        DateTime? schedUtc = request.ScheduledStartUtc;
+        bool autoStart = request.AutoStartOnSchedule ?? false;
+        string status = (schedUtc.HasValue && schedUtc.Value > DateTime.UtcNow) ? "scheduled" : "active";
 
-        if (mode == "active")
+        if (mode == "active" && status == "active")
         {
             MakeAllEventsPassive(instance);
         }
@@ -200,9 +229,12 @@ public static class SessionControlEndpoints
             GameInstanceId = instance.Id,
             Title = title,
             Mode = mode,
-            Status = "active",
-            NavigationMode = "host_controlled",
+            Status = status,
+            NavigationMode = navMode,
             CurrentSlideIndex = 0,
+            IsHidden = isHidden,
+            ScheduledStartUtc = schedUtc,
+            AutoStartOnSchedule = autoStart,
             SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 

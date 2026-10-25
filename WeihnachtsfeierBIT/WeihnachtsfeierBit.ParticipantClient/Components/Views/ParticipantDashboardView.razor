@@ -41,6 +41,29 @@
             </Card>
         }
 
+        <!-- TIMELINE & SCHEDULED EVENTS -->
+        @if (ScheduledEvents is not null && ScheduledEvents.Length > 0)
+        {
+            <Card Class="settings-card" Style="margin-bottom: 20px; border-left: 5px solid #0284c7;">
+                <h3>⏰ Zeitplan & Vorschau</h3>
+                <p class="framework-help-text">Anstehende Programmpunkte im Überblick:</p>
+                <div style="display: grid; gap: 10px; margin-top: 12px;">
+                    @foreach (var ev in ScheduledEvents)
+                    {
+                        <div style="padding: 12px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="display: block; color: #1e293b;">@ev.Title</strong>
+                                <span style="font-size: 12px; color: #64748b;">
+                                    @(ev.Slides.Length > 1 ? $"Show ({ev.Slides.Length} Folien)" : "Event")
+                                </span>
+                            </div>
+                            <FrameworkBadge Text="@(ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "Geplant")" Variant="secondary" />
+                        </div>
+                    }
+                </div>
+            </Card>
+        }
+
         <!-- TEAM CARD -->
         @if (TeamState is not null)
         {
@@ -136,6 +159,7 @@
     [Parameter] public TeamState? TeamState { get; set; }
     [Parameter] public TeamState[] AllTeams { get; set; } = [];
     [Parameter] public EventState[] PassiveEvents { get; set; } = [];
+    [Parameter] public EventState[] ScheduledEvents { get; set; } = [];
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }

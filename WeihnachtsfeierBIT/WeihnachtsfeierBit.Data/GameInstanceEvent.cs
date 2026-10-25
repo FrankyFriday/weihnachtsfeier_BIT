@@ -16,11 +16,17 @@ public class GameInstanceEvent
 
     public string Mode { get; set; } = "active"; // "active" or "passive"
 
-    public string Status { get; set; } = "active"; // "active" or "completed"
+    public string Status { get; set; } = "active"; // "active", "scheduled", or "completed"
 
     public string NavigationMode { get; set; } = "host_controlled"; // "host_controlled" or "self_paced"
 
     public int CurrentSlideIndex { get; set; } = 0;
+
+    public bool IsHidden { get; set; }
+
+    public DateTime? ScheduledStartUtc { get; set; }
+
+    public bool AutoStartOnSchedule { get; set; }
 
     [Column(TypeName = "jsonb")]
     public string SlidesJson { get; set; } = "[]";

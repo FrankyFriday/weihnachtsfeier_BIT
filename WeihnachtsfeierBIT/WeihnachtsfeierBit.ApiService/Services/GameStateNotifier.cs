@@ -66,6 +66,7 @@ public sealed class GameStateNotifier(
 
         EventState? activeEvent = null;
         var passiveEvents = new List<EventState>();
+        var scheduledEvents = new List<EventState>();
 
         var instance = await dbContext.GameInstances.AsNoTracking()
             .Include(gi => gi.Events)
@@ -87,9 +88,14 @@ public sealed class GameStateNotifier(
                 activeEvent = ToEventState(activeGie);
             }
 
-            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
+            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive" && !e.IsHidden))
             {
                 passiveEvents.Add(ToEventState(passiveGie));
+            }
+
+            foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled" && !e.IsHidden).OrderBy(e => e.ScheduledStartUtc))
+            {
+                scheduledEvents.Add(ToEventState(schedGie));
             }
         }
 
@@ -99,6 +105,7 @@ public sealed class GameStateNotifier(
             teamStates.ToArray(),
             activeEvent,
             passiveEvents.ToArray(),
+            scheduledEvents.ToArray(),
             instance?.ActiveCanvasEventId,
             DateTime.UtcNow);
     }
@@ -162,6 +169,9 @@ public sealed class GameStateNotifier(
             gie.Status,
             gie.NavigationMode,
             gie.CurrentSlideIndex,
+            gie.IsHidden,
+            gie.ScheduledStartUtc,
+            gie.AutoStartOnSchedule,
             slideStates.ToArray(),
             responseStates,
             gie.StartedAtUtc);

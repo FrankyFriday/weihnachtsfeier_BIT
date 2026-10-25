@@ -85,19 +85,36 @@
                     <ChildContent>
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                             <div>
-                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap;">
                                     <h2 style="margin: 0;">@ev.Title</h2>
                                     <FrameworkBadge Text="@(ev.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(ev.Mode == "active" ? "primary" : "secondary")" />
+                                    @if (ev.IsHidden)
+                                    {
+                                        <FrameworkBadge Text="👁 Ausgeblendet" Variant="warning" />
+                                    }
+                                    @if (ev.NavigationMode == "self_paced")
+                                    {
+                                        <FrameworkBadge Text="📖 Selbstständig" Variant="secondary" />
+                                    }
+                                    @if (ev.Status == "scheduled")
+                                    {
+                                        <FrameworkBadge Text="@($"⏰ Geplant ({(ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "")})")" Variant="secondary" />
+                                    }
                                     @if (isBeamer)
                                     {
                                         <FrameworkBadge Text="📺 Beamer Aktiv" Variant="primary" />
                                     }
                                 </div>
                                 <p style="margin: 0; font-size: 13px; color: #657276;">
-                                    @(isMultiSlide ? $"Show ({ev.Slides.Length} Folien)" : "Spontanes Event") • Aktiv seit @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss") Uhr
+                                    @(isMultiSlide ? $"Show ({ev.Slides.Length} Folien)" : "Spontanes Event") • Erstellt um @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm") Uhr
                                 </p>
                             </div>
                             <div class="framework-button-row">
+                                @if (ev.Status == "scheduled")
+                                {
+                                    <FrameworkButton Label="🚀 Jetzt starten" Variant="primary" OnClick="() => StartScheduledEventNow(ev)" />
+                                }
+
                                 @if (isBeamer)
                                 {
                                     <FrameworkButton Label="Beamer trennen" Variant="secondary" OnClick="() => SetCanvasEvent(null)" />
@@ -107,7 +124,9 @@
                                     <FrameworkButton Label="📺 Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
                                 }
 
-                                @if (isMultiSlide)
+                                <FrameworkButton Label="@(ev.IsHidden ? "👁 Einblenden" : "👁 Ausblenden")" Variant="secondary" OnClick="() => ToggleEventVisibility(ev)" />
+
+                                @if (isMultiSlide && ev.NavigationMode == "host_controlled")
                                 {
                                     <FrameworkButton Label="◄ Vorherige Slide" Variant="secondary" OnClick="() => StepEventSlide(ev, -1)" Disabled="@(ev.CurrentSlideIndex == 0)" />
                                     <FrameworkButton Label="Nächste Slide ►" Variant="primary" OnClick="() => StepEventSlide(ev, 1)" Disabled="@(ev.CurrentSlideIndex >= ev.Slides.Length - 1)" />
@@ -245,15 +264,35 @@
         }
         else
         {
-            <div style="display: grid; gap: 10px; margin-top: 12px;">
+            <div style="display: grid; gap: 12px; margin-top: 12px;">
+                <FrameworkFormGroup Label="Start-Modus">
+                    <FrameworkSelect Value="@_showStartMode" ValueChanged='v => _showStartMode = v ?? "active"' Options="@_modeOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Folien-Steuerung">
+                    <FrameworkSelect Value="@_showNavMode" ValueChanged='v => _showNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkCheckbox @bind-Value="_showIsHidden" Label="Show vor Teilnehmern ausblenden" />
+
+                <FrameworkCheckbox @bind-Value="_showIsScheduled" Label="Show zeitlich planen" />
+                @if (_showIsScheduled)
+                {
+                    <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px;">
+                        <FrameworkFormGroup Label="Geplante Startzeit (z. B. 19:30)">
+                            <FrameworkInputText @bind-Value="_showScheduledTimeInput" Placeholder="19:30" />
+                        </FrameworkFormGroup>
+                        <FrameworkCheckbox @bind-Value="_showAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
+                    </div>
+                }
+
+                <FrameworkDivider />
+
                 @foreach (var show in _projectShows)
                 {
                     <div style="padding: 12px 16px; border: 1px solid #dce5e2; border-radius: 6px; background: #fff; display: flex; justify-content: space-between; align-items: center;">
                         <strong>@show.Name</strong>
-                        <div class="framework-button-row">
-                            <FrameworkButton Label="Als Aktiv" Variant="primary" OnClick='() => StartShowAndCloseModal(show.Id, "active")' />
-                            <FrameworkButton Label="Als Passiv" Variant="secondary" OnClick='() => StartShowAndCloseModal(show.Id, "passive")' />
-                        </div>
+                        <FrameworkButton Label="Show starten / einplanen" Variant="primary" OnClick="() => StartShowAndCloseModal(show.Id)" />
                     </div>
                 }
             </div>
@@ -271,6 +310,27 @@
         <FrameworkFormGroup Label="Modus" ForId="modal-mode" Style="margin-top: 12px;">
             <FrameworkSelect Id="modal-mode" Value="@_spontaneousMode" ValueChanged='v => _spontaneousMode = v ?? "active"' Options="@_modeOptions" />
         </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Folien-Steuerung" Style="margin-top: 12px;">
+            <FrameworkSelect Value="@_spontaneousNavMode" ValueChanged='v => _spontaneousNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+        </FrameworkFormGroup>
+
+        <div style="margin-top: 12px;">
+            <FrameworkCheckbox @bind-Value="_spontaneousIsHidden" Label="Event vor Teilnehmern ausblenden" />
+        </div>
+
+        <div style="margin-top: 12px;">
+            <FrameworkCheckbox @bind-Value="_spontaneousIsScheduled" Label="Event zeitlich planen" />
+            @if (_spontaneousIsScheduled)
+            {
+                <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px; margin-top: 8px;">
+                    <FrameworkFormGroup Label="Geplante Startzeit (z. B. 20:00)">
+                        <FrameworkInputText @bind-Value="_spontaneousScheduledTimeInput" Placeholder="20:00" />
+                    </FrameworkFormGroup>
+                    <FrameworkCheckbox @bind-Value="_spontaneousAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
+                </div>
+            }
+        </div>
 
         <FrameworkDivider />
 
@@ -324,6 +384,7 @@
     private ProjectShow[] _projectShows = [];
     private EventState? _activeEvent;
     private EventState[] _passiveEvents = [];
+    private EventState[] _scheduledEvents = [];
     private Guid? _activeCanvasEventId;
 
     private List<SessionTabViewModel> _tabs = [];
@@ -336,9 +397,21 @@
     private bool _processing;
 
     private bool _isLinkShowModalOpen;
+    private string _showStartMode = "active";
+    private string _showNavMode = "host_controlled";
+    private bool _showIsHidden;
+    private bool _showIsScheduled;
+    private string _showScheduledTimeInput = string.Empty;
+    private bool _showAutoStart = true;
+
     private bool _isSpontaneousModalOpen;
     private string _spontaneousType = "announcement";
     private string _spontaneousMode = "active";
+    private string _spontaneousNavMode = "host_controlled";
+    private bool _spontaneousIsHidden;
+    private bool _spontaneousIsScheduled;
+    private string _spontaneousScheduledTimeInput = string.Empty;
+    private bool _spontaneousAutoStart = true;
     private EditableSlide _spontaneousSlide = new(Guid.Empty, "announcement", 0, default);
     private string? _modalError;
 
@@ -356,6 +429,12 @@
     [
         new("active", "Aktiv (Vordergrund-Takeover)"),
         new("passive", "Passiv (Menüliste)")
+    ];
+
+    private static readonly FrameworkSelectOption[] _navModeOptions =
+    [
+        new("host_controlled", "Moderiert (Vom Spielleiter gesteuert)"),
+        new("self_paced", "Selbstständig (Teilnehmer blättern selbst)")
     ];
 
     protected override async Task OnInitializedAsync()
@@ -383,6 +462,13 @@
             bool isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
             string badgeText = ev.Slides.Length > 1 ? "Show (Passiv)" : "Passiv";
             _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, badgeText, "secondary", ev, isBeamer));
+        }
+
+        // 3. Add scheduled events
+        foreach (var ev in _scheduledEvents)
+        {
+            bool isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, "Geplant", "secondary", ev, isBeamer));
         }
 
         if (_tabs.Count > 0)
@@ -456,6 +542,7 @@
                         _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
                         _activeEvent = state.ActiveEvent;
                         _passiveEvents = state.PassiveEvents;
+                        _scheduledEvents = state.ScheduledEvents;
                         _activeCanvasEventId = state.ActiveCanvasEventId;
                         await BuildTabsAsync();
                         StateHasChanged();
@@ -495,6 +582,7 @@
                 _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
                 _activeEvent = state.ActiveEvent;
                 _passiveEvents = state.PassiveEvents;
+                _scheduledEvents = state.ScheduledEvents;
                 _activeCanvasEventId = state.ActiveCanvasEventId;
                 await BuildTabsAsync();
             }
@@ -503,6 +591,7 @@
                 _teams = [];
                 _activeEvent = null;
                 _passiveEvents = [];
+                _scheduledEvents = [];
                 _tabs.Clear();
             }
 
@@ -531,19 +620,16 @@
     private void OpenLinkShowModal() => _isLinkShowModalOpen = true;
     private void CloseLinkShowModal() => _isLinkShowModalOpen = false;
 
-    private async Task StartShowAndCloseModal(Guid showId, string mode)
+    private async Task StartShowAndCloseModal(Guid showId)
     {
         CloseLinkShowModal();
-        await StartShowAsync(showId, mode);
-    }
+        DateTime? schedUtc = ParseTimeInput(_showIsScheduled, _showScheduledTimeInput);
 
-    private async Task StartShowAsync(Guid showId, string mode)
-    {
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.StartSessionShowAsync(token, ProjectId, showId, mode);
+                await ProjectApiClient.StartSessionShowAsync(token, ProjectId, showId, _showStartMode, _showNavMode, _showIsHidden, schedUtc, _showAutoStart);
                 await LoadDataAsync();
             });
         }
@@ -566,7 +652,7 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, targetSlideIndex, ev.Mode);
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: targetSlideIndex, mode: ev.Mode);
                 await LoadDataAsync();
             });
         }
@@ -582,7 +668,39 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, ev.CurrentSlideIndex, newMode);
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: ev.CurrentSlideIndex, mode: newMode);
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task ToggleEventVisibility(EventState ev)
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, isHidden: !ev.IsHidden);
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task StartScheduledEventNow(EventState ev)
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, status: "active", mode: "active");
                 await LoadDataAsync();
             });
         }
@@ -596,6 +714,11 @@
     {
         _spontaneousType = "announcement";
         _spontaneousMode = "active";
+        _spontaneousNavMode = "host_controlled";
+        _spontaneousIsHidden = false;
+        _spontaneousIsScheduled = false;
+        _spontaneousScheduledTimeInput = string.Empty;
+        _spontaneousAutoStart = true;
         _spontaneousSlide = new EditableSlide(Guid.Empty, "announcement", 0, default);
         _modalError = null;
         _isSpontaneousModalOpen = true;
@@ -622,11 +745,22 @@
             return;
         }
 
+        DateTime? schedUtc = ParseTimeInput(_spontaneousIsScheduled, _spontaneousScheduledTimeInput);
+
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.CreateSpontaneousEventAsync(token, ProjectId, _spontaneousType, _spontaneousMode, parameters);
+                await ProjectApiClient.CreateSpontaneousEventAsync(
+                    token,
+                    ProjectId,
+                    _spontaneousType,
+                    _spontaneousMode,
+                    parameters,
+                    _spontaneousNavMode,
+                    _spontaneousIsHidden,
+                    schedUtc,
+                    _spontaneousAutoStart);
                 _isSpontaneousModalOpen = false;
                 await LoadDataAsync();
             });
@@ -635,6 +769,22 @@
         {
             _modalError = "Fehler beim Erstellen des Events: " + ex.Message;
         }
+    }
+
+    private static DateTime? ParseTimeInput(bool isScheduled, string timeInput)
+    {
+        if (!isScheduled || string.IsNullOrWhiteSpace(timeInput)) return null;
+
+        var parts = timeInput.Trim().Split(':');
+        if (parts.Length == 2 && int.TryParse(parts[0], out var hour) && int.TryParse(parts[1], out var minute))
+        {
+            var nowLocal = DateTime.Now;
+            var targetLocal = new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, hour, minute, 0);
+            if (targetLocal < nowLocal) targetLocal = targetLocal.AddDays(1); // If time has passed today, schedule for tomorrow
+            return targetLocal.ToUniversalTime();
+        }
+
+        return null;
     }
 
     private async Task CloseEventAsync(Guid eventId)
