@@ -450,6 +450,14 @@ public class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<CanvasGameState> GetCanvasStateAsync(string accessCode, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync($"/api/game-instances/by-code/{Uri.EscapeDataString(accessCode)}/canvas", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<CanvasGameState>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Beamer-Zustand zurückgegeben.");
+    }
+
     public async Task<ProjectGameState> GetSessionStateAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/session/state", accessToken);
@@ -550,4 +558,12 @@ public sealed record ProjectGameState(
     EventState[] PassiveEvents,
     ActiveShowState[] ActiveShows,
     Guid? ActiveCanvasEventId,
+    DateTime UpdatedAtUtc);
+public sealed record CanvasTeamState(Guid Id, string DisplayName, int Points, int Rank);
+public sealed record CanvasEventState(Guid EventId, string SlideType, string Title, JsonElement Parameters);
+public sealed record CanvasGameState(
+    Guid ProjectId,
+    string ProjectName,
+    CanvasTeamState[] Teams,
+    CanvasEventState? Event,
     DateTime UpdatedAtUtc);

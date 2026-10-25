@@ -11,11 +11,13 @@ namespace WeihnachtsfeierBit.ApiService.Services;
 public interface IGameStateNotifier
 {
     Task NotifyProjectChangedAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task NotifyCanvasSessionsEndedAsync(IEnumerable<string> accessCodes, CancellationToken cancellationToken = default);
 }
 
 public sealed class GameStateNotifier(
     IServiceScopeFactory scopeFactory,
-    IHubContext<GameStateHub> hubContext) : IGameStateNotifier
+    IHubContext<GameStateHub> hubContext,
+    IHubContext<CanvasHub> canvasHubContext) : IGameStateNotifier
 {
     public async Task NotifyProjectChangedAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -27,6 +29,31 @@ public sealed class GameStateNotifier(
 
         var groupName = GameStateHub.GetGroupName(projectId);
         await hubContext.Clients.Group(groupName).SendAsync("GameStateUpdated", gameState, cancellationToken);
+
+        var accessCode = await dbContext.GameInstances.AsNoTracking()
+            .Where(instance => instance.ProjektId == projectId)
+            .Select(instance => instance.AccessCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (accessCode is null)
+        {
+            return;
+        }
+
+        var canvasState = await CanvasStateBuilder.BuildAsync(accessCode, dbContext, cancellationToken);
+        if (canvasState is not null)
+        {
+            await hubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
+                .SendAsync("CanvasStateUpdated", canvasState, cancellationToken);
+        }
+    }
+
+    public async Task NotifyCanvasSessionsEndedAsync(IEnumerable<string> accessCodes, CancellationToken cancellationToken = default)
+    {
+        foreach (var accessCode in accessCodes)
+        {
+            await canvasHubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
+                .SendAsync("CanvasSessionEnded", cancellationToken);
+        }
     }
 
     public static async Task<ProjectGameState?> BuildProjectGameStateAsync(Guid projectId, WeihnachtsfeierDbContext dbContext, CancellationToken cancellationToken)
