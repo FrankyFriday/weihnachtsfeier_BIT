@@ -163,6 +163,7 @@ else
             _isLoggedIn = true;
 
             await LoadProfileAsync();
+            await LoadSessionStateAsync();
             await SetupSignalRAsync();
         }
         catch (HttpRequestException ex)
@@ -187,6 +188,21 @@ else
         catch (HttpRequestException ex)
         {
             _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task LoadSessionStateAsync()
+    {
+        if (string.IsNullOrEmpty(_accessToken)) return;
+
+        try
+        {
+            _liveGameState = await ProjectApiClient.GetSessionStateAsync(_accessToken, ProjectId);
+            UpdateCurrentTeamState();
+            StateHasChanged();
+        }
+        catch
+        {
         }
     }
 
@@ -230,7 +246,6 @@ else
                 _liveGameState = state;
                 UpdateCurrentTeamState();
 
-                // Live sync selected passive event if open (match by InstanceShowId for shows, or EventId for spontaneous events)
                 if (_selectedPassiveEvent is not null)
                 {
                     var updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);

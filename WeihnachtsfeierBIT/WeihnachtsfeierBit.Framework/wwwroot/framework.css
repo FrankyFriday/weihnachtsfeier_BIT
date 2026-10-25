@@ -16,6 +16,40 @@
     vertical-align: middle;
 }
 
+@keyframes pulse-ring {
+    0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+    70% { transform: scale(1.02); box-shadow: 0 0 0 18px rgba(220, 38, 38, 0); }
+    100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(16, 92, 77, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 92, 77, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 92, 77, 0); }
+}
+
+.buzzer-button-animated {
+    animation: pulse-ring 2.2s infinite ease-in-out;
+    transition: transform 0.12s ease !important;
+}
+
+.buzzer-button-animated:active {
+    transform: scale(0.91) !important;
+}
+
+.active-pulse-card {
+    animation: pulse-green 2.5s infinite ease-in-out;
+}
+
+.mobile-touch-button {
+    transition: transform 0.12s ease, filter 0.12s ease !important;
+}
+
+.mobile-touch-button:active {
+    transform: scale(0.97) !important;
+    filter: brightness(0.92);
+}
+
 .framework-page {
     max-width: 1180px;
     margin: 0 auto;
