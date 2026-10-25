@@ -27,7 +27,7 @@ else if (!_isLoggedIn)
                           OnLogin="LoginByCodeAsync"
                           OnResetCode="ResetCode" />
 }
-else if (_liveGameState?.ActiveEvent is EventState activeEv)
+else if (_liveGameState?.ActiveEvent is EventState activeEv && !activeEv.IsHidden)
 {
     <ParticipantEventView Event="activeEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="false" />
 }

@@ -88,12 +88,12 @@ public sealed class GameStateNotifier(
                 activeEvent = ToEventState(activeGie);
             }
 
-            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive" && !e.IsHidden))
+            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
             {
                 passiveEvents.Add(ToEventState(passiveGie));
             }
 
-            foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled" && !e.IsHidden).OrderBy(e => e.ScheduledStartUtc))
+            foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled").OrderBy(e => e.ScheduledStartUtc))
             {
                 scheduledEvents.Add(ToEventState(schedGie));
             }
