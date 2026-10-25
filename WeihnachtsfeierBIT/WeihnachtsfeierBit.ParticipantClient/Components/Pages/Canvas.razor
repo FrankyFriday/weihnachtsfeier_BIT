@@ -1,0 +1,279 @@
+@page "/canvas/{Code}"
+@layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
+@using System.Text.Json
+@using Microsoft.AspNetCore.SignalR.Client
+@using WeihnachtsfeierBit.Framework
+@implements IAsyncDisposable
+@inject ProjectApiClient ProjectApiClient
+@inject IConfiguration Configuration
+@inject ILogger<Canvas> Logger
+
+<PageTitle>@(_state?.ProjectName ?? "Beamer") | WeihnachtsfeierBIT</PageTitle>
+
+<main class="canvas-page">
+    @if (_isLoading)
+    {
+        <div class="canvas-message">Beameransicht wird geladen …</div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage) && _state is null)
+    {
+        <div class="canvas-message canvas-error" role="alert">@_errorMessage</div>
+    }
+    else if (_sessionEnded)
+    {
+        <div class="canvas-message">
+            <div class="canvas-event-type">SESSION BEENDET</div>
+            <h1>Vielen Dank fürs Mitspielen!</h1>
+        </div>
+    }
+    else if (_state is not null)
+    {
+        <header class="canvas-header">
+            <div>
+                <div class="canvas-eyebrow">LIVE · @_state.ProjectName</div>
+                <h1>WeihnachtsfeierBIT</h1>
+            </div>
+            <div class="canvas-connection">
+                <span class="canvas-connection-dot @(_isConnected ? "connected" : "")"></span>
+                @_connectionStatus
+            </div>
+        </header>
+
+        <div class="canvas-content">
+            <section class="canvas-event" aria-live="polite">
+                @if (_state.Event is CanvasEventState activeEvent)
+                {
+                    <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
+                    <h2>@GetEventHeading(activeEvent)</h2>
+                    @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "message")</p>
+                    }
+                    else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ||
+                             activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var options = ReadStringList(activeEvent.Parameters,
+                            activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ? "options" : "answers");
+                        @if (options.Length > 0)
+                        {
+                            <ol class="canvas-options">
+                                @foreach (var option in options)
+                                {
+                                    <li>@option</li>
+                                }
+                            </ol>
+                        }
+                    }
+                    else if (activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
+                    }
+                }
+                else
+                {
+                    <div class="canvas-event-type">BEREIT</div>
+                    <h2>Die nächste Runde startet gleich</h2>
+                    <p class="canvas-message-text">Der aktuelle Punktestand wird live angezeigt.</p>
+                }
+            </section>
+
+            <section class="canvas-scoreboard" aria-label="Live-Punktestand">
+                <div class="canvas-scoreboard-heading">
+                    <div class="canvas-event-type">LIVE-PUNKTSTAND</div>
+                    <h2>Teams</h2>
+                    @if (_state.Teams.Length > 0)
+                    {
+                        <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
+                    }
+                </div>
+                @if (_state.Teams.Length == 0)
+                {
+                    <p class="canvas-empty">Noch keine Teams angelegt.</p>
+                }
+                else
+                {
+                    <div class="canvas-table-wrap">
+                        <table class="canvas-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Platz</th>
+                                    <th scope="col">Team</th>
+                                    <th scope="col" class="canvas-points-heading">Punkte</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var team in _state.Teams)
+                                {
+                                    <tr @key="team.Id" class="@(team.Rank == 1 ? "canvas-leading-team" : null)">
+                                        <td class="canvas-rank"><span>@team.Rank</span></td>
+                                        <td class="canvas-team-name">@team.DisplayName</td>
+                                        <td class="canvas-points">@team.Points</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+    }
+</main>
+
+@code {
+    [Parameter] public string Code { get; set; } = string.Empty;
+
+    private CanvasGameState? _state;
+    private HubConnection? _hubConnection;
+    private bool _isLoading = true;
+    private bool _isConnected;
+    private bool _sessionEnded;
+    private string _connectionStatus = "Verbinde …";
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        if (Code.Length != 6 || !Code.All(char.IsAsciiDigit))
+        {
+            _errorMessage = "Der Beamer-Link enthält keinen gültigen Session-Code.";
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            await ConnectAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+        var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/canvas";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<CanvasGameState>("CanvasStateUpdated", state =>
+            InvokeAsync(() =>
+            {
+                _state = state;
+                StateHasChanged();
+            }));
+
+        _hubConnection.On("CanvasSessionEnded", () => InvokeAsync(() =>
+        {
+            _sessionEnded = true;
+            _connectionStatus = "Session beendet";
+            StateHasChanged();
+        }));
+
+        _hubConnection.Reconnecting += _ => InvokeAsync(() =>
+        {
+            _isConnected = false;
+            _connectionStatus = "Verbindung unterbrochen";
+            StateHasChanged();
+        });
+
+        _hubConnection.Reconnected += async _ =>
+        {
+            await _hubConnection.SendAsync("JoinCanvas", Code);
+            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            _isConnected = true;
+            _connectionStatus = "Live aktualisiert";
+            await InvokeAsync(StateHasChanged);
+        };
+
+        try
+        {
+            await _hubConnection.StartAsync();
+            await _hubConnection.SendAsync("JoinCanvas", Code);
+            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            _isConnected = true;
+            _connectionStatus = "Live aktualisiert";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Die Live-Verbindung für die Beameransicht konnte nicht hergestellt werden.");
+            _isConnected = false;
+            _connectionStatus = "Live-Verbindung nicht verfügbar";
+        }
+    }
+
+    private static string GetEventTypeLabel(string slideType) => slideType.ToLowerInvariant() switch
+    {
+        "announcement" => "ANKÜNDIGUNG",
+        "poll" => "ABSTIMMUNG",
+        "quiz" => "QUIZ",
+        "estimation" => "SCHÄTZFRAGE",
+        "buzzer" => "BUZZER",
+        "ranking" => "PUNKTSTAND",
+        _ => "LIVE-EVENT"
+    };
+
+    private static string GetEventHeading(CanvasEventState activeEvent)
+    {
+        var parameterName = activeEvent.SlideType.ToLowerInvariant() switch
+        {
+            "announcement" => "title",
+            "poll" => "question",
+            "quiz" => "question",
+            "estimation" => "question",
+            "buzzer" => "question",
+            _ => string.Empty
+        };
+
+        return string.IsNullOrEmpty(parameterName)
+            ? activeEvent.Title
+            : ReadString(activeEvent.Parameters, parameterName) is { Length: > 0 } heading
+                ? heading
+                : activeEvent.Title;
+    }
+
+    private static string ReadString(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static string[] ReadStringList(JsonElement parameters, string propertyName)
+    {
+        if (parameters.ValueKind != JsonValueKind.Object ||
+            !parameters.TryGetProperty(propertyName, out var value) ||
+            value.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return value.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString() ?? string.Empty)
+            .ToArray();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

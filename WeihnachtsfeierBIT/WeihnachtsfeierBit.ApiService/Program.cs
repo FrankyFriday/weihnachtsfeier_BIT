@@ -61,7 +61,9 @@ if (app.Environment.IsDevelopment())
 app.MapGet("/", () => "API service is running.");
 
 app.MapHub<WeihnachtsfeierBit.ApiService.Hubs.GameStateHub>("/hubs/gamestate");
+app.MapHub<WeihnachtsfeierBit.ApiService.Hubs.CanvasHub>("/hubs/canvas");
 GameInstanceEndpoints.MapPublic(app);
+CanvasEndpoints.MapPublic(app);
 app.MapAuthenticationEndpoints();
 app.MapProjectEndpoints();
 if (app.Environment.IsDevelopment())
