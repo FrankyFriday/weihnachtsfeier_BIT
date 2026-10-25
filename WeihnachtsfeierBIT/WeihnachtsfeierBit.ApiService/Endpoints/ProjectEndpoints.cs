@@ -31,6 +31,7 @@ public static class ProjectEndpoints
         ShowSlideEndpoints.Map(admin);
         GameInstanceEndpoints.Map(reader, admin);
         SessionControlEndpoints.Map(reader, admin);
+        ChatEndpoints.Map(reader, admin);
 
         return endpoints;
     }

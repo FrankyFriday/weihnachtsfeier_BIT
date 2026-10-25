@@ -22,6 +22,107 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssociatedTeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("global");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssociatedTeamId");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("ChatGroups");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroupMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("JoinedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("ChatGroupId", "ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("ChatGroupMembers");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MessageText")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("SenderAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SenderName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SenderParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TeamColor")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatGroupId");
+
+                    b.HasIndex("SenderAdminId");
+
+                    b.HasIndex("SenderParticipantId");
+
+                    b.ToTable("ChatMessages");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -489,6 +590,67 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("ranking");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Team", "AssociatedTeam")
+                        .WithMany()
+                        .HasForeignKey("AssociatedTeamId");
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssociatedTeam");
+
+                    b.Navigation("Projekt");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroupMember", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ChatGroup", "ChatGroup")
+                        .WithMany("Members")
+                        .HasForeignKey("ChatGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatGroup");
+
+                    b.Navigation("Participant");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatMessage", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ChatGroup", "ChatGroup")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "SenderAdmin")
+                        .WithMany()
+                        .HasForeignKey("SenderAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "SenderParticipant")
+                        .WithMany()
+                        .HasForeignKey("SenderParticipantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ChatGroup");
+
+                    b.Navigation("SenderAdmin");
+
+                    b.Navigation("SenderParticipant");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
@@ -634,6 +796,13 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Projekt");
 
                     b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.GameInstance", b =>
