@@ -127,9 +127,9 @@
         </div>
 
         <!-- MESSAGE INPUT BAR -->
-        <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0;">
+        <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0; position: relative; z-index: 5;">
             <div style="flex: 1;">
-                <FrameworkInputText @Value="_newMessageInput" ValueChanged="v => _newMessageInput = v" MaxLength="1000" Placeholder="Nachricht schreiben..." />
+                <FrameworkInputText @bind-Value="_newMessageInput" MaxLength="1000" Placeholder="Nachricht schreiben..." />
             </div>
             <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
         </form>
@@ -143,7 +143,7 @@
             </FrameworkFormGroup>
 
             <FrameworkFormGroup Label="Teilnehmer & Moderatoren durchsuchen">
-                <FrameworkInputText @Value="_searchFilter" ValueChanged="v => _searchFilter = v" Placeholder="🔍 Name oder Nummer eingeben..." />
+                <FrameworkInputText @bind-Value="_searchFilter" Placeholder="🔍 Name oder Nummer eingeben..." />
             </FrameworkFormGroup>
 
             <div style="border: 1px solid #dce5e2; border-radius: 8px; max-height: 220px; overflow-y: auto; padding: 8px; background: #fafcfb;">
