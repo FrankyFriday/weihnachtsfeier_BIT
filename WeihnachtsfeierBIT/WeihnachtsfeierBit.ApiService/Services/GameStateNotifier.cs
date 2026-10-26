@@ -192,6 +192,7 @@ public sealed class GameStateNotifier(
             gie.Id,
             gie.SourceShowId,
             gie.Title,
+            gie.Subtitle,
             gie.Mode,
             gie.Status,
             gie.NavigationMode,

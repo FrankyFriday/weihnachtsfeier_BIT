@@ -1,0 +1,38 @@
+@using WeihnachtsfeierBit.Framework
+
+@if (TeamState is not null)
+{
+    <Card Class="settings-card" Style="@($"margin-bottom: 8px; border-top: 4px solid {TeamState.Color}; border-radius: 12px; padding: 8px 10px;")">
+        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 8px;">
+            <div>
+                <span class="mobile-eyebrow" style="font-size: 9px;">DEIN TEAM</span>
+                <h2 style="margin: 1px 0 0 0; font-size: 16px; font-weight: 800; color: #1d2528;">@TeamState.DisplayName</h2>
+            </div>
+            <FrameworkBadge Text="@($"#{TeamState.Rank}")" Variant="primary" />
+        </FrameworkFlexRow>
+
+        <FrameworkGrid Columns="1fr 1fr" Gap="6px">
+            <div style="background: #f6f8f7; padding: 6px; border-radius: 6px; text-align: center;">
+                <span style="font-size: 10px; color: #657276; display: block;">Rang</span>
+                <strong style="font-size: 16px; color: #105c4d;">#@TeamState.Rank <small style="font-size: 10px; color: #657276;">/ @TotalTeamCount</small></strong>
+            </div>
+            <div style="background: #f6f8f7; padding: 6px; border-radius: 6px; text-align: center;">
+                <span style="font-size: 10px; color: #657276; display: block;">Punkte</span>
+                <strong style="font-size: 16px; color: #105c4d;">@TeamState.Points Pkt.</strong>
+            </div>
+        </FrameworkGrid>
+    </Card>
+}
+else
+{
+    <Card Class="settings-card" Style="margin-bottom: 8px; background: #fdfaf6; border-left: 4px solid #d97706; border-radius: 12px; padding: 8px 10px;">
+        <h3 style="margin: 0 0 2px 0; font-size: 14px; font-weight: 800;">Kein Team zugewiesen</h3>
+        <p style="margin: 0; color: #657276; font-size: 11px;">Du bist aktuell noch keinem Team zugeordnet. Der Moderator weist dich gleich zu!</p>
+    </Card>
+}
+
+@code {
+    [Parameter] public TeamState? TeamState { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
+    [Parameter] public int TotalTeamCount { get; set; }
+}

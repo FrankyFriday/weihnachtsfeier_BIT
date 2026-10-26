@@ -275,6 +275,14 @@
                     <FrameworkSelect Value="@_showStartMode" ValueChanged='v => _showStartMode = v ?? "active"' Options="@_modeOptions" />
                 </FrameworkFormGroup>
 
+                <FrameworkFormGroup Label="Event-Titel überschreiben (optional)">
+                    <FrameworkInputText @bind-Value="_showTitleInput" Placeholder="Show-Titel anpassen..." />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)">
+                    <FrameworkInputText @bind-Value="_showSubtitleInput" Placeholder="z. B. Pause & Büfett eröffnet" />
+                </FrameworkFormGroup>
+
                 <FrameworkFormGroup Label="Folien-Steuerung">
                     <FrameworkSelect Value="@_showNavMode" ValueChanged='v => _showNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
                 </FrameworkFormGroup>
@@ -315,6 +323,14 @@
 
         <FrameworkFormGroup Label="Modus" ForId="modal-mode" Style="margin-top: 12px;">
             <FrameworkSelect Id="modal-mode" Value="@_spontaneousMode" ValueChanged='v => _spontaneousMode = v ?? "active"' Options="@_modeOptions" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Event-Titel überschreiben (optional)" Style="margin-top: 12px;">
+            <FrameworkInputText @bind-Value="_spontaneousTitleInput" Placeholder="Titel überschreiben..." />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)" Style="margin-top: 12px;">
+            <FrameworkInputText @bind-Value="_spontaneousSubtitleInput" Placeholder="z. B. Bitte Plätze einnehmen" />
         </FrameworkFormGroup>
 
         <FrameworkFormGroup Label="Folien-Steuerung" Style="margin-top: 12px;">
@@ -404,6 +420,8 @@
 
     private bool _isLinkShowModalOpen;
     private string _showStartMode = "active";
+    private string _showTitleInput = string.Empty;
+    private string _showSubtitleInput = string.Empty;
     private string _showNavMode = "host_controlled";
     private bool _showIsHidden;
     private bool _showIsScheduled;
@@ -413,6 +431,8 @@
     private bool _isSpontaneousModalOpen;
     private string _spontaneousType = "announcement";
     private string _spontaneousMode = "active";
+    private string _spontaneousTitleInput = string.Empty;
+    private string _spontaneousSubtitleInput = string.Empty;
     private string _spontaneousNavMode = "host_controlled";
     private bool _spontaneousIsHidden;
     private bool _spontaneousIsScheduled;
@@ -638,7 +658,7 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.StartSessionShowAsync(token, ProjectId, showId, _showStartMode, _showNavMode, _showIsHidden, schedUtc, _showAutoStart);
+                await ProjectApiClient.StartSessionShowAsync(token, ProjectId, showId, _showStartMode, _showTitleInput, _showSubtitleInput, _showNavMode, _showIsHidden, schedUtc, _showAutoStart);
                 await LoadDataAsync();
             });
         }
@@ -766,6 +786,8 @@
                     _spontaneousType,
                     _spontaneousMode,
                     parameters,
+                    _spontaneousTitleInput,
+                    _spontaneousSubtitleInput,
                     _spontaneousNavMode,
                     _spontaneousIsHidden,
                     schedUtc,

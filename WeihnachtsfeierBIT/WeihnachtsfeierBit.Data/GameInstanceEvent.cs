@@ -14,6 +14,8 @@ public class GameInstanceEvent
 
     public string Title { get; set; } = string.Empty;
 
+    public string? Subtitle { get; set; }
+
     public string Mode { get; set; } = "active"; // "active" or "passive"
 
     public string Status { get; set; } = "active"; // "active", "scheduled", or "completed"

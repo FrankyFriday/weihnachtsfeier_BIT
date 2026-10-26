@@ -1,0 +1,28 @@
+@using WeihnachtsfeierBit.Framework
+
+@if (TeamState is not null && TeamState.Members.Length > 0)
+{
+    <Card Class="settings-card" Style="margin-bottom: 8px; border-radius: 12px; padding: 8px 10px;">
+        <h3 style="margin: 0; font-size: 14px; font-weight: 800; color: #1d2528;">Team-Mitglieder (@TeamState.Members.Length)</h3>
+        <FrameworkFlexColumn Gap="4px" Style="margin-top: 6px;">
+            @foreach (var member in TeamState.Members)
+            {
+                <FrameworkListItem Active="@(member.Id == ParticipantId)" Style="padding: 6px 10px;">
+                    <div style="min-width: 0; flex: 1;">
+                        <strong style="color: #105c4d; margin-right: 6px; font-size: 13px;">#@member.Number</strong>
+                        <span style="font-size: 12px; color: #1d2528;">@(string.IsNullOrWhiteSpace(member.Name) ? "Unbenannt" : member.Name)</span>
+                    </div>
+                    @if (member.Id == ParticipantId)
+                    {
+                        <FrameworkBadge Text="Du" Variant="primary" />
+                    }
+                </FrameworkListItem>
+            }
+        </FrameworkFlexColumn>
+    </Card>
+}
+
+@code {
+    [Parameter] public TeamState? TeamState { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
+}

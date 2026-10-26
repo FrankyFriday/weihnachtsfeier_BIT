@@ -1,0 +1,24 @@
+@using WeihnachtsfeierBit.Framework
+
+@if (AllTeams.Length > 0)
+{
+    <Card Class="settings-card" Style="border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #1d2528;">Gesamtrangliste</h3>
+        <FrameworkFlexColumn Gap="6px" Style="margin-top: 8px;">
+            @foreach (var team in AllTeams)
+            {
+                <FrameworkListItem Active="@(team.Id == MyTeamId)">
+                    <span style="font-weight: 800; width: 22px; color: #105c4d; font-size: 13px;">#@team.Rank</span>
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @team.Color; display: inline-block; flex-shrink: 0;"></span>
+                    <span style="flex: 1; font-weight: 700; color: #1d2528; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@team.DisplayName</span>
+                    <strong style="color: #105c4d; font-size: 14px; flex-shrink: 0;">@team.Points Pkt.</strong>
+                </FrameworkListItem>
+            }
+        </FrameworkFlexColumn>
+    </Card>
+}
+
+@code {
+    [Parameter] public TeamState[] AllTeams { get; set; } = [];
+    [Parameter] public Guid? MyTeamId { get; set; }
+}
