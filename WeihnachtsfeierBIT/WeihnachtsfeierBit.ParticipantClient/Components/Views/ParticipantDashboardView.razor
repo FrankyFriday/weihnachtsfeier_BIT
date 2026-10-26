@@ -26,8 +26,9 @@
 
             @if (_activeTab == "home")
             {
-                <ParticipantTimelineView PassiveEvents="@PassiveEvents" ScheduledEvents="@ScheduledEvents" OnSelectPassiveEvent="@OnSelectPassiveEvent" />
                 <ParticipantTeamCard TeamState="@TeamState" ParticipantId="@ParticipantId" TotalTeamCount="@TotalTeamCount" />
+                <ParticipantTimelineView PassiveEvents="@PassiveEvents" ScheduledEvents="@ScheduledEvents" OnSelectPassiveEvent="@OnSelectPassiveEvent" />
+                <ParticipantTeamMembersCard TeamState="@TeamState" ParticipantId="@ParticipantId" />
                 <ParticipantLeaderboard AllTeams="@AllTeams" MyTeamId="@TeamState?.Id" />
             }
             else if (_activeTab == "chat")
