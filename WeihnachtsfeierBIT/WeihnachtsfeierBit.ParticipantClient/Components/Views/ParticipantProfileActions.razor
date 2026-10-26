@@ -1,0 +1,112 @@
+@using WeihnachtsfeierBit.Framework
+
+@if (_activeActionView == "name")
+{
+    <!-- SUB-VIEW: EDIT NAME -->
+    <Card Class="settings-card" Style="border-radius: 12px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Zurück zu Aktionen</span>
+            </button>
+        </div>
+
+        <h3 style="margin-top: 0; font-size: 18px;">Deinen Namen ändern</h3>
+        <p class="framework-help-text">Trage deinen Namen ein, damit deine Punkte und Ergebnisse im Team erscheinen.</p>
+
+        <form @onsubmit="SaveNameAndCloseSubView" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+            <FrameworkFormGroup Label="Dein Name" ForId="my-name">
+                <FrameworkInputText Id="my-name" Value="@NameInput" ValueChanged="NameInputChanged" MaxLength="120" Placeholder="z. B. Alex" />
+            </FrameworkFormGroup>
+            <FrameworkButton Label="@(IsSavingName ? "Wird gespeichert..." : "Name speichern")" Variant="primary" Type="submit" Disabled="@IsSavingName" />
+        </form>
+    </Card>
+}
+else
+{
+    <!-- MAIN ACTIONS TAB: GROUPED BUTTON LIST -->
+    <div style="display: grid; gap: 16px;">
+        <!-- CATEGORY 1: PROFIL & KONTO -->
+        <div>
+            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">PROFIL-AKTIONEN</span>
+            <div style="display: grid; gap: 8px;">
+                <button type="button" @onclick='() => _activeActionView = "name"' style="width: 100%; padding: 12px 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
+                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Name ändern</strong>
+                            <span style="font-size: 12px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @(string.IsNullOrWhiteSpace(NameInput) ? "Kein Name eingetragen" : NameInput)
+                            </span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- CATEGORY 2: TEAM & INTERAKTION -->
+        <div>
+            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">TEAM-AKTIONEN</span>
+            <div style="display: grid; gap: 8px;">
+                <button type="button" style="width: 100%; padding: 12px 14px; border: 1.5px dashed #cbd7d3; border-radius: 12px; background: #fafcfb; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: not-allowed; text-align: left; box-sizing: border-box;">
+                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">lightbulb</span>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 14px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teamnamen vorschlagen</strong>
+                            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Namensideen an den Moderator senden</span>
+                        </div>
+                    </div>
+                    <div style="flex-shrink: 0;">
+                        <FrameworkBadge Text="Demnächst" Variant="secondary" />
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- CATEGORY 3: SITZUNG -->
+        <div>
+            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">SITZUNGS-DETAILS</span>
+            <div style="display: grid; gap: 8px;">
+                <div style="width: 100%; padding: 12px 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box;">
+                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">badge</span>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 14px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
+                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Angemeldet in @ProjectName</span>
+                        </div>
+                    </div>
+                    <div style="flex-shrink: 0;">
+                        <FrameworkBadge Text="Aktiv" Variant="primary" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ProjectName { get; set; } = string.Empty;
+    [Parameter] public int ParticipantNumber { get; set; }
+    [Parameter] public string NameInput { get; set; } = string.Empty;
+    [Parameter] public bool IsSavingName { get; set; }
+    [Parameter] public EventCallback<string> NameInputChanged { get; set; }
+    [Parameter] public EventCallback OnSaveName { get; set; }
+
+    private string? _activeActionView;
+
+    private async Task SaveNameAndCloseSubView()
+    {
+        if (OnSaveName.HasDelegate)
+        {
+            await OnSaveName.InvokeAsync();
+        }
+        _activeActionView = null;
+    }
+}

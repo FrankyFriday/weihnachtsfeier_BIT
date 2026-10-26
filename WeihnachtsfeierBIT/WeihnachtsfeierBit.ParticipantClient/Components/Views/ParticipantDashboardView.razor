@@ -26,186 +26,9 @@
 
             @if (_activeTab == "home")
             {
-                <!-- UNIFIED PROGRAMM & TIMELINE FEED CARD -->
-                <Card Class="settings-card" Style="margin-bottom: 16px; border: 1.5px solid #dce5e2; border-radius: 12px; padding: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 6px;">
-                        <div>
-                            <span class="mobile-eyebrow" style="font-size: 10px;">PROGRAMM & AKTIONEN</span>
-                            <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #1d2528;">Ablauf & Umfragen</h3>
-                        </div>
-                        <FrameworkBadge Text="Live Stream" Variant="primary" />
-                    </div>
-
-                    @if ((PassiveEvents is null || !PassiveEvents.Any(e => !e.IsHidden)) && (ScheduledEvents is null || !ScheduledEvents.Any(e => !e.IsHidden)))
-                    {
-                        <p style="color: #657276; font-size: 13px; margin: 8px 0;">Derzeit sind keine geplanten Programmpunkte oder aktiven Aktionen verfügbar.</p>
-                    }
-                    else
-                    {
-                        <div class="vertical-timeline" style="display: flex; flex-direction: column;">
-                            <!-- 1. ACTIVE / PASSIVE AKTIONEN -->
-                            @if (PassiveEvents is not null)
-                            {
-                                @foreach (var ev in PassiveEvents.Where(e => !e.IsHidden))
-                                {
-                                    <div style="display: flex; gap: 12px; align-items: stretch; margin-bottom: 16px; position: relative;">
-                                        <!-- LEFT TIMELINE COLUMN -->
-                                        <div style="width: 20px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; position: relative;">
-                                            <div style="position: absolute; top: 0; bottom: -16px; width: 3px; background: #cbd7d3; z-index: 1;"></div>
-                                            <div style="width: 16px; height: 16px; border-radius: 50%; background: #105c4d; border: 3px solid #ffffff; box-shadow: 0 0 0 2px #105c4d; z-index: 2; margin-top: 16px;"></div>
-                                        </div>
-
-                                        <!-- RIGHT CARD ITEM -->
-                                        <div style="flex: 1; min-width: 0;">
-                                            <div style="padding: 12px; border: 1.5px solid #105c4d; border-radius: 10px; background: #f0f8f4; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; box-shadow: 0 2px 6px rgba(16, 92, 77, 0.08);">
-                                                <div style="flex: 1; min-width: 130px;">
-                                                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 2px;">
-                                                        <FrameworkBadge Text="@GetFriendlyTypeName(ev.Slides.Length > 0 ? ev.Slides[0].Type : "announcement")" Variant="@(ev.Slides.Length > 0 ? ev.Slides[0].Type : "announcement")" />
-                                                        <span style="font-size: 10px; font-weight: 800; color: #105c4d; text-transform: uppercase;">▶ JETZT BEREIT</span>
-                                                    </div>
-                                                    <strong style="display: block; margin-top: 4px; font-size: 15px; color: #1d2528; word-break: break-word;">@ev.Title</strong>
-                                                </div>
-                                                <div style="flex-shrink: 0;">
-                                                    <FrameworkButton Label="Öffnen" Variant="primary" OnClick="() => OnSelectPassiveEvent.InvokeAsync(ev)" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            }
-
-                            <!-- 2. SCHEDULED / KOMMENDE EVENTS -->
-                            @if (ScheduledEvents is not null)
-                            {
-                                var scheduledList = ScheduledEvents.Where(e => !e.IsHidden).ToList();
-                                @for (int i = 0; i < scheduledList.Count; i++)
-                                {
-                                    var ev = scheduledList[i];
-                                    var isLast = i == scheduledList.Count - 1;
-                                    var isActiveScheduled = ev.Mode == "active";
-                                    var isDueSoon = ev.ScheduledStartUtc.HasValue && ev.ScheduledStartUtc.Value <= DateTime.UtcNow.AddMinutes(15);
-
-                                    string dotColor = isActiveScheduled ? "#0284c7" : (isDueSoon ? "#d97706" : "#94a3b8");
-                                    string borderColor = isActiveScheduled ? "#0284c7" : (isDueSoon ? "#d97706" : "#e2e8f0");
-                                    string bgColor = isActiveScheduled ? "#f0f9ff" : (isDueSoon ? "#fffdf5" : "#ffffff");
-
-                                    <div style="display: flex; gap: 12px; align-items: stretch; margin-bottom: 14px; position: relative;">
-                                        <!-- LEFT TIMELINE COLUMN -->
-                                        <div style="width: 20px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; position: relative;">
-                                            @if (!isLast)
-                                            {
-                                                <div style="position: absolute; top: 0; bottom: -14px; width: 3px; background: #cbd7d3; z-index: 1;"></div>
-                                            }
-                                            <div style="width: 14px; height: 14px; border-radius: 50%; background: @dotColor; border: 2.5px solid #ffffff; box-shadow: 0 0 0 2px @dotColor; z-index: 2; margin-top: 14px;"></div>
-                                        </div>
-
-                                        <!-- RIGHT CARD ITEM -->
-                                        <div style="flex: 1; min-width: 0;">
-                                            <div style="padding: 12px; border: 1.5px solid @borderColor; border-radius: 10px; background: @bgColor; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                                <div style="flex: 1; min-width: 120px;">
-                                                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 2px;">
-                                                        @if (isActiveScheduled)
-                                                        {
-                                                            <span style="font-size: 10px; font-weight: 800; color: #0284c7; text-transform: uppercase;">⏰ AKTIVES GEPLANTES EVENT</span>
-                                                        }
-                                                        else if (isDueSoon)
-                                                        {
-                                                            <span style="font-size: 10px; font-weight: 800; color: #d97706; text-transform: uppercase;">⏰ BALD FÄLLIG</span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">GEPLANT</span>
-                                                        }
-                                                    </div>
-                                                    <strong style="display: block; font-size: 15px; color: #1e293b; word-break: break-word;">@ev.Title</strong>
-                                                    <span style="font-size: 12px; color: #64748b;">
-                                                        @(ev.Slides.Length > 1 ? $"Show ({ev.Slides.Length} Folien)" : "Event")
-                                                    </span>
-                                                </div>
-                                                <div style="flex-shrink: 0;">
-                                                    <FrameworkBadge Text="@(ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "Geplant")" Variant="@(isActiveScheduled ? "primary" : (isDueSoon ? "warning" : "secondary"))" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            }
-                        </div>
-                    }
-                </Card>
-
-                <!-- TEAM CARD -->
-                @if (TeamState is not null)
-                {
-                    <Card Class="settings-card" Style="@($"margin-bottom: 16px; border-top: 5px solid {TeamState.Color}; border-radius: 12px; padding: 14px;")">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                            <div>
-                                <span class="mobile-eyebrow" style="font-size: 10px;">DEIN TEAM</span>
-                                <h1 style="margin: 2px 0 0 0; font-size: 20px;">@TeamState.DisplayName</h1>
-                            </div>
-                            <FrameworkBadge Text="@($"#{TeamState.Rank}")" Variant="primary" />
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div style="background: #f6f8f7; padding: 10px; border-radius: 8px; text-align: center;">
-                                <span style="font-size: 11px; color: #657276; display: block;">Rang</span>
-                                <strong style="font-size: 20px; color: #105c4d;">#@TeamState.Rank <small style="font-size: 11px; color: #657276;">/ @TotalTeamCount</small></strong>
-                            </div>
-                            <div style="background: #f6f8f7; padding: 10px; border-radius: 8px; text-align: center;">
-                                <span style="font-size: 11px; color: #657276; display: block;">Punkte</span>
-                                <strong style="font-size: 20px; color: #105c4d;">@TeamState.Points Pkt.</strong>
-                            </div>
-                        </div>
-                    </Card>
-                }
-                else
-                {
-                    <Card Class="settings-card" Style="margin-bottom: 16px; background: #fdfaf6; border-left: 4px solid #d97706; border-radius: 12px; padding: 14px;">
-                        <h3 style="margin: 0 0 4px 0; font-size: 16px;">Kein Team zugewiesen</h3>
-                        <p style="margin: 0; color: #657276; font-size: 13px;">Du bist aktuell noch keinem Team zugeordnet. Der Moderator weist dich gleich zu!</p>
-                    </Card>
-                }
-
-                <!-- TEAM MEMBERS -->
-                @if (TeamState is not null && TeamState.Members.Length > 0)
-                {
-                    <Card Class="settings-card" Style="margin-bottom: 16px; border-radius: 12px; padding: 14px;">
-                        <h3 style="margin: 0; font-size: 16px;">Team-Mitglieder (@TeamState.Members.Length)</h3>
-                        <ul style="list-style: none; padding: 0; margin: 10px 0 0 0; display: grid; gap: 8px;">
-                            @foreach (var member in TeamState.Members)
-                            {
-                                <li style="padding: 8px 12px; background: @(member.Id == ParticipantId ? "#e6f4f1" : "#f8faf9"); border: 1px solid #dce5e2; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="min-width: 0; flex: 1;">
-                                        <strong style="color: #105c4d; margin-right: 6px;">#@member.Number</strong>
-                                        <span style="font-size: 14px;">@(string.IsNullOrWhiteSpace(member.Name) ? "Unbenannt" : member.Name)</span>
-                                    </div>
-                                    @if (member.Id == ParticipantId)
-                                    {
-                                        <FrameworkBadge Text="Du" Variant="primary" />
-                                    }
-                                </li>
-                            }
-                        </ul>
-                    </Card>
-                }
-
-                <!-- LEADERBOARD -->
-                @if (AllTeams.Length > 0)
-                {
-                    <Card Class="settings-card" Style="border-radius: 12px; padding: 14px;">
-                        <h3 style="margin: 0; font-size: 16px;">Gesamtrangliste</h3>
-                        <div style="display: grid; gap: 8px; margin-top: 10px;">
-                            @foreach (var team in AllTeams)
-                            {
-                                <div style="padding: 10px 12px; border: 1px solid #dce5e2; border-radius: 8px; background: @(team.Id == TeamState?.Id ? "#f0f8f4" : "#fff"); display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-weight: 800; width: 22px; color: #105c4d; font-size: 14px;">#@team.Rank</span>
-                                    <span style="width: 12px; height: 12px; border-radius: 50%; background-color: @team.Color; display: inline-block; flex-shrink: 0;"></span>
-                                    <span style="flex: 1; font-weight: 700; color: #1d2528; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@team.DisplayName</span>
-                                    <strong style="color: #105c4d; font-size: 15px; flex-shrink: 0;">@team.Points Pkt.</strong>
-                                </div>
-                            }
-                        </div>
-                    </Card>
-                }
+                <ParticipantTimelineView PassiveEvents="@PassiveEvents" ScheduledEvents="@ScheduledEvents" OnSelectPassiveEvent="@OnSelectPassiveEvent" />
+                <ParticipantTeamCard TeamState="@TeamState" ParticipantId="@ParticipantId" TotalTeamCount="@TotalTeamCount" />
+                <ParticipantLeaderboard AllTeams="@AllTeams" MyTeamId="@TeamState?.Id" />
             }
             else if (_activeTab == "chat")
             {
@@ -218,101 +41,17 @@
             }
             else if (_activeTab == "actions")
             {
-                if (_activeActionView == "name")
-                {
-                    <!-- SUB-VIEW: EDIT NAME -->
-                    <Card Class="settings-card" Style="border-radius: 12px; padding: 16px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-                                <span class="material-symbols-outlined">arrow_back</span>
-                                <span>Zurück zu Aktionen</span>
-                            </button>
-                        </div>
-
-                        <h3 style="margin-top: 0; font-size: 18px;">Deinen Namen ändern</h3>
-                        <p class="framework-help-text">Trage deinen Namen ein, damit deine Punkte und Ergebnisse im Team erscheinen.</p>
-
-                        <form @onsubmit="SaveNameAndCloseSubView" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
-                            <FrameworkFormGroup Label="Dein Name" ForId="my-name">
-                                <FrameworkInputText Id="my-name" Value="@NameInput" ValueChanged="NameInputChanged" MaxLength="120" Placeholder="z. B. Alex" />
-                            </FrameworkFormGroup>
-                            <FrameworkButton Label="@(IsSavingName ? "Wird gespeichert..." : "Name speichern")" Variant="primary" Type="submit" Disabled="@IsSavingName" />
-                        </form>
-                    </Card>
-                }
-                else
-                {
-                    <!-- MAIN ACTIONS TAB: GROUPED BUTTON LIST -->
-                    <div style="display: grid; gap: 16px;">
-                        <!-- CATEGORY 1: PROFIL & KONTO -->
-                        <div>
-                            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">PROFIL-AKTIONEN</span>
-                            <div style="display: grid; gap: 8px;">
-                                <button type="button" @onclick='() => _activeActionView = "name"' style="width: 100%; padding: 12px 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
-                                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
-                                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span class="material-symbols-outlined" style="font-size: 20px;">edit</span>
-                                        </div>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <strong style="display: block; font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Name ändern</strong>
-                                            <span style="font-size: 12px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                @(string.IsNullOrWhiteSpace(NameInput) ? "Kein Name eingetragen" : NameInput)
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- CATEGORY 2: TEAM & INTERAKTION -->
-                        <div>
-                            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">TEAM-AKTIONEN</span>
-                            <div style="display: grid; gap: 8px;">
-                                <button type="button" style="width: 100%; padding: 12px 14px; border: 1.5px dashed #cbd7d3; border-radius: 12px; background: #fafcfb; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: not-allowed; text-align: left; box-sizing: border-box;">
-                                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
-                                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span class="material-symbols-outlined" style="font-size: 20px;">lightbulb</span>
-                                        </div>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <strong style="display: block; font-size: 14px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teamnamen vorschlagen</strong>
-                                            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Namensideen an den Moderator senden</span>
-                                        </div>
-                                    </div>
-                                    <div style="flex-shrink: 0;">
-                                        <FrameworkBadge Text="Demnächst" Variant="secondary" />
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- CATEGORY 3: SITZUNG -->
-                        <div>
-                            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">SITZUNGS-DETAILS</span>
-                            <div style="display: grid; gap: 8px;">
-                                <div style="width: 100%; padding: 12px 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box;">
-                                    <div style="display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1;">
-                                        <div style="width: 38px; height: 38px; border-radius: 10px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span class="material-symbols-outlined" style="font-size: 20px;">badge</span>
-                                        </div>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <strong style="display: block; font-size: 14px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
-                                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Angemeldet in @ProjectName</span>
-                                        </div>
-                                    </div>
-                                    <div style="flex-shrink: 0;">
-                                        <FrameworkBadge Text="Aktiv" Variant="primary" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
+                <ParticipantProfileActions ProjectName="@ProjectName"
+                                          ParticipantNumber="@ParticipantNumber"
+                                          NameInput="@NameInput"
+                                          IsSavingName="@IsSavingName"
+                                          NameInputChanged="@NameInputChanged"
+                                          OnSaveName="@OnSaveName" />
             }
         </div>
     </div>
 
-    <!-- BOTTOM NAVIGATION BAR (NORMAL FLEX CHILD AT THE BOTTOM) -->
+    <!-- BOTTOM NAVIGATION BAR WITH MATERIAL ICONS -->
     <div style="flex-shrink: 0; height: max(60px, calc(60px + env(safe-area-inset-bottom, 0px))); padding-bottom: env(safe-area-inset-bottom, 0px); background: #ffffff; border-top: 1.5px solid #dce5e2; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.06); width: 100vw; box-sizing: border-box;">
         <button type="button" @onclick='() => SetTab("home")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
             <span class="material-symbols-outlined" style="font-size: 22px;">home</span>
@@ -348,33 +87,11 @@
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
 
     private string _activeTab = "home";
-    private string? _activeActionView;
 
     private int TotalTeamCount => AllTeams.Length;
 
     private void SetTab(string tab)
     {
         _activeTab = tab;
-        _activeActionView = null;
     }
-
-    private async Task SaveNameAndCloseSubView()
-    {
-        if (OnSaveName.HasDelegate)
-        {
-            await OnSaveName.InvokeAsync();
-        }
-        _activeActionView = null;
-    }
-
-    private static string GetFriendlyTypeName(string type) => type.ToLowerInvariant() switch
-    {
-        "announcement" => "Ankündigung",
-        "poll" => "Abstimmung",
-        "quiz" => "Quiz",
-        "estimation" => "Schätzfrage",
-        "buzzer" => "Buzzer",
-        "ranking" => "Rangliste",
-        _ => "Event"
-    };
 }

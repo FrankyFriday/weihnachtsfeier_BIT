@@ -1,0 +1,59 @@
+@using WeihnachtsfeierBit.Framework
+
+@if (TeamState is not null)
+{
+    <Card Class="settings-card" Style="@($"margin-bottom: 16px; border-top: 5px solid {TeamState.Color}; border-radius: 12px; padding: 14px;")">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div>
+                <span class="mobile-eyebrow" style="font-size: 10px;">DEIN TEAM</span>
+                <h1 style="margin: 2px 0 0 0; font-size: 20px;">@TeamState.DisplayName</h1>
+            </div>
+            <FrameworkBadge Text="@($"#{TeamState.Rank}")" Variant="primary" />
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="background: #f6f8f7; padding: 10px; border-radius: 8px; text-align: center;">
+                <span style="font-size: 11px; color: #657276; display: block;">Rang</span>
+                <strong style="font-size: 20px; color: #105c4d;">#@TeamState.Rank <small style="font-size: 11px; color: #657276;">/ @TotalTeamCount</small></strong>
+            </div>
+            <div style="background: #f6f8f7; padding: 10px; border-radius: 8px; text-align: center;">
+                <span style="font-size: 11px; color: #657276; display: block;">Punkte</span>
+                <strong style="font-size: 20px; color: #105c4d;">@TeamState.Points Pkt.</strong>
+            </div>
+        </div>
+    </Card>
+
+    @if (TeamState.Members.Length > 0)
+    {
+        <Card Class="settings-card" Style="margin-bottom: 16px; border-radius: 12px; padding: 14px;">
+            <h3 style="margin: 0; font-size: 16px;">Team-Mitglieder (@TeamState.Members.Length)</h3>
+            <ul style="list-style: none; padding: 0; margin: 10px 0 0 0; display: grid; gap: 8px;">
+                @foreach (var member in TeamState.Members)
+                {
+                    <li style="padding: 8px 12px; background: @(member.Id == ParticipantId ? "#e6f4f1" : "#f8faf9"); border: 1px solid #dce5e2; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="color: #105c4d; margin-right: 6px;">#@member.Number</strong>
+                            <span style="font-size: 14px;">@(string.IsNullOrWhiteSpace(member.Name) ? "Unbenannt" : member.Name)</span>
+                        </div>
+                        @if (member.Id == ParticipantId)
+                        {
+                            <FrameworkBadge Text="Du" Variant="primary" />
+                        }
+                    </li>
+                }
+            </ul>
+        </Card>
+    }
+}
+else
+{
+    <Card Class="settings-card" Style="margin-bottom: 16px; background: #fdfaf6; border-left: 4px solid #d97706; border-radius: 12px; padding: 14px;">
+        <h3 style="margin: 0 0 4px 0; font-size: 16px;">Kein Team zugewiesen</h3>
+        <p style="margin: 0; color: #657276; font-size: 13px;">Du bist aktuell noch keinem Team zugeordnet. Der Moderator weist dich gleich zu!</p>
+    </Card>
+}
+
+@code {
+    [Parameter] public TeamState? TeamState { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
+    [Parameter] public int TotalTeamCount { get; set; }
+}
