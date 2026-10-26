@@ -267,6 +267,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasDefaultValue("active");
 
+                    b.Property<string>("Subtitle")
+                        .HasColumnType("text");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");

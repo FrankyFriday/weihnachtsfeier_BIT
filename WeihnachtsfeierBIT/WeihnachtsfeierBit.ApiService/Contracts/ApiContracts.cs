@@ -40,6 +40,8 @@ public sealed record LoginByCodeRequest(string Code, int Number);
 public sealed record StartSessionShowRequest(
     Guid ShowId,
     string Mode,
+    string? Title,
+    string? Subtitle,
     string? NavigationMode,
     bool? IsHidden,
     DateTime? ScheduledStartUtc,
@@ -48,6 +50,8 @@ public sealed record StartSessionShowRequest(
 public sealed record CreateSpontaneousEventRequest(
     string SlideType,
     string Mode,
+    string? Title,
+    string? Subtitle,
     JsonElement Parameters,
     string? NavigationMode,
     bool? IsHidden,
