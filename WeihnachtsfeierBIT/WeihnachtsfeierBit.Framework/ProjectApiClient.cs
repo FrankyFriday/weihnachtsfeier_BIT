@@ -595,6 +595,91 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Gruppe konnte nicht erstellt werden.");
     }
 
+    // INFO PAGES
+    public async Task<ProjectInfoPageDto[]> GetInfoPagesAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/info-pages", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectInfoPageDto[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<ProjectInfoPageDto> CreateInfoPageAsync(string accessToken, Guid projectId, string title, string icon, int position, bool isVisible, string contentMarkdown, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/info-pages", accessToken, new { title, icon, position, isVisible, contentMarkdown });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectInfoPageDto>(cancellationToken)
+            ?? throw new InvalidOperationException("Info-Seite konnte nicht erstellt werden.");
+    }
+
+    public async Task UpdateInfoPageAsync(string accessToken, Guid projectId, Guid id, string title, string icon, int position, bool isVisible, string contentMarkdown, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/info-pages/{id}", accessToken, new { title, icon, position, isVisible, contentMarkdown });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteInfoPageAsync(string accessToken, Guid projectId, Guid id, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/info-pages/{id}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    // TEAM NAME SUGGESTIONS
+    public async Task<TeamNameSuggestionDto[]> GetMyTeamNameSuggestionsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/teams/my/suggestions", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode) return [];
+        return await response.Content.ReadFromJsonAsync<TeamNameSuggestionDto[]>(cancellationToken) ?? [];
+    }
+
+    public async Task SubmitTeamNameSuggestionAsync(string accessToken, Guid projectId, string suggestedName, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/teams/my/suggestions", accessToken, new { suggestedName });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task ToggleTeamNameVoteAsync(string accessToken, Guid projectId, Guid suggestionId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/teams/my/suggestions/{suggestionId}/vote", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    // SONG WISHES
+    public async Task<SongWishDto[]> GetSongWishesAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/song-wishes", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SongWishDto[]>(cancellationToken) ?? [];
+    }
+
+    public async Task SubmitSongWishAsync(string accessToken, Guid projectId, string songTitle, string? artist, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/song-wishes", accessToken, new { songTitle, artist });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task ToggleSongWishVoteAsync(string accessToken, Guid projectId, Guid wishId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/song-wishes/{wishId}/vote", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteSongWishAsync(string accessToken, Guid projectId, Guid wishId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/song-wishes/{wishId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -732,3 +817,7 @@ public sealed record ChatMessageResponse(
     DateTime SentAtUtc);
 
 public sealed record ChatContactDto(Guid Id, string Name, string Kind);
+
+public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, string Icon, int Position, bool IsVisible, string ContentMarkdown, DateTime CreatedAtUtc);
+public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
+public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);

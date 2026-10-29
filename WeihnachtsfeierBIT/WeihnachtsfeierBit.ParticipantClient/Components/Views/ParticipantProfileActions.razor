@@ -1,6 +1,26 @@
 @using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
 
-@if (_activeActionView == "name")
+@if (_selectedInfoPage is not null)
+{
+    <!-- SUB-VIEW: INFO PAGE DETAIL (e.g. SPEISEKARTE, SHUTTLE, WLAN) -->
+    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
+        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+            <button type="button" @onclick="() => _selectedInfoPage = null" style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Zurück zu Aktionen</span>
+            </button>
+        </FrameworkFlexRow>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span class="material-symbols-outlined" style="font-size: 22px; color: #105c4d;">@_selectedInfoPage.Icon</span>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #1d2528;">@_selectedInfoPage.Title</h3>
+        </div>
+
+        <FrameworkMarkdown Content="@_selectedInfoPage.ContentMarkdown" />
+    </Card>
+}
+else if (_activeActionView == "name")
 {
     <!-- SUB-VIEW: EDIT NAME -->
     <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
@@ -22,11 +42,141 @@
         </form>
     </Card>
 }
+else if (_activeActionView == "team_name")
+{
+    <!-- SUB-VIEW: TEAM NAME SUGGESTIONS & VOTING -->
+    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
+        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Zurück zu Aktionen</span>
+            </button>
+        </FrameworkFlexRow>
+
+        <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Teamnamen vorschlagen</h3>
+        <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Schlage einen Namen für dein Team vor! Sobald 50% deines Teams dafür stimmen, wird er automatisch als offizieller Teamname übernommen.</p>
+
+        <form @onsubmit="SubmitTeamNameSuggestionAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <div style="flex: 1;">
+                <FrameworkInputText @bind-Value="_newTeamNameInput" Placeholder="Neuer Teamname..." MaxLength="60" />
+            </div>
+            <FrameworkButton Label="Vorschlagen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newTeamNameInput))" />
+        </form>
+
+        @if (!string.IsNullOrEmpty(_teamNameError))
+        {
+            <FrameworkNotice Message="@_teamNameError" Severity="error" Style="margin-bottom: 10px;" />
+        }
+
+        <FrameworkFlexColumn Gap="6px">
+            @if (_teamSuggestions.Length == 0)
+            {
+                <p style="color: #657276; font-size: 12px; text-align: center; margin: 12px 0;">Noch keine Namensvorschläge eingereicht.</p>
+            }
+            else
+            {
+                @foreach (var sug in _teamSuggestions)
+                {
+                    <FrameworkListItem Style="padding: 8px 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 14px; color: #1d2528;">@sug.SuggestedName</strong>
+                            <span style="font-size: 11px; color: #657276;">Von @sug.SubmittedBy &bull; @sug.Votes von @sug.RequiredVotes Stimmen benötigt</span>
+                        </div>
+                        <button type="button" @onclick="() => ToggleTeamVoteAsync(sug.Id)" style="border: 1px solid @(sug.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(sug.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(sug.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 10px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
+                            <span>@sug.Votes</span>
+                        </button>
+                    </FrameworkListItem>
+                }
+            }
+        </FrameworkFlexColumn>
+    </Card>
+}
+else if (_activeActionView == "song_wishes")
+{
+    <!-- SUB-VIEW: DJ JUKEBOX & SONG WISHES -->
+    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
+        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <span class="material-symbols-outlined">arrow_back</span>
+                <span>Zurück zu Aktionen</span>
+            </button>
+        </FrameworkFlexRow>
+
+        <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">DJ-Jukebox & Musikwünsche</h3>
+        <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Wünsche dir Songs für die Party oder stimme für Songs anderer ab!</p>
+
+        <form @onsubmit="SubmitSongWishAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+            <FrameworkInputText @bind-Value="_newSongTitleInput" Placeholder="Songtitel..." MaxLength="100" />
+            <FrameworkFlexRow Gap="8px">
+                <div style="flex: 1;">
+                    <FrameworkInputText @bind-Value="_newSongArtistInput" Placeholder="Künstler (optional)..." MaxLength="100" />
+                </div>
+                <FrameworkButton Label="Wünschen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newSongTitleInput))" />
+            </FrameworkFlexRow>
+        </form>
+
+        @if (!string.IsNullOrEmpty(_songWishError))
+        {
+            <FrameworkNotice Message="@_songWishError" Severity="error" Style="margin-bottom: 10px;" />
+        }
+
+        <FrameworkFlexColumn Gap="6px">
+            @if (_songWishes.Length == 0)
+            {
+                <p style="color: #657276; font-size: 12px; text-align: center; margin: 12px 0;">Noch keine Musikwünsche eingereicht.</p>
+            }
+            else
+            {
+                @foreach (var wish in _songWishes)
+                {
+                    <FrameworkListItem Style="padding: 8px 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@wish.SongTitle</strong>
+                            <span style="font-size: 11px; color: #657276; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @(string.IsNullOrWhiteSpace(wish.Artist) ? "Unbekannter Künstler" : wish.Artist) &bull; @wish.SubmittedBy
+                            </span>
+                        </div>
+                        <button type="button" @onclick="() => ToggleSongVoteAsync(wish.Id)" style="border: 1px solid @(wish.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(wish.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(wish.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 8px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
+                            <span>@wish.Votes</span>
+                        </button>
+                    </FrameworkListItem>
+                }
+            }
+        </FrameworkFlexColumn>
+    </Card>
+}
 else
 {
     <!-- MAIN ACTIONS TAB: GROUPED BUTTON LIST -->
     <FrameworkFlexColumn Gap="14px">
-        <!-- CATEGORY 1: PROFIL & KONTO -->
+        <!-- CATEGORY 1: DYNAMISCHE EVENT-INFOS & SPEISEKARTEN -->
+        @if (_infoPages.Length > 0)
+        {
+            <div>
+                <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">EVENT-INFOS & MENÜS</span>
+                <FrameworkFlexColumn Gap="6px">
+                    @foreach (var infoPage in _infoPages)
+                    {
+                        <button type="button" @onclick="() => OpenInfoPage(infoPage)" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
+                            <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
+                                <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">@infoPage.Icon</span>
+                                </div>
+                                <div style="min-width: 0; flex: 1;">
+                                    <strong style="display: block; font-size: 14px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@infoPage.Title</strong>
+                                    <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Antippen zum Öffnen</span>
+                                </div>
+                            </FrameworkFlexRow>
+                            <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
+                        </button>
+                    }
+                </FrameworkFlexColumn>
+            </div>
+        }
+
+        <!-- CATEGORY 2: PROFIL & KONTO -->
         <div>
             <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">PROFIL-AKTIONEN</span>
             <FrameworkFlexColumn Gap="6px">
@@ -47,28 +197,39 @@ else
             </FrameworkFlexColumn>
         </div>
 
-        <!-- CATEGORY 2: TEAM & INTERAKTION -->
+        <!-- CATEGORY 3: TEAM & INTERAKTION -->
         <div>
-            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">TEAM-AKTIONEN</span>
+            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">TEAM & PARTY-AKTIONEN</span>
             <FrameworkFlexColumn Gap="6px">
-                <button type="button" style="width: 100%; padding: 10px 12px; border: 1.5px dashed #cbd7d3; border-radius: 12px; background: #fafcfb; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: not-allowed; text-align: left; box-sizing: border-box;">
+                <button type="button" @onclick="OpenTeamNameViewAsync" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
                     <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                             <span class="material-symbols-outlined" style="font-size: 18px;">lightbulb</span>
                         </div>
                         <div style="min-width: 0; flex: 1;">
-                            <strong style="display: block; font-size: 13px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teamnamen vorschlagen</strong>
-                            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Namensideen an den Moderator senden</span>
+                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teamnamen vorschlagen & abstimmen</strong>
+                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Gemeinsam Namensideen sammeln</span>
                         </div>
                     </FrameworkFlexRow>
-                    <div style="flex-shrink: 0;">
-                        <FrameworkBadge Text="Demnächst" Variant="secondary" />
-                    </div>
+                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
+                </button>
+
+                <button type="button" @onclick="OpenSongWishesViewAsync" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
+                    <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
+                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">music_note</span>
+                        </div>
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">DJ-Jukebox & Musikwünsche</strong>
+                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Songs wünschen & upvoten</span>
+                        </div>
+                    </FrameworkFlexRow>
+                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
                 </button>
             </FrameworkFlexColumn>
         </div>
 
-        <!-- CATEGORY 3: SITZUNG -->
+        <!-- CATEGORY 4: SITZUNG -->
         <div>
             <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">SITZUNGS-DETAILS</span>
             <FrameworkFlexColumn Gap="6px">
@@ -92,6 +253,8 @@ else
 }
 
 @code {
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public string ProjectName { get; set; } = string.Empty;
     [Parameter] public int ParticipantNumber { get; set; }
     [Parameter] public string NameInput { get; set; } = string.Empty;
@@ -100,6 +263,137 @@ else
     [Parameter] public EventCallback OnSaveName { get; set; }
 
     private string? _activeActionView;
+    private ProjectInfoPageDto[] _infoPages = [];
+    private ProjectInfoPageDto? _selectedInfoPage;
+
+    private TeamNameSuggestionDto[] _teamSuggestions = [];
+    private string _newTeamNameInput = string.Empty;
+    private string? _teamNameError;
+
+    private SongWishDto[] _songWishes = [];
+    private string _newSongTitleInput = string.Empty;
+    private string _newSongArtistInput = string.Empty;
+    private string? _songWishError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInfoPagesAsync();
+    }
+
+    private async Task LoadInfoPagesAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            _infoPages = await ProjectApiClient.GetInfoPagesAsync(AccessToken, ProjectId);
+        }
+        catch
+        {
+        }
+    }
+
+    private void OpenInfoPage(ProjectInfoPageDto infoPage)
+    {
+        _selectedInfoPage = infoPage;
+    }
+
+    private async Task OpenTeamNameViewAsync()
+    {
+        _activeActionView = "team_name";
+        await LoadTeamSuggestionsAsync();
+    }
+
+    private async Task LoadTeamSuggestionsAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            _teamSuggestions = await ProjectApiClient.GetMyTeamNameSuggestionsAsync(AccessToken, ProjectId);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task SubmitTeamNameSuggestionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newTeamNameInput) || string.IsNullOrEmpty(AccessToken)) return;
+        _teamNameError = null;
+        try
+        {
+            var text = _newTeamNameInput.Trim();
+            _newTeamNameInput = string.Empty;
+            await ProjectApiClient.SubmitTeamNameSuggestionAsync(AccessToken, ProjectId, text);
+            await LoadTeamSuggestionsAsync();
+        }
+        catch (Exception ex)
+        {
+            _teamNameError = ex.Message;
+        }
+    }
+
+    private async Task ToggleTeamVoteAsync(Guid suggestionId)
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            await ProjectApiClient.ToggleTeamNameVoteAsync(AccessToken, ProjectId, suggestionId);
+            await LoadTeamSuggestionsAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task OpenSongWishesViewAsync()
+    {
+        _activeActionView = "song_wishes";
+        await LoadSongWishesAsync();
+    }
+
+    private async Task LoadSongWishesAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            _songWishes = await ProjectApiClient.GetSongWishesAsync(AccessToken, ProjectId);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task SubmitSongWishAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newSongTitleInput) || string.IsNullOrEmpty(AccessToken)) return;
+        _songWishError = null;
+        try
+        {
+            var title = _newSongTitleInput.Trim();
+            var artist = _newSongArtistInput.Trim();
+            _newSongTitleInput = string.Empty;
+            _newSongArtistInput = string.Empty;
+            await ProjectApiClient.SubmitSongWishAsync(AccessToken, ProjectId, title, artist);
+            await LoadSongWishesAsync();
+        }
+        catch (Exception ex)
+        {
+            _songWishError = ex.Message;
+        }
+    }
+
+    private async Task ToggleSongVoteAsync(Guid wishId)
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            await ProjectApiClient.ToggleSongWishVoteAsync(AccessToken, ProjectId, wishId);
+            await LoadSongWishesAsync();
+        }
+        catch
+        {
+        }
+    }
 
     private async Task SaveNameAndCloseSubView()
     {

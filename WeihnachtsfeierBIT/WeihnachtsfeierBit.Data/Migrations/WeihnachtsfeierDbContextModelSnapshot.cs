@@ -313,6 +313,43 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("GameInstanceEventResponses");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjectInfoPage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentMarkdown")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsVisible")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("ProjectInfoPages");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -535,6 +572,63 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SongWish", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Artist")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SongTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("VoteCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("ProjektId");
+
+                    b.ToTable("SongWishes");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SongWishVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SongWishId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("SongWishId", "ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("SongWishVotes");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
                 {
                     b.Property<Guid>("Id")
@@ -560,6 +654,59 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasIndex("ProjektId");
 
                     b.ToTable("Teams");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamNameSuggestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SuggestedName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("VoteCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("TeamNameSuggestions");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamNameVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SuggestionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.HasIndex("SuggestionId", "ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("TeamNameVotes");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
@@ -798,6 +945,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Participant");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjectInfoPage", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
@@ -876,6 +1034,44 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Show");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SongWish", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+
+                    b.Navigation("Projekt");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SongWishVote", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.SongWish", "SongWish")
+                        .WithMany("Votes")
+                        .HasForeignKey("SongWishId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+
+                    b.Navigation("SongWish");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
@@ -885,6 +1081,44 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Projekt");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamNameSuggestion", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+
+                    b.Navigation("Team");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamNameVote", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.TeamNameSuggestion", "Suggestion")
+                        .WithMany("Votes")
+                        .HasForeignKey("SuggestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Participant");
+
+                    b.Navigation("Suggestion");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
@@ -944,9 +1178,19 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Slides");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SongWish", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Team", b =>
                 {
                     b.Navigation("Teilnehmer");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamNameSuggestion", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>

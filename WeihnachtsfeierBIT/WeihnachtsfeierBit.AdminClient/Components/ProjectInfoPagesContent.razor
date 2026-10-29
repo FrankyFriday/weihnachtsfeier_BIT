@@ -1,0 +1,237 @@
+@using WeihnachtsfeierBit.Framework
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <PageHeading Eyebrow="INFO-SEITEN & MENÜS" Title="Event-Informationen & Speisekarten" Description="Erstelle dynamische Info-Seiten, Menükarten und Hinweise mit einfacher Markdown-Formatierung." />
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Info-Seiten werden geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+    }
+    else
+    {
+        <FrameworkFlexRow Justify="space-between" Style="margin-bottom: 16px;">
+            <span style="font-size: 14px; color: #64748b; font-weight: 600;">@_pages.Length konfigurierte Info-Seiten</span>
+            <FrameworkButton Label="Neue Info-Seite anlegen" Variant="primary" OnClick="OpenCreateModal" />
+        </FrameworkFlexRow>
+
+        @if (_pages.Length == 0)
+        {
+            <EmptyState Title="Keine Info-Seiten vorhanden" Description="Erstelle deine erste Info-Seite (z. B. Büfett & Speisekarte, Shuttle-Zeiten oder WLAN).">
+                <FrameworkButton Label="Jetzt anlegen" Variant="primary" OnClick="OpenCreateModal" />
+            </EmptyState>
+        }
+        else
+        {
+            <div style="display: grid; gap: 12px;">
+                @foreach (var p in _pages)
+                {
+                    <div style="padding: 14px 16px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                            <div style="width: 40px; height: 40px; border-radius: 10px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 22px;">@p.Icon</span>
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong style="font-size: 15px; color: #1d2528;">@p.Title</strong>
+                                    <FrameworkBadge Text="@(p.IsVisible ? "Sichtbar" : "Versteckt")" Variant="@(p.IsVisible ? "success" : "secondary")" />
+                                </div>
+                                <span style="font-size: 12px; color: #64748b; display: block; margin-top: 2px;">
+                                    Position: @p.Position &bull; Erstellt am: @p.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                </span>
+                            </div>
+                        </div>
+
+                        <FrameworkFlexRow Gap="8px" Justify="flex-end" Style="flex-shrink: 0;">
+                            <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(p)" />
+                            <FrameworkButton Label="Löschen" Variant="secondary" OnClick="() => DeletePageAsync(p.Id)" />
+                        </FrameworkFlexRow>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <!-- CREATE / EDIT MODAL WITH LIVE MARKDOWN PREVIEW -->
+    <FrameworkModal IsOpen="_isModalOpen" Title="@(_editingPageId == null ? "Neue Info-Seite anlegen" : "Info-Seite bearbeiten")" OnClose="CloseModal">
+        <div style="display: grid; gap: 14px; max-height: 75vh; overflow-y: auto; padding-right: 4px;">
+            <FrameworkFormGroup Label="Titel der Seite">
+                <FrameworkInputText @bind-Value="_formTitle" Placeholder="z. B. Büfett & Speisekarte" />
+            </FrameworkFormGroup>
+
+            <FrameworkGrid Columns="1fr 1fr" Gap="12px">
+                <FrameworkFormGroup Label="Icon (Material Symbol)">
+                    <FrameworkSelect Value="@_formIcon" ValueChanged='v => _formIcon = v ?? "info"' Options="_iconOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Anzeige-Position">
+                    <FrameworkInputText Value="@_formPosition.ToString()" ValueChanged="v => int.TryParse(v, out _formPosition)" Type="number" />
+                </FrameworkFormGroup>
+            </FrameworkGrid>
+
+            <FrameworkCheckbox @bind-Value="_formIsVisible" Label="Info-Seite für Teilnehmer anzeigen" />
+
+            <FrameworkDivider />
+
+            <div>
+                <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 6px;">
+                    <label class="framework-form-label" style="margin: 0;">Inhalt (Markdown)</label>
+                    <span style="font-size: 11px; color: #64748b;">Verwende ## für Überschriften, - für Listen und **fett**</span>
+                </FrameworkFlexRow>
+
+                <!-- TAB-SWITCH: EDITOR vs LIVE PREVIEW -->
+                <div style="display: flex; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid #dce5e2; padding-bottom: 4px;">
+                    <button type="button" @onclick='() => _previewMode = false' style="border: none; background: @(!_previewMode ? "#105c4d" : "transparent"); color: @(!_previewMode ? "#fff" : "#475569"); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                        Editor
+                    </button>
+                    <button type="button" @onclick='() => _previewMode = true' style="border: none; background: @(_previewMode ? "#105c4d" : "transparent"); color: @(_previewMode ? "#fff" : "#475569"); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                        Live-Vorschau
+                    </button>
+                </div>
+
+                @if (!_previewMode)
+                {
+                    <textarea value="@_formMarkdown" @oninput="e => _formMarkdown = e.Value?.ToString() ?? string.Empty" rows="10" placeholder="## Vorspeisen&#10;- **Maronensuppe** *(Vegetarisch)*&#10;&#10;## Hauptspeisen&#10;- **Entenbrust** mit Rotkohl" style="width: 100%; font-family: monospace; font-size: 13px; padding: 10px; border: 1.5px solid #dce5e2; border-radius: 8px; box-sizing: border-box; resize: vertical;"></textarea>
+                }
+                else
+                {
+                    <div style="padding: 12px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 8px; min-height: 180px;">
+                        <FrameworkMarkdown Content="@_formMarkdown" />
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(_modalError))
+            {
+                <FrameworkNotice Message="@_modalError" Severity="error" />
+            }
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModal" />
+                <FrameworkButton Label="Speichern" Variant="primary" OnClick="SavePageAsync" Busy="_isSaving" />
+            </div>
+        </div>
+    </FrameworkModal>
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private ProjectInfoPageDto[] _pages = [];
+
+    private bool _isModalOpen;
+    private Guid? _editingPageId;
+    private string _formTitle = string.Empty;
+    private string _formIcon = "restaurant";
+    private int _formPosition = 0;
+    private bool _formIsVisible = true;
+    private string _formMarkdown = string.Empty;
+
+    private bool _previewMode;
+    private bool _isSaving;
+    private string? _modalError;
+
+    private static readonly FrameworkSelectOption[] _iconOptions =
+    [
+        new("restaurant", "Speisekarte / Essen"),
+        new("local_bar", "Getränke / Bar"),
+        new("directions_bus", "Shuttle / Anreise"),
+        new("wifi", "WLAN / Netzwerk"),
+        new("info", "Informationen / Allgemein"),
+        new("schedule", "Ablauf / Zeiten"),
+        new("help", "Häufige Fragen / FAQ")
+    ];
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        await LoadDataAsync();
+    });
+
+    private async Task LoadDataAsync()
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            _pages = await ProjectApiClient.GetInfoPagesAsync(token, ProjectId);
+            StateHasChanged();
+        });
+    }
+
+    private void OpenCreateModal()
+    {
+        _editingPageId = null;
+        _formTitle = string.Empty;
+        _formIcon = "restaurant";
+        _formPosition = _pages.Length * 10;
+        _formIsVisible = true;
+        _formMarkdown = "## Vorspeisen\n- **Maronencremesuppe** *(Vegetarisch)*\n\n## Hauptspeisen\n- **Entenbrust** mit Rotkohl & Klößen\n\n## Desserts\n- **Bratapfel-Tiramisu**";
+        _previewMode = false;
+        _modalError = null;
+        _isModalOpen = true;
+    }
+
+    private void OpenEditModal(ProjectInfoPageDto page)
+    {
+        _editingPageId = page.Id;
+        _formTitle = page.Title;
+        _formIcon = page.Icon;
+        _formPosition = page.Position;
+        _formIsVisible = page.IsVisible;
+        _formMarkdown = page.ContentMarkdown;
+        _previewMode = false;
+        _modalError = null;
+        _isModalOpen = true;
+    }
+
+    private void CloseModal() => _isModalOpen = false;
+
+    private async Task SavePageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_formTitle))
+        {
+            _modalError = "Bitte gib einen Titel ein.";
+            return;
+        }
+
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                if (_editingPageId == null)
+                {
+                    await ProjectApiClient.CreateInfoPageAsync(token, ProjectId, _formTitle, _formIcon, _formPosition, _formIsVisible, _formMarkdown);
+                }
+                else
+                {
+                    await ProjectApiClient.UpdateInfoPageAsync(token, ProjectId, _editingPageId.Value, _formTitle, _formIcon, _formPosition, _formIsVisible, _formMarkdown);
+                }
+
+                _isModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeletePageAsync(Guid id)
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            await ProjectApiClient.DeleteInfoPageAsync(token, ProjectId, id);
+            await LoadDataAsync();
+        });
+    }
+}
