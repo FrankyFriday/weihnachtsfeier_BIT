@@ -1,0 +1,44 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.Layout
+@inject NavigationManager Navigation
+
+@if (ProjectId.HasValue)
+{
+    <div class="admin-mobile-bottom-bar">
+        <a href="@ProjectUrl("session")" class="admin-mobile-nav-item @(CurrentSection == "session" ? "active" : null)">
+            <span class="material-symbols-outlined">play_circle</span>
+            <span>Session</span>
+        </a>
+        <a href="@ProjectUrl("chat")" class="admin-mobile-nav-item @(CurrentSection == "chat" ? "active" : null)">
+            <span class="material-symbols-outlined">chat</span>
+            <span>Chat</span>
+        </a>
+        <a href="@ProjectUrl("participants")" class="admin-mobile-nav-item @(CurrentSection == "participants" ? "active" : null)">
+            <span class="material-symbols-outlined">group</span>
+            <span>Gäste</span>
+        </a>
+        <a href="@ProjectUrl("jukebox")" class="admin-mobile-nav-item @(CurrentSection == "jukebox" ? "active" : null)">
+            <span class="material-symbols-outlined">music_note</span>
+            <span>Musik</span>
+        </a>
+        <button type="button" @onclick="OnToggleMenu" class="admin-mobile-nav-item">
+            <span class="material-symbols-outlined">menu</span>
+            <span>Menü</span>
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? ProjectId { get; set; }
+    [Parameter] public EventCallback OnToggleMenu { get; set; }
+
+    private string CurrentSection => GetProjectSection(Navigation.Uri);
+
+    private string ProjectUrl(string section) =>
+        $"{Navigation.BaseUri}projects/{ProjectId}/{section}";
+
+    private string GetProjectSection(string uri)
+    {
+        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 3 && segments[0] == "projects" ? segments[2] : "overview";
+    }
+}

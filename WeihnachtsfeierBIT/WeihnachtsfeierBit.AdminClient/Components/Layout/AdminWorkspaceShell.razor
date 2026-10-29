@@ -1,10 +1,25 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.Layout
 @inject NavigationManager Navigation
 
-<div class="admin-shell">
-    <ProjectSidebar />
+<div class="admin-shell @(_isMobileMenuOpen ? "mobile-drawer-open" : null)">
+    @if (_isMobileMenuOpen)
+    {
+        <div class="admin-mobile-backdrop" @onclick="CloseMobileMenu"></div>
+    }
+
+    <div class="admin-sidebar-wrapper @(_isMobileMenuOpen ? "open" : null)">
+        <ProjectSidebar OnCloseMobile="CloseMobileMenu" />
+    </div>
+
     <div class="workspace-column">
         <header class="topbar">
-            <a class="brand" href="@Navigation.BaseUri">Weihnachtsfeier <span>Admin</span></a>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="button" class="admin-mobile-toggle-btn" @onclick="ToggleMobileMenu" title="Menü öffnen">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <a class="brand" href="@Navigation.BaseUri">Weihnachtsfeier <span>Admin</span></a>
+            </div>
+
             <AuthorizeView>
                 <Authorized Context="auth">
                     <details class="profile-menu">
@@ -22,15 +37,31 @@
                 </Authorized>
             </AuthorizeView>
         </header>
+
         <main class="page-content">
             @ChildContent
         </main>
     </div>
+
+    <AdminMobileBottomBar ProjectId="@CurrentProjectId" OnToggleMenu="ToggleMobileMenu" />
 </div>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
+    private bool _isMobileMenuOpen;
+
+    private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
+
+    private void ToggleMobileMenu() => _isMobileMenuOpen = !_isMobileMenuOpen;
+    private void CloseMobileMenu() => _isMobileMenuOpen = false;
+
     private static string Initial(string? name) =>
         string.IsNullOrWhiteSpace(name) ? "A" : name.Trim()[..1].ToUpperInvariant();
+
+    private Guid? GetProjectId(string uri)
+    {
+        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 2 && segments[0] == "projects" && Guid.TryParse(segments[1], out var id) ? id : null;
+    }
 }
