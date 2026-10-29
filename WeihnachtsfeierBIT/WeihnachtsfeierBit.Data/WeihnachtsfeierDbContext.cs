@@ -20,6 +20,11 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<AdminChatRead> AdminChatReads => Set<AdminChatRead>();
     public DbSet<ChatUserRead> ChatUserReads => Set<ChatUserRead>();
+    public DbSet<ProjectInfoPage> ProjectInfoPages => Set<ProjectInfoPage>();
+    public DbSet<TeamNameSuggestion> TeamNameSuggestions => Set<TeamNameSuggestion>();
+    public DbSet<TeamNameVote> TeamNameVotes => Set<TeamNameVote>();
+    public DbSet<SongWish> SongWishes => Set<SongWish>();
+    public DbSet<SongWishVote> SongWishVotes => Set<SongWishVote>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -176,6 +181,46 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         chatUserReads.HasOne(cur => cur.ProjektAdmin)
             .WithMany()
             .HasForeignKey(cur => cur.ProjektAdminId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var infoPages = modelBuilder.Entity<ProjectInfoPage>();
+        infoPages.HasOne(ip => ip.Projekt)
+            .WithMany()
+            .HasForeignKey(ip => ip.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var suggestions = modelBuilder.Entity<TeamNameSuggestion>();
+        suggestions.HasOne(s => s.Team)
+            .WithMany()
+            .HasForeignKey(s => s.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+        suggestions.HasOne(s => s.Participant)
+            .WithMany()
+            .HasForeignKey(s => s.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var teamVotes = modelBuilder.Entity<TeamNameVote>();
+        teamVotes.HasIndex(v => new { v.SuggestionId, v.ParticipantId }).IsUnique();
+        teamVotes.HasOne(v => v.Suggestion)
+            .WithMany(s => s.Votes)
+            .HasForeignKey(v => v.SuggestionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var songWishes = modelBuilder.Entity<SongWish>();
+        songWishes.HasOne(sw => sw.Projekt)
+            .WithMany()
+            .HasForeignKey(sw => sw.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+        songWishes.HasOne(sw => sw.Participant)
+            .WithMany()
+            .HasForeignKey(sw => sw.ParticipantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var songVotes = modelBuilder.Entity<SongWishVote>();
+        songVotes.HasIndex(v => new { v.SongWishId, v.ParticipantId }).IsUnique();
+        songVotes.HasOne(v => v.SongWish)
+            .WithMany(sw => sw.Votes)
+            .HasForeignKey(v => v.SongWishId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()

@@ -1,0 +1,102 @@
+@namespace WeihnachtsfeierBit.Framework
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Components
+
+<div class="framework-markdown @Class" style="@Style">
+    @foreach (var block in RenderMarkdownBlocks(Content))
+    {
+        @block
+    }
+</div>
+
+@code {
+    [Parameter] public string Content { get; set; } = string.Empty;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private static IEnumerable<RenderFragment> RenderMarkdownBlocks(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) yield break;
+
+        var lines = markdown.Replace("\r\n", "\n").Split('\n');
+        List<string> currentListItems = new();
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd();
+
+            if (line.StartsWith("- ") || line.StartsWith("* "))
+            {
+                currentListItems.Add(line[2..].Trim());
+                continue;
+            }
+
+            if (currentListItems.Count > 0)
+            {
+                var listCopy = currentListItems.ToList();
+                currentListItems.Clear();
+                yield return RenderList(listCopy);
+            }
+
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            if (line.StartsWith("# "))
+            {
+                var text = line[2..].Trim();
+                yield return builder => builder.AddMarkupContent(0, $"<h1 style=\"font-size: 18px; font-weight: 800; color: #1d2528; margin: 14px 0 8px 0;\">{FormatInline(text)}</h1>");
+            }
+            else if (line.StartsWith("## "))
+            {
+                var text = line[3..].Trim();
+                yield return builder => builder.AddMarkupContent(0, $"<h2 style=\"font-size: 15px; font-weight: 800; color: #105c4d; margin: 12px 0 6px 0; padding-bottom: 4px; border-bottom: 1.5px solid #dce5e2;\">{FormatInline(text)}</h2>");
+            }
+            else if (line.StartsWith("### "))
+            {
+                var text = line[4..].Trim();
+                yield return builder => builder.AddMarkupContent(0, $"<h3 style=\"font-size: 13px; font-weight: 700; color: #1d2528; margin: 10px 0 4px 0;\">{FormatInline(text)}</h3>");
+            }
+            else
+            {
+                yield return builder => builder.AddMarkupContent(0, $"<p style=\"font-size: 13px; color: #334155; line-height: 1.5; margin: 4px 0;\">{FormatInline(line)}</p>");
+            }
+        }
+
+        if (currentListItems.Count > 0)
+        {
+            yield return RenderList(currentListItems);
+        }
+    }
+
+    private static RenderFragment RenderList(List<string> items) => builder =>
+    {
+        builder.AddMarkupContent(0, "<ul style=\"padding-left: 0; margin: 6px 0 10px 0; list-style: none; display: grid; gap: 6px;\">");
+        foreach (var item in items)
+        {
+            builder.AddMarkupContent(1, $"<li style=\"padding: 8px 10px; background: #ffffff; border: 1px solid #dce5e2; border-radius: 8px; font-size: 13px; color: #1d2528; display: flex; align-items: center; justify-content: space-between; gap: 8px;\"><span>{FormatInline(item)}</span></li>");
+        }
+        builder.AddMarkupContent(2, "</ul>");
+    };
+
+    private static string FormatInline(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+
+        string html = System.Net.WebUtility.HtmlEncode(input);
+
+        // Bold **text**
+        html = Regex.Replace(html, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+
+        // Italic *text*
+        html = Regex.Replace(html, @"\*(.*?)\*", "<em style=\"color: #64748b;\">$1</em>");
+
+        // Code `code`
+        html = Regex.Replace(html, @"`(.*?)`", "<code style=\"background: #e8f3ef; color: #105c4d; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 12px;\">$1</code>");
+
+        // Badges for Veggie / Vegan / Glutenfrei
+        html = html.Replace("(Vegan)", "<span class=\"framework-badge success\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #15803d; margin-left: 6px;\">Vegan</span>");
+        html = html.Replace("(Vegetarisch)", "<span class=\"framework-badge success\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #15803d; margin-left: 6px;\">Veggie</span>");
+        html = html.Replace("(Glutenfrei)", "<span class=\"framework-badge warning\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #fef3c7; color: #b45309; margin-left: 6px;\">Glutenfrei</span>");
+
+        return html;
+    }
+}

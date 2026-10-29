@@ -42,7 +42,9 @@
             }
             else if (_activeTab == "actions")
             {
-                <ParticipantProfileActions ProjectName="@ProjectName"
+                <ParticipantProfileActions ProjectId="@ProjectId"
+                                          AccessToken="@AccessToken"
+                                          ProjectName="@ProjectName"
                                           ParticipantNumber="@ParticipantNumber"
                                           NameInput="@NameInput"
                                           IsSavingName="@IsSavingName"
