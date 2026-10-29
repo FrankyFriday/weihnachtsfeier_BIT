@@ -1,0 +1,22 @@
+@namespace WeihnachtsfeierBit.Framework
+
+<button type="button"
+        class="framework-icon-button @Variant @Class"
+        style="padding: 6px 10px; border-radius: 6px; border: 1.5px solid #dce5e2; background: #ffffff; color: #105c4d; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease; @Style"
+        title="@Title"
+        disabled="@Disabled"
+        @onclick="OnClick"
+        @attributes="AdditionalAttributes">
+    <span class="material-symbols-outlined" style="font-size: 18px;">@Icon</span>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = "settings";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Variant { get; set; } = "secondary";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

@@ -136,6 +136,31 @@ public static class SessionControlEndpoints
             return Results.NotFound();
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Title))
+        {
+            ev.Title = request.Title.Trim();
+        }
+
+        if (request.Subtitle is not null)
+        {
+            ev.Subtitle = string.IsNullOrWhiteSpace(request.Subtitle) ? null : request.Subtitle.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.NavigationMode))
+        {
+            ev.NavigationMode = string.Equals(request.NavigationMode, "self_paced", StringComparison.OrdinalIgnoreCase) ? "self_paced" : "host_controlled";
+        }
+
+        if (request.ScheduledStartUtc.HasValue)
+        {
+            ev.ScheduledStartUtc = request.ScheduledStartUtc.Value;
+        }
+
+        if (request.AutoStartOnSchedule.HasValue)
+        {
+            ev.AutoStartOnSchedule = request.AutoStartOnSchedule.Value;
+        }
+
         if (request.Mode is string newMode && !string.IsNullOrWhiteSpace(newMode))
         {
             var cleanMode = string.Equals(newMode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";

@@ -8,8 +8,8 @@
             <nav aria-label="Workspace-Navigation">
                 <div class="sidebar-section">
                     <span class="sidebar-label">WORKSPACE</span>
-                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri">Projekte</a>
-                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl">Shows</a>
+                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri" @onclick="HandleLinkClick">Projekte</a>
+                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl" @onclick="HandleLinkClick">Shows</a>
                 </div>
 
                 @if (CurrentShow is not null)
@@ -17,8 +17,8 @@
                     <div class="sidebar-section sidebar-current-project">
                         <span class="sidebar-label">AKTUELLE SHOW</span>
                         <strong>@CurrentShow.Name</strong>
-                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)">Slides & Editor</a>
-                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")">Einstellungen</a>
+                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)" @onclick="HandleLinkClick">Slides & Editor</a>
+                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")" @onclick="HandleLinkClick">Einstellungen</a>
                     </div>
                 }
                 else if (CurrentProject is not null)
@@ -29,27 +29,27 @@
 
                         @if (_activeInstance is not null)
                         {
-                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
                                 <span class="live-dot"></span>
                                 <span>Play-Session (@_activeInstance.AccessCode)</span>
                             </a>
                         }
                         else
                         {
-                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")">
+                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
                                 <span>Play-Session</span>
                             </a>
                         }
 
-                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)">Übersicht</a>
-                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")">Teilnehmer</a>
-                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")">Teams</a>
-                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")">Live-Chat & Support</a>
-                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")">Info-Seiten & Menüs</a>
-                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")">DJ-Jukebox & Musik</a>
-                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")">Verknüpfte Shows</a>
-                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")">Session-Historie</a>
-                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")">Einstellungen</a>
+                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick">Übersicht</a>
+                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick">Teilnehmer</a>
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick">Teams</a>
+                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick">Live-Chat & Support</a>
+                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick">Info-Seiten & Menüs</a>
+                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick">DJ-Jukebox & Musik</a>
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")" @onclick="HandleLinkClick">Verknüpfte Shows</a>
+                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")" @onclick="HandleLinkClick">Session-Historie</a>
+                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")" @onclick="HandleLinkClick">Einstellungen</a>
                     </div>
                 }
 
@@ -59,7 +59,7 @@
                         <span class="sidebar-label">PROJEKTE</span>
                         @foreach (var project in _projects)
                         {
-                            <a class="sidebar-link" href="@ProjectUrl(project.Id)" @key="project.Id">
+                            <a class="sidebar-link" href="@ProjectUrl(project.Id)" @key="project.Id" @onclick="HandleLinkClick">
                                 <span class="sidebar-project-dot"></span>
                                 <span class="sidebar-project-name">@project.Name</span>
                             </a>
@@ -72,6 +72,8 @@
 </AuthorizeView>
 
 @code {
+    [Parameter] public EventCallback OnCloseMobile { get; set; }
+
     private ProjectSummary[] _projects = [];
     private AdminShow[] _shows = [];
     private GameInstanceSummary? _activeInstance;
@@ -111,6 +113,14 @@
                 _activeInstance = null;
             }
         });
+    }
+
+    private async Task HandleLinkClick()
+    {
+        if (OnCloseMobile.HasDelegate)
+        {
+            await OnCloseMobile.InvokeAsync();
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(async () =>

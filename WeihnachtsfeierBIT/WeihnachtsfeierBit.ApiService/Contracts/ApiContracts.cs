@@ -59,6 +59,11 @@ public sealed record CreateSpontaneousEventRequest(
     bool? AutoStartOnSchedule);
 
 public sealed record UpdateSessionEventRequest(
+    string? Title,
+    string? Subtitle,
+    string? NavigationMode,
+    DateTime? ScheduledStartUtc,
+    bool? AutoStartOnSchedule,
     int? CurrentSlideIndex,
     string? Mode,
     bool? IsHidden,
