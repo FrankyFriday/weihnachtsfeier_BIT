@@ -1,0 +1,74 @@
+@namespace WeihnachtsfeierBit.Framework
+
+<div class="framework-context-menu-container @Class" style="position: relative; display: inline-block; @Style" @attributes="AdditionalAttributes">
+    @if (TriggerTemplate is not null)
+    {
+        <div @onclick="ToggleMenu">
+            @TriggerTemplate
+        </div>
+    }
+    else
+    {
+        <FrameworkButton Label="@Label" Icon="@Icon" Variant="@Variant" Disabled="@Disabled" OnClick="ToggleMenu" />
+    }
+
+    @if (_isOpen)
+    {
+        <!-- BACKDROP OVERLAY TO CLOSE MENU WHEN CLICKING OUTSIDE -->
+        <div style="position: fixed; inset: 0; z-index: 9998; background: transparent;" @onclick="CloseMenu"></div>
+
+        <!-- FLOATING OVERLAY MENU -->
+        <div style="position: absolute; top: calc(100% + 6px); right: @(AlignRight ? "0" : "auto"); left: @(AlignRight ? "auto" : "0"); min-width: 220px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; padding: 6px; display: flex; flex-direction: column; gap: 2px;">
+            @if (ChildContent is not null)
+            {
+                @ChildContent
+            }
+            else if (Options is not null)
+            {
+                @foreach (var opt in Options)
+                {
+                    <button type="button"
+                            @onclick="() => SelectOption(opt.Value)"
+                            style="padding: 10px 12px; border: none; background: transparent; text-align: left; font-size: 13px; font-weight: 600; color: #1d2528; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.15s ease;"
+                            onmouseover="this.style.background='#f0f8f4'"
+                            onmouseout="this.style.background='transparent'">
+                        @if (!string.IsNullOrEmpty(opt.Icon))
+                        {
+                            <span class="material-symbols-outlined" style="font-size: 18px; color: #105c4d;">@opt.Icon</span>
+                        }
+                        <span>@opt.Label</span>
+                    </button>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Aktionen";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool AlignRight { get; set; } = true;
+    [Parameter] public FrameworkDropdownOption[]? Options { get; set; }
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+    [Parameter] public RenderFragment? TriggerTemplate { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isOpen;
+
+    public void ToggleMenu() => _isOpen = !_isOpen;
+    public void CloseMenu() => _isOpen = false;
+
+    private async Task SelectOption(string value)
+    {
+        _isOpen = false;
+        if (OnSelect.HasDelegate)
+        {
+            await OnSelect.InvokeAsync(value);
+        }
+    }
+}

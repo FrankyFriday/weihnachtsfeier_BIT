@@ -484,6 +484,11 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         string accessToken,
         Guid projectId,
         Guid eventId,
+        string? title = null,
+        string? subtitle = null,
+        string? navigationMode = null,
+        DateTime? scheduledStartUtc = null,
+        bool? autoStartOnSchedule = null,
         int? currentSlideIndex = null,
         string? mode = null,
         bool? isHidden = null,
@@ -492,6 +497,11 @@ public sealed class ProjectApiClient(HttpClient httpClient)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}", accessToken, new
         {
+            title,
+            subtitle,
+            navigationMode,
+            scheduledStartUtc,
+            autoStartOnSchedule,
             currentSlideIndex,
             mode,
             isHidden,

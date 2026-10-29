@@ -1,0 +1,22 @@
+@namespace WeihnachtsfeierBit.Framework
+
+<FrameworkContextMenu Label="@Label"
+                      Icon="@Icon"
+                      Variant="@Variant"
+                      Disabled="@Disabled"
+                      Options="@Options"
+                      OnSelect="@OnSelect"
+                      Class="@Class"
+                      Style="@Style"
+                      AlignRight="true" />
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "Aktionen";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter, EditorRequired] public FrameworkDropdownOption[] Options { get; set; } = [];
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+}

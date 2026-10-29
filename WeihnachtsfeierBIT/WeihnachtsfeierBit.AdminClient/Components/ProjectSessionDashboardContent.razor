@@ -34,10 +34,12 @@
                     <a class="framework-button framework-button-primary"
                        href="@GetCanvasUrl()"
                        target="_blank"
-                       rel="noopener">
-                        📺 Beamer öffnen
+                       rel="noopener"
+                       style="display: inline-flex; align-items: center; gap: 6px;">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">present_to_all</span>
+                        <span>Beamer öffnen</span>
                     </a>
-                    <FrameworkButton Label="Session beenden" Variant="danger" OnClick="EndSessionAsync" Busy="@_processing" Disabled="@_processing" />
+                    <FrameworkDropdownButton Label="Optionen" Icon="more_vert" Variant="secondary" Options="_sessionOptions" OnSelect="HandleSessionOptionSelect" />
                 }
                 else
                 {
@@ -62,22 +64,26 @@
         @if (_instance is not null)
         {
             <!-- TABS BAR FOR RUNNING EVENTS / SHOWS -->
-            <div style="display: flex; gap: 8px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 24px; align-items: center; overflow-x: auto; flex-wrap: wrap;">
-                @foreach (var tab in _tabs)
-                {
-                    <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 16px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 8px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
-                        @if (tab.IsBeamerActive)
-                        {
-                            <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt" style="font-size: 18px;">present_to_all</span>
-                        }
-                        <span>@tab.Title</span>
-                        <FrameworkBadge Text="@tab.BadgeText" Variant="@tab.BadgeVariant" />
-                    </button>
-                }
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 24px; position: relative; z-index: 50;">
+                <div style="display: flex; gap: 8px; overflow-x: auto; flex: 1; align-items: center; padding-right: 8px; scrollbar-width: thin;">
+                    @foreach (var tab in _tabs)
+                    {
+                        <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 14px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 6px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
+                            @if (tab.IsBeamerActive)
+                            {
+                                <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt" style="font-size: 18px;">present_to_all</span>
+                            }
+                            @if (!string.IsNullOrEmpty(tab.StatusIcon))
+                            {
+                                <span class="material-symbols-outlined" style="font-size: 18px;">@tab.StatusIcon</span>
+                            }
+                            <span>@tab.Title</span>
+                        </button>
+                    }
+                </div>
 
-                <div style="margin-left: auto; display: flex; gap: 8px;">
-                    <FrameworkButton Label="+ Show hinzufügen" Variant="secondary" OnClick="OpenLinkShowModal" />
-                    <FrameworkButton Label="+ Spontan" Variant="primary" OnClick="OpenSpontaneousModal" />
+                <div style="flex-shrink: 0; position: relative; z-index: 100;">
+                    <FrameworkContextMenu Label="Inhalt hinzufügen" Icon="add" Variant="primary" AlignRight="true" Options="_addContentOptions" OnSelect="HandleAddContentSelect" />
                 </div>
             </div>
 
@@ -89,10 +95,11 @@
 
                 <Card Class="settings-card" Style="margin-bottom: 24px;">
                     <ChildContent>
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <!-- CLEAN FOCUSED CARD HEADER -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                             <div>
                                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap;">
-                                    <h2 style="margin: 0;">@ev.Title</h2>
+                                    <h2 style="margin: 0; font-size: 18px; color: #1d2528;">@ev.Title</h2>
                                     <FrameworkBadge Text="@(ev.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(ev.Mode == "active" ? "primary" : "secondary")" />
                                     @if (ev.IsHidden)
                                     {
@@ -111,14 +118,26 @@
                                         <FrameworkBadge Text="Beamer Aktiv" Variant="primary" />
                                     }
                                 </div>
-                                <p style="margin: 0; font-size: 13px; color: #657276;">
-                                    @(isMultiSlide ? $"Show ({ev.Slides.Length} Folien)" : "Spontanes Event") • Erstellt um @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm") Uhr
+                                @if (!string.IsNullOrWhiteSpace(ev.Subtitle))
+                                {
+                                    <span style="font-size: 13px; color: #105c4d; font-weight: 700; display: block; margin-bottom: 2px;">@ev.Subtitle</span>
+                                }
+                                <p style="margin: 0; font-size: 12px; color: #657276;">
+                                    @(isMultiSlide ? $"Show ({ev.Slides.Length} Folien)" : "Spontanes Event") &bull; Gestartet um @ev.StartedAtUtc.ToLocalTime().ToString("HH:mm") Uhr
                                 </p>
                             </div>
-                            <div class="framework-button-row">
+
+                            <!-- CLEAN PRIMARY ACTIONS, BEAMER TOGGLE & ICON CONFIGURATION BUTTON -->
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                                 @if (ev.Status == "scheduled")
                                 {
                                     <FrameworkButton Label="Jetzt starten" Variant="primary" OnClick="() => StartScheduledEventNow(ev)" />
+                                }
+
+                                @if (isMultiSlide && ev.NavigationMode == "host_controlled")
+                                {
+                                    <FrameworkButton Label="◄ Vorige" Variant="secondary" OnClick="() => StepEventSlide(ev, -1)" Disabled="@(ev.CurrentSlideIndex == 0)" />
+                                    <FrameworkButton Label="Nächste ►" Variant="primary" OnClick="() => StepEventSlide(ev, 1)" Disabled="@(ev.CurrentSlideIndex >= ev.Slides.Length - 1)" />
                                 }
 
                                 @if (isBeamer)
@@ -130,23 +149,7 @@
                                     <FrameworkButton Label="Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
                                 }
 
-                                <FrameworkButton Label="@(ev.IsHidden ? "Einblenden" : "Ausblenden")" Variant="secondary" OnClick="() => ToggleEventVisibility(ev)" />
-
-                                @if (isMultiSlide && ev.NavigationMode == "host_controlled")
-                                {
-                                    <FrameworkButton Label="◄ Vorherige Slide" Variant="secondary" OnClick="() => StepEventSlide(ev, -1)" Disabled="@(ev.CurrentSlideIndex == 0)" />
-                                    <FrameworkButton Label="Nächste Slide ►" Variant="primary" OnClick="() => StepEventSlide(ev, 1)" Disabled="@(ev.CurrentSlideIndex >= ev.Slides.Length - 1)" />
-                                }
-
-                                @if (ev.Mode == "active")
-                                {
-                                    <FrameworkButton Label="Zu Passiv" Variant="secondary" OnClick='() => ChangeEventMode(ev, "passive")' />
-                                }
-                                else
-                                {
-                                    <FrameworkButton Label="Zu Aktiv" Variant="secondary" OnClick='() => ChangeEventMode(ev, "active")' />
-                                }
-                                <FrameworkButton Label="Event beenden" Variant="danger" OnClick="() => CloseEventAsync(ev.EventId)" />
+                                <FrameworkIconButton Icon="settings" Title="Event-Konfiguration bearbeiten" OnClick="() => OpenEditEventModal(ev)" />
                             </div>
                         </div>
 
@@ -224,7 +227,7 @@
             }
             else
             {
-                <EmptyState Title="Keine laufenden Shows oder Events" Description="Klicke oben rechts auf '+ Show hinzufügen' oder '+ Spontan', um Inhalte in der Session zu starten." />
+                <EmptyState Title="Keine laufenden Shows oder Events" Description="Klicke oben rechts auf 'Inhalt hinzufügen', um Shows oder spontane Events in der Session zu starten." />
             }
         }
 
@@ -248,7 +251,6 @@
                             <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px;">
                                 <FrameworkButton Label="-5" Variant="secondary" OnClick="() => ChangePointsAsync(team, -5)" />
                                 <FrameworkButton Label="-1" Variant="secondary" OnClick="() => ChangePointsAsync(team, -1)" />
-                                <input type="number" min="0" value="@team.Points" @onchange="(e) => OnPointsInputChangedAsync(team, e.Value?.ToString())" style="width: 80px; text-align: center; font-weight: 800; min-height: 42px; border-radius: 5px; border: 1px solid #cbd7d3;" />
                                 <FrameworkButton Label="+1" Variant="primary" OnClick="() => ChangePointsAsync(team, 1)" />
                                 <FrameworkButton Label="+5" Variant="primary" OnClick="() => ChangePointsAsync(team, 5)" />
                             </div>
@@ -259,6 +261,72 @@
         }
     }
 </FrameworkPage>
+
+<!-- CONFIRM END SESSION MODAL -->
+<FrameworkModal IsOpen="@_isEndSessionConfirmOpen" Title="Session beenden?" OnClose="() => _isEndSessionConfirmOpen = false">
+    <div>
+        <p style="font-size: 14px; color: #1d2528; margin: 0 0 16px 0;">Möchtest du die aktive Play-Session wirklich beenden? Alle angemeldeten Teilnehmer werden abgemeldet.</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="() => _isEndSessionConfirmOpen = false" />
+            <FrameworkButton Label="Session endgültig beenden" Variant="danger" OnClick="ConfirmEndSessionAsync" Busy="@_processing" Disabled="@_processing" />
+        </div>
+    </div>
+</FrameworkModal>
+
+<!-- EDIT EVENT CONFIGURATION MODAL -->
+<FrameworkModal IsOpen="@_isEditEventModalOpen" Title="Event-Konfiguration bearbeiten" OnClose="CloseEditEventModal">
+    @if (_editingEvent is not null)
+    {
+        <div style="display: grid; gap: 14px; max-height: 75vh; overflow-y: auto; padding-right: 4px;">
+            <FrameworkFormGroup Label="Event-Titel">
+                <FrameworkInputText @bind-Value="_editTitle" Placeholder="Titel eingeben..." />
+            </FrameworkFormGroup>
+
+            <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)">
+                <FrameworkInputText @bind-Value="_editSubtitle" Placeholder="z. B. Pause & Büfett eröffnet" />
+            </FrameworkFormGroup>
+
+            <FrameworkGrid Columns="1fr 1fr" Gap="12px">
+                <FrameworkFormGroup Label="Modus">
+                    <FrameworkSelect Value="@_editMode" ValueChanged='v => _editMode = v ?? "active"' Options="@_modeOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Folien-Steuerung">
+                    <FrameworkSelect Value="@_editNavMode" ValueChanged='v => _editNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                </FrameworkFormGroup>
+            </FrameworkGrid>
+
+            <FrameworkCheckbox @bind-Value="_editIsHidden" Label="Event vor Teilnehmern ausblenden" />
+
+            <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px;">
+                <FrameworkFormGroup Label="Geplante Startzeit (z. B. 19:30, leer für sofort)">
+                    <FrameworkInputText @bind-Value="_editScheduledTime" Placeholder="19:30" />
+                </FrameworkFormGroup>
+                <FrameworkCheckbox @bind-Value="_editAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
+            </div>
+
+            <FrameworkDivider />
+
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #fff5f5; padding: 12px; border-radius: 8px; border: 1px solid #fecaca;">
+                <div>
+                    <strong style="color: #991b1b; font-size: 13px; display: block;">Gefahrenbereich</strong>
+                    <span style="color: #7f1d1d; font-size: 11px;">Schließt das Event und entfernt es aus den aktiven Tabs.</span>
+                </div>
+                <FrameworkButton Label="Event beenden" Variant="danger" OnClick="() => CloseEditingEventAsync()" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(_editModalError))
+            {
+                <FrameworkNotice Message="@_editModalError" Severity="error" />
+            }
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseEditEventModal" />
+                <FrameworkButton Label="Speichern" Variant="primary" OnClick="SaveEditedEventAsync" Busy="_isSavingEdit" />
+            </div>
+        </div>
+    }
+</FrameworkModal>
 
 <!-- LINK SHOW MODAL -->
 <FrameworkModal IsOpen="@_isLinkShowModalOpen" Title="Show in Session starten" OnClose="CloseLinkShowModal">
@@ -382,18 +450,16 @@
                     <BuzzerSlideEditor Slide="_spontaneousSlide" />
                     break;
             }
-        </div>
 
-        @if (!string.IsNullOrEmpty(_modalError))
-        {
-            <div style="margin-top: 16px;">
-                <FrameworkNotice Message="@_modalError" Severity="error" />
+            @if (!string.IsNullOrEmpty(_modalError))
+            {
+                <FrameworkNotice Message="@_modalError" Severity="error" Style="margin-top: 12px;" />
+            }
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseSpontaneousModal" />
+                <FrameworkButton Label="Event erstellen & starten" Variant="primary" OnClick="CreateSpontaneousEventWithEditorAsync" />
             </div>
-        }
-
-        <div class="modal-footer-actions" style="margin-top: 24px;">
-            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseSpontaneousModal" />
-            <FrameworkButton Label="Event starten" Variant="primary" OnClick="CreateSpontaneousEventWithEditorAsync" Busy="@_processing" />
         </div>
     </div>
 </FrameworkModal>
@@ -402,21 +468,17 @@
     [Parameter] public Guid ProjectId { get; set; }
 
     private GameInstanceSummary? _instance;
-    private TeamState[] _teams = [];
+
+    private TeamSummary[] _teams = [];
     private ProjectShow[] _projectShows = [];
-    private EventState? _activeEvent;
-    private EventState[] _passiveEvents = [];
-    private EventState[] _scheduledEvents = [];
+
+    private ProjectGameState? _sessionState;
     private Guid? _activeCanvasEventId;
 
-    private List<SessionTabViewModel> _tabs = [];
-    private Guid? _selectedTabId;
-    private SessionTabViewModel? _selectedTabItem => _tabs.FirstOrDefault(t => t.Id == _selectedTabId);
+    private readonly List<TabItem> _tabs = [];
+    private string? _selectedTabId;
 
-    private HubConnection? _hubConnection;
-    private string? _noticeMessage;
-    private string? _actionError;
-    private bool _processing;
+    private bool _isEndSessionConfirmOpen;
 
     private bool _isLinkShowModalOpen;
     private string _showStartMode = "active";
@@ -440,6 +502,38 @@
     private bool _spontaneousAutoStart = true;
     private EditableSlide _spontaneousSlide = new(Guid.Empty, "announcement", 0, default);
     private string? _modalError;
+
+    // EDIT EVENT MODAL STATE
+    private bool _isEditEventModalOpen;
+    private EventState? _editingEvent;
+    private string _editTitle = string.Empty;
+    private string _editSubtitle = string.Empty;
+    private string _editMode = "active";
+    private string _editNavMode = "host_controlled";
+    private bool _editIsHidden;
+    private string _editScheduledTime = string.Empty;
+    private bool _editAutoStart = true;
+    private bool _isSavingEdit;
+    private string? _editModalError;
+
+    private string? _noticeMessage;
+    private string? _actionError;
+    private bool _processing;
+
+    private HubConnection? _hubConnection;
+
+    private TabItem? _selectedTabItem => _tabs.FirstOrDefault(t => t.Id == _selectedTabId);
+
+    private static readonly FrameworkDropdownOption[] _sessionOptions =
+    [
+        new("end_session", "Session beenden", "power_settings_new")
+    ];
+
+    private static readonly FrameworkDropdownOption[] _addContentOptions =
+    [
+        new("show", "Show aus Katalog hinzufügen", "collections_bookmark"),
+        new("spontaneous", "Spontanes Event erstellen", "add_circle")
+    ];
 
     private static readonly FrameworkSelectOption[] _slideTypeOptions =
     [
@@ -466,89 +560,16 @@
     protected override async Task OnInitializedAsync()
     {
         await ConnectSignalRAsync();
+    }
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
         await LoadDataAsync();
-    }
-
-    private async Task BuildTabsAsync()
-    {
-        var prevSelected = _selectedTabId;
-        _tabs.Clear();
-
-        // 1. Add active event (if any)
-        if (_activeEvent is not null)
-        {
-            bool isBeamer = _activeCanvasEventId.HasValue && _activeEvent.EventId == _activeCanvasEventId.Value;
-            string badgeText = _activeEvent.Slides.Length > 1 ? "Show (Aktiv)" : "Aktiv";
-            _tabs.Add(new SessionTabViewModel(_activeEvent.EventId, _activeEvent.Title, badgeText, "primary", _activeEvent, isBeamer));
-        }
-
-        // 2. Add passive events
-        foreach (var ev in _passiveEvents)
-        {
-            bool isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
-            string badgeText = ev.Slides.Length > 1 ? "Show (Passiv)" : "Passiv";
-            _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, badgeText, "secondary", ev, isBeamer));
-        }
-
-        // 3. Add scheduled events
-        foreach (var ev in _scheduledEvents)
-        {
-            bool isBeamer = _activeCanvasEventId.HasValue && ev.EventId == _activeCanvasEventId.Value;
-            _tabs.Add(new SessionTabViewModel(ev.EventId, ev.Title, "Geplant", "secondary", ev, isBeamer));
-        }
-
-        if (_tabs.Count > 0)
-        {
-            if (prevSelected.HasValue && _tabs.Any(t => t.Id == prevSelected.Value))
-            {
-                _selectedTabId = prevSelected.Value;
-            }
-            else
-            {
-                _selectedTabId = _tabs[0].Id;
-            }
-        }
-        else
-        {
-            _selectedTabId = null;
-        }
-        await Task.CompletedTask;
-    }
-
-    private static string GetSlideTitle(EventSlideState slide)
-    {
-        if (slide.Parameters.ValueKind == JsonValueKind.Object)
-        {
-            if (slide.Parameters.TryGetProperty("internalName", out var internalName) && internalName.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(internalName.GetString()))
-            {
-                return internalName.GetString()!;
-            }
-            if (slide.Parameters.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(title.GetString()))
-            {
-                return title.GetString()!;
-            }
-            if (slide.Parameters.TryGetProperty("question", out var question) && question.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(question.GetString()))
-            {
-                return question.GetString()!;
-            }
-        }
-
-        return slide.Type.ToLowerInvariant() switch
-        {
-            "announcement" => "Ankündigung",
-            "poll" => "Abstimmung",
-            "quiz" => "Quiz",
-            "ranking" => "Zwischenstand",
-            "estimation" => "Schätzfrage",
-            "buzzer" => "Buzzer",
-            _ => "Slide"
-        };
-    }
-
-    private void SelectTab(Guid id) => _selectedTabId = id;
+    });
 
     private async Task ConnectSignalRAsync()
     {
+        if (_hubConnection is not null) return;
         try
         {
             var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
@@ -563,13 +584,10 @@
             {
                 if (state.ProjectId == ProjectId)
                 {
+                    _sessionState = state;
+                    _activeCanvasEventId = state.ActiveCanvasEventId;
                     await InvokeAsync(async () =>
                     {
-                        _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
-                        _activeEvent = state.ActiveEvent;
-                        _passiveEvents = state.PassiveEvents;
-                        _scheduledEvents = state.ScheduledEvents;
-                        _activeCanvasEventId = state.ActiveCanvasEventId;
                         await BuildTabsAsync();
                         StateHasChanged();
                     });
@@ -586,43 +604,237 @@
 
     private async Task LoadDataAsync()
     {
-        await LoadAuthenticatedAsync(async token =>
+        await RunAuthenticatedAsync(async token =>
         {
-            _actionError = null;
             var instanceTask = ProjectApiClient.GetActiveGameInstanceAsync(token, ProjectId);
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
             var showsTask = ProjectApiClient.GetShowsAsync(token, ProjectId);
-            var stateTask = ProjectApiClient.GetSessionStateAsync(token, ProjectId);
 
-            try
-            {
-                _instance = await instanceTask;
-            }
-            catch
-            {
-                _instance = null;
-            }
+            await Task.WhenAll(instanceTask, teamsTask, showsTask);
 
-            try
+            _instance = await instanceTask;
+            _teams = await teamsTask;
+            _projectShows = await showsTask;
+
+            if (_instance is not null)
             {
-                var state = await stateTask;
-                _teams = state.Teams.OrderByDescending(t => t.Points).ThenBy(t => t.DisplayName).ToArray();
-                _activeEvent = state.ActiveEvent;
-                _passiveEvents = state.PassiveEvents;
-                _scheduledEvents = state.ScheduledEvents;
-                _activeCanvasEventId = state.ActiveCanvasEventId;
+                _sessionState = await ProjectApiClient.GetSessionStateAsync(token, ProjectId);
+                _activeCanvasEventId = _sessionState.ActiveCanvasEventId;
                 await BuildTabsAsync();
             }
-            catch
-            {
-                _teams = [];
-                _activeEvent = null;
-                _passiveEvents = [];
-                _scheduledEvents = [];
-                _tabs.Clear();
-            }
 
-            _projectShows = await showsTask;
+            StateHasChanged();
         });
+    }
+
+    private Task BuildTabsAsync()
+    {
+        _tabs.Clear();
+
+        if (_sessionState is null) return Task.CompletedTask;
+
+        // 1. Active Event (Position 1)
+        if (_sessionState.ActiveEvent is EventState activeEv)
+        {
+            bool isBeamer = _activeCanvasEventId.HasValue && activeEv.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new TabItem(activeEv.EventId.ToString(), activeEv.Title, "play_arrow", isBeamer, activeEv));
+        }
+
+        // 2. Passive Events
+        foreach (var passEv in _sessionState.PassiveEvents)
+        {
+            bool isBeamer = _activeCanvasEventId.HasValue && passEv.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new TabItem(passEv.EventId.ToString(), passEv.Title, null, isBeamer, passEv));
+        }
+
+        // 3. Scheduled Events (Sorted chronologically by ScheduledStartUtc)
+        foreach (var schedEv in _sessionState.ScheduledEvents.OrderBy(e => e.ScheduledStartUtc))
+        {
+            bool isBeamer = _activeCanvasEventId.HasValue && schedEv.EventId == _activeCanvasEventId.Value;
+            _tabs.Add(new TabItem(schedEv.EventId.ToString(), schedEv.Title, "schedule", isBeamer, schedEv));
+        }
+
+        if (_selectedTabId is null || !_tabs.Any(t => t.Id == _selectedTabId))
+        {
+            _selectedTabId = _tabs.FirstOrDefault()?.Id;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void SelectTab(string tabId) => _selectedTabId = tabId;
+
+    private void HandleAddContentSelect(string optionValue)
+    {
+        if (optionValue == "show")
+        {
+            OpenLinkShowModal();
+        }
+        else if (optionValue == "spontaneous")
+        {
+            OpenSpontaneousModal();
+        }
+    }
+
+    private void HandleSessionOptionSelect(string optionValue)
+    {
+        if (optionValue == "end_session")
+        {
+            _isEndSessionConfirmOpen = true;
+        }
+    }
+
+    private async Task ConfirmEndSessionAsync()
+    {
+        _isEndSessionConfirmOpen = false;
+        await EndSessionAsync();
+    }
+
+    private void OpenEditEventModal(EventState ev)
+    {
+        _editingEvent = ev;
+        _editTitle = ev.Title;
+        _editSubtitle = ev.Subtitle ?? string.Empty;
+        _editMode = ev.Mode;
+        _editNavMode = ev.NavigationMode;
+        _editIsHidden = ev.IsHidden;
+        _editScheduledTime = ev.ScheduledStartUtc.HasValue ? ev.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") : string.Empty;
+        _editAutoStart = ev.AutoStartOnSchedule;
+        _editModalError = null;
+        _isEditEventModalOpen = true;
+    }
+
+    private void CloseEditEventModal()
+    {
+        _isEditEventModalOpen = false;
+        _editingEvent = null;
+    }
+
+    private async Task SaveEditedEventAsync()
+    {
+        if (_editingEvent is null) return;
+        _isSavingEdit = true;
+        _editModalError = null;
+
+        DateTime? schedUtc = ParseTimeInput(!string.IsNullOrWhiteSpace(_editScheduledTime), _editScheduledTime);
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateEventAsync(
+                    token,
+                    ProjectId,
+                    _editingEvent.EventId,
+                    title: _editTitle,
+                    subtitle: _editSubtitle,
+                    navigationMode: _editNavMode,
+                    scheduledStartUtc: schedUtc,
+                    autoStartOnSchedule: _editAutoStart,
+                    mode: _editMode,
+                    isHidden: _editIsHidden);
+
+                _isEditEventModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _editModalError = ex.Message;
+        }
+        finally
+        {
+            _isSavingEdit = false;
+        }
+    }
+
+    private async Task CloseEditingEventAsync()
+    {
+        if (_editingEvent is null) return;
+        var eventId = _editingEvent.EventId;
+        _isEditEventModalOpen = false;
+        await CloseEventAsync(eventId);
+    }
+
+    private async Task StartNewSessionAsync()
+    {
+        _processing = true;
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                _instance = await ProjectApiClient.StartGameInstanceAsync(token, ProjectId);
+                _noticeMessage = $"Session mit Code {_instance.AccessCode} erfolgreich gestartet!";
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private async Task EndSessionAsync()
+    {
+        _processing = true;
+        _actionError = null;
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.EndGameInstanceAsync(token, ProjectId);
+                _instance = null;
+                _sessionState = null;
+                _tabs.Clear();
+                _noticeMessage = "Session wurde beendet.";
+                StateHasChanged();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private async Task StartScheduledEventNow(EventState ev)
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, status: "active", mode: "active");
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task CloseEventAsync(Guid eventId)
+    {
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.CloseEventAsync(token, ProjectId, eventId);
+                await LoadDataAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _actionError = ex.Message;
+        }
     }
 
     private async Task SetCanvasEvent(Guid? eventId)
@@ -637,7 +849,6 @@
                 StateHasChanged();
             });
         }
-
         catch (HttpRequestException ex)
         {
             _actionError = ex.Message;
@@ -681,55 +892,7 @@
         {
             await RunAuthenticatedAsync(async token =>
             {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: targetSlideIndex, mode: ev.Mode);
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-    }
-
-    private async Task ChangeEventMode(EventState ev, string newMode)
-    {
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: ev.CurrentSlideIndex, mode: newMode);
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-    }
-
-    private async Task ToggleEventVisibility(EventState ev)
-    {
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, isHidden: !ev.IsHidden);
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-    }
-
-    private async Task StartScheduledEventNow(EventState ev)
-    {
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, status: "active", mode: "active");
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: targetSlideIndex);
                 await LoadDataAsync();
             });
         }
@@ -743,6 +906,8 @@
     {
         _spontaneousType = "announcement";
         _spontaneousMode = "active";
+        _spontaneousTitleInput = string.Empty;
+        _spontaneousSubtitleInput = string.Empty;
         _spontaneousNavMode = "host_controlled";
         _spontaneousIsHidden = false;
         _spontaneousIsScheduled = false;
@@ -810,124 +975,62 @@
         if (parts.Length == 2 && int.TryParse(parts[0], out var hour) && int.TryParse(parts[1], out var minute))
         {
             var nowLocal = DateTime.Now;
-            var targetLocal = new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, hour, minute, 0);
-            if (targetLocal < nowLocal) targetLocal = targetLocal.AddDays(1); // If time has passed today, schedule for tomorrow
+            var targetLocal = new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, hour, minute, 0, DateTimeKind.Local);
+            if (targetLocal < nowLocal) targetLocal = targetLocal.AddDays(1);
             return targetLocal.ToUniversalTime();
         }
 
         return null;
     }
 
-    private async Task CloseEventAsync(Guid eventId)
+    private static string GetSlideTitle(EventSlideState slide)
     {
-        try
+        if (slide.Parameters.ValueKind == JsonValueKind.Object)
         {
-            await RunAuthenticatedAsync(async token =>
+            if (slide.Parameters.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == JsonValueKind.String)
             {
-                await ProjectApiClient.CloseEventAsync(token, ProjectId, eventId);
-                await LoadDataAsync();
-            });
+                var val = titleProp.GetString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
+            if (slide.Parameters.TryGetProperty("question", out var questionProp) && questionProp.ValueKind == JsonValueKind.String)
+            {
+                var val = questionProp.GetString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
         }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
+
+        return slide.Type.ToUpperInvariant();
     }
 
-    private async Task ChangePointsAsync(TeamState team, int delta)
+    private async Task ChangePointsAsync(TeamSummary team, int delta)
     {
         var newPoints = Math.Max(0, team.Points + delta);
-        await SetPointsAsync(team, newPoints);
-    }
-
-    private async Task OnPointsInputChangedAsync(TeamState team, string? input)
-    {
-        if (int.TryParse(input, out var points) && points >= 0)
+        await RunAuthenticatedAsync(async token =>
         {
-            await SetPointsAsync(team, points);
-        }
-    }
-
-    private async Task SetPointsAsync(TeamState team, int points)
-    {
-        _actionError = null;
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.UpdateTeamPointsAsync(token, ProjectId, team.Id, points);
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-    }
-
-    private async Task StartNewSessionAsync()
-    {
-        if (_processing) return;
-        _processing = true;
-        _actionError = null;
-        _noticeMessage = null;
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.StartGameInstanceAsync(token, ProjectId);
-                _noticeMessage = "Play-Session wurde gestartet!";
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-        finally
-        {
-            _processing = false;
-        }
-    }
-
-    private async Task EndSessionAsync()
-    {
-        if (_processing) return;
-        _processing = true;
-        _actionError = null;
-        _noticeMessage = null;
-        try
-        {
-            await RunAuthenticatedAsync(async token =>
-            {
-                await ProjectApiClient.EndGameInstanceAsync(token, ProjectId);
-                _noticeMessage = "Die Play-Session wurde beendet.";
-                await LoadDataAsync();
-            });
-        }
-        catch (HttpRequestException ex)
-        {
-            _actionError = ex.Message;
-        }
-        finally
-        {
-            _processing = false;
-        }
+            await ProjectApiClient.UpdateTeamPointsAsync(token, ProjectId, team.Id, newPoints);
+            await LoadDataAsync();
+        });
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_hubConnection is not null)
         {
-            await _hubConnection.DisposeAsync();
+            try
+            {
+                await _hubConnection.SendAsync("LeaveProject", ProjectId);
+                await _hubConnection.DisposeAsync();
+            }
+            catch
+            {
+            }
         }
     }
 
-    private sealed record SessionTabViewModel(
-        Guid Id,
+    private sealed record TabItem(
+        string Id,
         string Title,
-        string BadgeText,
-        string BadgeVariant,
-        EventState Event,
-        bool IsBeamerActive);
+        string? StatusIcon,
+        bool IsBeamerActive,
+        EventState Event);
 }
