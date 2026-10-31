@@ -1,14 +1,39 @@
+@using System.Text.Json
 @using WeihnachtsfeierBit.Framework
 
 <div style="margin-top: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Zwischenstand Status</h3>
-        <FrameworkBadge Text="Ranglisten-Slide" Variant="secondary" />
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_rankingTitle</h3>
+        <FrameworkBadge Text="@(_chartType == "line_graph" ? "Verlaufsgraph" : "Säulendiagramm")" Variant="primary" />
     </div>
-    <p style="color: #657276; font-size: 14px; margin: 0;">Diese Slide präsentiert die aktuellen Team-Punktestände.</p>
+
+    <FrameworkNotice Message="Diese Slide präsentiert die aktuellen Team-Punktestände live als Säulendiagramm oder Verlaufsgraph." Severity="info" Style="margin-bottom: 12px;" />
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private string _rankingTitle = "Zwischenstand";
+    private string _chartType = "bar_chart";
+
+    protected override void OnParametersSet()
+    {
+        ReadSlideParameters();
+    }
+
+    private void ReadSlideParameters()
+    {
+        if (CurrentSlide.Parameters.ValueKind == JsonValueKind.Object)
+        {
+            if (CurrentSlide.Parameters.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == JsonValueKind.String)
+            {
+                _rankingTitle = titleProp.GetString() ?? "Zwischenstand";
+            }
+            if (CurrentSlide.Parameters.TryGetProperty("chartType", out var typeProp) && typeProp.ValueKind == JsonValueKind.String)
+            {
+                _chartType = typeProp.GetString() ?? "bar_chart";
+            }
+        }
+    }
 }

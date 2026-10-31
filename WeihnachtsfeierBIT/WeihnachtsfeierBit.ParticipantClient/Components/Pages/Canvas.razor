@@ -68,6 +68,12 @@
                     {
                         <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
                     }
+                    else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <div style="margin-top: 16px; width: 100%;">
+                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_pointLogs" />
+                        </div>
+                    }
                 }
                 else
                 {
@@ -92,26 +98,8 @@
                 }
                 else
                 {
-                    <div class="canvas-table-wrap">
-                        <table class="canvas-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Platz</th>
-                                    <th scope="col">Team</th>
-                                    <th scope="col" class="canvas-points-heading">Punkte</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var team in _state.Teams)
-                                {
-                                    <tr @key="team.Id" class="@(team.Rank == 1 ? "canvas-leading-team" : null)">
-                                        <td class="canvas-rank"><span>@team.Rank</span></td>
-                                        <td class="canvas-team-name">@team.DisplayName</td>
-                                        <td class="canvas-points">@team.Points</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div style="margin-top: 12px;">
+                        <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
                     </div>
                 }
             </section>
@@ -123,12 +111,16 @@
     [Parameter] public string Code { get; set; } = string.Empty;
 
     private CanvasGameState? _state;
+    private TeamPointLogDto[] _pointLogs = [];
     private HubConnection? _hubConnection;
     private bool _isLoading = true;
     private bool _isConnected;
     private bool _sessionEnded;
     private string _connectionStatus = "Verbinde …";
     private string? _errorMessage;
+
+    private TeamSummary[] _mappedTeams =>
+        _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, "#105c4d", t.Points)).ToArray() ?? [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -145,6 +137,7 @@
         try
         {
             _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            await LoadPointLogsAsync();
             await ConnectAsync();
         }
         catch (HttpRequestException ex)
@@ -161,6 +154,18 @@
         }
     }
 
+    private async Task LoadPointLogsAsync()
+    {
+        if (_state is null) return;
+        try
+        {
+            _pointLogs = await ProjectApiClient.GetPointLogsAsync(string.Empty, _state.ProjectId);
+        }
+        catch
+        {
+        }
+    }
+
     private async Task ConnectAsync()
     {
         var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
@@ -172,9 +177,10 @@
             .Build();
 
         _hubConnection.On<CanvasGameState>("CanvasStateUpdated", state =>
-            InvokeAsync(() =>
+            InvokeAsync(async () =>
             {
                 _state = state;
+                await LoadPointLogsAsync();
                 StateHasChanged();
             }));
 
@@ -196,6 +202,7 @@
         {
             await _hubConnection.SendAsync("JoinCanvas", Code);
             _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            await LoadPointLogsAsync();
             _isConnected = true;
             _connectionStatus = "Live aktualisiert";
             await InvokeAsync(StateHasChanged);
@@ -206,6 +213,7 @@
             await _hubConnection.StartAsync();
             await _hubConnection.SendAsync("JoinCanvas", Code);
             _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+            await LoadPointLogsAsync();
             _isConnected = true;
             _connectionStatus = "Live aktualisiert";
         }
@@ -215,6 +223,12 @@
             _isConnected = false;
             _connectionStatus = "Live-Verbindung nicht verfügbar";
         }
+    }
+
+    private static string GetChartType(CanvasEventState activeEvent)
+    {
+        var chartType = ReadString(activeEvent.Parameters, "chartType");
+        return !string.IsNullOrEmpty(chartType) ? chartType : "bar_chart";
     }
 
     private static string GetEventTypeLabel(string slideType) => slideType.ToLowerInvariant() switch

@@ -1,12 +1,68 @@
+@using System.Text.Json
 @using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
 
-<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 32px; box-sizing: border-box; text-align: center; background: #ffffff;">
-    <span class="mobile-eyebrow" style="margin-bottom: 16px; font-size: 15px;">ZWISCHENSTAND</span>
-    <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 16px 0; color: #1d2528; max-width: 500px;">Aktuelle Team-Ergebnisse</h1>
-    <p style="font-size: 16px; color: #556265; max-width: 480px; margin: 0;">Verfolge den Zwischenstand live auf der Leinwand!</p>
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; overflow-y: auto;">
+    <div style="text-align: center; margin-bottom: 16px;">
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">ZWISCHENSTAND</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0; color: #1d2528;">@_rankingTitle</h2>
+    </div>
+
+    @if (_isLoading)
+    {
+        <FrameworkLoading Message="Ergebnisse werden geladen ..." />
+    }
+    else
+    {
+        <FrameworkChart Teams="_teams" ChartType="@_chartType" PointLogs="_pointLogs" />
+    }
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamSummary[] _teams = [];
+    private TeamPointLogDto[] _pointLogs = [];
+    private string _rankingTitle = "Zwischenstand";
+    private string _chartType = "bar_chart";
+    private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ReadSlideParameters();
+        _isLoading = true;
+        if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty)
+        {
+            try
+            {
+                var teamsTask = ProjectApiClient.GetTeamsAsync(AccessToken, ProjectId);
+                var logsTask = ProjectApiClient.GetPointLogsAsync(AccessToken, ProjectId);
+                await Task.WhenAll(teamsTask, logsTask);
+                _teams = await teamsTask;
+                _pointLogs = await logsTask;
+            }
+            catch
+            {
+            }
+        }
+        _isLoading = false;
+    }
+
+    private void ReadSlideParameters()
+    {
+        if (CurrentSlide.Parameters.ValueKind == JsonValueKind.Object)
+        {
+            if (CurrentSlide.Parameters.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == JsonValueKind.String)
+            {
+                _rankingTitle = titleProp.GetString() ?? "Zwischenstand";
+            }
+            if (CurrentSlide.Parameters.TryGetProperty("chartType", out var typeProp) && typeProp.ValueKind == JsonValueKind.String)
+            {
+                _chartType = typeProp.GetString() ?? "bar_chart";
+            }
+        }
+    }
 }

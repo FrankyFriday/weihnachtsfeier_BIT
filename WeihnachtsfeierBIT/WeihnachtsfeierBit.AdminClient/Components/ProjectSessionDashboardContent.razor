@@ -39,7 +39,11 @@
                         <span class="material-symbols-outlined" style="font-size: 18px;">present_to_all</span>
                         <span>Beamer öffnen</span>
                     </a>
-                    <FrameworkDropdownButton Label="Optionen" Icon="more_vert" Variant="secondary" Options="_sessionOptions" OnSelect="HandleSessionOptionSelect" />
+                    <FrameworkContextMenu AlignRight="true" Options="_sessionOptions" OnSelect="HandleSessionOptionSelect">
+                        <TriggerTemplate>
+                            <FrameworkIconButton Icon="more_vert" Title="Session-Optionen" />
+                        </TriggerTemplate>
+                    </FrameworkContextMenu>
                 }
                 else
                 {
@@ -83,7 +87,7 @@
                 </div>
 
                 <div style="flex-shrink: 0; position: relative; z-index: 100;">
-                    <FrameworkContextMenu Label="Inhalt hinzufügen" Icon="add" Variant="primary" AlignRight="true" Options="_addContentOptions" OnSelect="HandleAddContentSelect" />
+                    <FrameworkContextMenu Label="Event" Icon="add" Variant="primary" AlignRight="true" Options="_addContentOptions" OnSelect="HandleAddContentSelect" Class="admin-add-event-btn" />
                 </div>
             </div>
 
@@ -231,36 +235,97 @@
             }
         }
 
-        <h3>Team-Punktestände</h3>
+        <!-- TEAM POINTS SECTION WITH COMPACT FIELDS & RIGHT-ALIGNED ICON BUTTON FOR LOGBOOK -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px 0;">
+            <h3 style="margin: 0; font-size: 17px; color: #1d2528;">Team-Punktestände</h3>
+            <FrameworkIconButton Icon="history" Title="Punkte-Logbuch öffnen" OnClick="OpenPointLogModal" />
+        </div>
+
         @if (_teams.Length == 0)
         {
             <EmptyState Title="Noch keine Teams angelegt" Description="Lege zuerst Teams im Projekt an." />
         }
         else
         {
-            <div class="project-grid">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                 @foreach (var team in _teams)
                 {
-                    <Card Class="project-card" Style="@($"border-top: 5px solid {team.Color};")" @key="team.Id">
-                        <ChildContent>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <h2 style="margin: 0;">@team.DisplayName</h2>
-                                <span style="font-size: 24px; font-weight: 800; color: #105c4d;">@team.Points Pkt.</span>
-                            </div>
-
-                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px;">
-                                <FrameworkButton Label="-5" Variant="secondary" OnClick="() => ChangePointsAsync(team, -5)" />
-                                <FrameworkButton Label="-1" Variant="secondary" OnClick="() => ChangePointsAsync(team, -1)" />
-                                <FrameworkButton Label="+1" Variant="primary" OnClick="() => ChangePointsAsync(team, 1)" />
-                                <FrameworkButton Label="+5" Variant="primary" OnClick="() => ChangePointsAsync(team, 5)" />
-                            </div>
-                        </ChildContent>
-                    </Card>
+                    <button type="button"
+                            @onclick="() => OpenAwardPointsForTeam(team.Id)"
+                            @key="team.Id"
+                            style="padding: 8px 14px; border-radius: 8px; border: 1.5px solid #dce5e2; border-left: 5px solid @team.Color; background: #ffffff; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02);"
+                            title="Klick zum Punkte verbuchen">
+                        <strong style="font-size: 14px; color: #1d2528;">@team.DisplayName</strong>
+                        <span style="font-size: 14px; font-weight: 800; color: #105c4d; background: #e8f3ef; padding: 2px 8px; border-radius: 6px;">
+                            @team.Points Pkt.
+                        </span>
+                    </button>
                 }
             </div>
         }
     }
 </FrameworkPage>
+
+<!-- AWARD / DEDUCT POINTS MODAL -->
+<FrameworkModal IsOpen="@_isAwardPointsModalOpen" Title="Punkte vergeben oder abziehen" OnClose="CloseAwardPointsModal">
+    <div style="display: grid; gap: 14px;">
+        <FrameworkFormGroup Label="Team auswählen">
+            <FrameworkSelect Value="@_awardTeamId.ToString()" ValueChanged="v => Guid.TryParse(v, out _awardTeamId)" Options="@_teamSelectOptions" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Punkteänderung (positiv oder negativ)" HelpText="z. B. 10 für Bonus oder -5 für Abzug">
+            <FrameworkInputText Value="@_awardDeltaPoints.ToString()" ValueChanged="v => int.TryParse(v, out _awardDeltaPoints)" Type="number" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Begründung / Ursache">
+            <FrameworkInputText @bind-Value="_awardReason" Placeholder="z. B. Bonus Quiz-Runde 1 oder Schnelligkeitsbonus" />
+        </FrameworkFormGroup>
+
+        @if (!string.IsNullOrEmpty(_awardModalError))
+        {
+            <FrameworkNotice Message="@_awardModalError" Severity="error" />
+        }
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseAwardPointsModal" />
+            <FrameworkButton Label="Punkte verbuchen" Variant="primary" OnClick="SubmitAwardPointsAsync" Busy="_isSubmittingAward" />
+        </div>
+    </div>
+</FrameworkModal>
+
+<!-- POINT LOGS MODAL -->
+<FrameworkModal IsOpen="@_isPointLogModalOpen" Title="Punkte-Logbuch" OnClose="ClosePointLogModal">
+    <div style="max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+        @if (_pointLogs.Length == 0)
+        {
+            <EmptyState Title="Keine Punkte-Einträge" Description="Es wurden bisher noch keine Punkte-Gutschriften oder -Abzüge verbucht." />
+        }
+        else
+        {
+            <div style="display: grid; gap: 8px;">
+                @foreach (var log in _pointLogs)
+                {
+                    <div style="padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @log.TeamColor; display: inline-block;"></span>
+                                <strong style="font-size: 14px; color: #1d2528;">@log.TeamName</strong>
+                                <span style="font-size: 11px; color: #64748b;">@log.CreatedAtUtc.ToLocalTime().ToString("dd.MM. HH:mm") Uhr</span>
+                            </div>
+                            <span style="font-size: 12px; color: #475569; display: block;">@log.Reason</span>
+                        </div>
+                        <div style="text-align: right; flex-shrink: 0;">
+                            <span style="font-size: 14px; font-weight: 800; color: @(log.DeltaPoints >= 0 ? "#166534" : "#991b1b"); display: block;">
+                                @(log.DeltaPoints >= 0 ? $"+{log.DeltaPoints}" : log.DeltaPoints.ToString()) Pkt.
+                            </span>
+                            <span style="font-size: 11px; color: #64748b;">Stand: @log.NewTotalPoints Pkt.</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</FrameworkModal>
 
 <!-- CONFIRM END SESSION MODAL -->
 <FrameworkModal IsOpen="@_isEndSessionConfirmOpen" Title="Session beenden?" OnClose="() => _isEndSessionConfirmOpen = false">
@@ -516,6 +581,17 @@
     private bool _isSavingEdit;
     private string? _editModalError;
 
+    // POINT AWARD & LOG MODAL STATE
+    private bool _isAwardPointsModalOpen;
+    private Guid _awardTeamId;
+    private int _awardDeltaPoints = 10;
+    private string _awardReason = string.Empty;
+    private bool _isSubmittingAward;
+    private string? _awardModalError;
+
+    private bool _isPointLogModalOpen;
+    private TeamPointLogDto[] _pointLogs = [];
+
     private string? _noticeMessage;
     private string? _actionError;
     private bool _processing;
@@ -523,6 +599,9 @@
     private HubConnection? _hubConnection;
 
     private TabItem? _selectedTabItem => _tabs.FirstOrDefault(t => t.Id == _selectedTabId);
+
+    private FrameworkSelectOption[] _teamSelectOptions =>
+        _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();
 
     private static readonly FrameworkDropdownOption[] _sessionOptions =
     [
@@ -616,6 +695,11 @@
             _teams = await teamsTask;
             _projectShows = await showsTask;
 
+            if (_teams.Length > 0 && _awardTeamId == Guid.Empty)
+            {
+                _awardTeamId = _teams[0].Id;
+            }
+
             if (_instance is not null)
             {
                 _sessionState = await ProjectApiClient.GetSessionStateAsync(token, ProjectId);
@@ -689,6 +773,64 @@
         _isEndSessionConfirmOpen = false;
         await EndSessionAsync();
     }
+
+    private void OpenAwardPointsForTeam(Guid teamId)
+    {
+        _awardTeamId = teamId;
+        OpenAwardPointsModal();
+    }
+
+    private void OpenAwardPointsModal()
+    {
+        _awardDeltaPoints = 10;
+        _awardReason = string.Empty;
+        _awardModalError = null;
+        _isAwardPointsModalOpen = true;
+    }
+
+    private void CloseAwardPointsModal() => _isAwardPointsModalOpen = false;
+
+    private async Task SubmitAwardPointsAsync()
+    {
+        if (_awardTeamId == Guid.Empty)
+        {
+            _awardModalError = "Bitte wähle ein Team aus.";
+            return;
+        }
+
+        _isSubmittingAward = true;
+        _awardModalError = null;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, _awardTeamId, _awardDeltaPoints, _awardReason);
+                _isAwardPointsModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _awardModalError = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingAward = false;
+        }
+    }
+
+    private async Task OpenPointLogModal()
+    {
+        _isPointLogModalOpen = true;
+        await RunAuthenticatedAsync(async token =>
+        {
+            _pointLogs = await ProjectApiClient.GetPointLogsAsync(token, ProjectId);
+            StateHasChanged();
+        });
+    }
+
+    private void ClosePointLogModal() => _isPointLogModalOpen = false;
 
     private void OpenEditEventModal(EventState ev)
     {

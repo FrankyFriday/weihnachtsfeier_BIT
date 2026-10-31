@@ -44,6 +44,7 @@
                         <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick">Übersicht</a>
                         <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick">Teilnehmer</a>
                         <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick">Teams</a>
+                        <a class="sidebar-link @(CurrentSection == "point-logs" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "point-logs")" @onclick="HandleLinkClick">Punkte-Logbuch</a>
                         <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick">Live-Chat & Support</a>
                         <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick">Info-Seiten & Menüs</a>
                         <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick">DJ-Jukebox & Musik</a>

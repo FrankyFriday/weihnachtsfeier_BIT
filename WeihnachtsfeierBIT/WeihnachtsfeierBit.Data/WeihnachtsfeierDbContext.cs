@@ -25,6 +25,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<TeamNameVote> TeamNameVotes => Set<TeamNameVote>();
     public DbSet<SongWish> SongWishes => Set<SongWish>();
     public DbSet<SongWishVote> SongWishVotes => Set<SongWishVote>();
+    public DbSet<TeamPointLog> TeamPointLogs => Set<TeamPointLog>();
     public DbSet<Show> Shows => Set<Show>();
     public DbSet<ShowProjektZuo> ShowProjektZuos => Set<ShowProjektZuo>();
     public DbSet<Slide> Slides => Set<Slide>();
@@ -221,6 +222,16 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         songVotes.HasOne(v => v.SongWish)
             .WithMany(sw => sw.Votes)
             .HasForeignKey(v => v.SongWishId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var pointLogs = modelBuilder.Entity<TeamPointLog>();
+        pointLogs.HasOne(pl => pl.Projekt)
+            .WithMany()
+            .HasForeignKey(pl => pl.ProjektId)
+            .OnDelete(DeleteBehavior.Cascade);
+        pointLogs.HasOne(pl => pl.Team)
+            .WithMany()
+            .HasForeignKey(pl => pl.TeamId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Teilnehmer>()

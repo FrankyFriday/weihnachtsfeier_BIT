@@ -1,10 +1,15 @@
+@using WeihnachtsfeierBit.Framework
 @using WeihnachtsfeierBit.AdminClient.Models
 
 <FrameworkNotice Message="Der Zwischenstand zeigt während des Live-Events automatisch den aktuellen Punktestand aller Teams aus dem jeweiligen Projekt an." Severity="info" />
 
-<div style="margin-top: 16px;">
+<div style="margin-top: 16px; display: grid; gap: 12px;">
     <FrameworkFormGroup Label="Titel der Rangliste" ForId="ranking-title">
         <FrameworkInputText Id="ranking-title" @bind-Value="Slide.RankingTitle" Placeholder="z. B. Zwischenstand nach Runde 1" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Darstellungsart auf der Slide">
+        <FrameworkSelect Value="@Slide.RankingChartType" ValueChanged='v => Slide.RankingChartType = v ?? "bar_chart"' Options="_chartTypeOptions" />
     </FrameworkFormGroup>
 
     <FrameworkFormGroup Label="Top-X Begrenzung" HelpText="optional, z. B. 3 für Top 3; leer lassen für alle Teams" ForId="ranking-top-count">
@@ -16,4 +21,10 @@
 
 @code {
     [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+
+    private static readonly FrameworkSelectOption[] _chartTypeOptions =
+    [
+        new("bar_chart", "Säulendiagramm / Balkendiagramm"),
+        new("line_graph", "Zeitlicher Verlaufsgraph (aus Punktelog)")
+    ];
 }

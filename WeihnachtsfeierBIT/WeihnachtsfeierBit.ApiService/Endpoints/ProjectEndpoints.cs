@@ -26,7 +26,7 @@ public static class ProjectEndpoints
         reader.MapGet("/shows/{showId:guid}/slides", ShowSlideEndpoints.GetSlidesAsync).WithName("GetSlides");
 
         ParticipantEndpoints.Map(admin);
-        TeamEndpoints.Map(admin);
+        TeamEndpoints.Map(reader, admin);
         ProjectShowEndpoints.Map(reader, admin);
         ShowSlideEndpoints.Map(admin);
         GameInstanceEndpoints.Map(reader, admin);

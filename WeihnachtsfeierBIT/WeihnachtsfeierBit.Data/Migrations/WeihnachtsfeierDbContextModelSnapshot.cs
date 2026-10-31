@@ -709,6 +709,40 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.ToTable("TeamNameVotes");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamPointLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DeltaPoints")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NewTotalPoints")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjektId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjektId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("TeamPointLogs");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1119,6 +1153,25 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Participant");
 
                     b.Navigation("Suggestion");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeamPointLog", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Projekt", "Projekt")
+                        .WithMany()
+                        .HasForeignKey("ProjektId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Projekt");
+
+                    b.Navigation("Team");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
