@@ -1,0 +1,256 @@
+@using WeihnachtsfeierBit.Framework
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <PageHeading Eyebrow="PUNKTE-LOGBUCH" Title="Punkte-Historie & Korrekturen" Description="Verwalte alle verbuchten Punkte-Gutschriften und -Abzüge des Projekts. Bearbeitungen oder Löschungen korrigieren automatisch alle nachfolgenden Stände." />
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Punkte-Logbuch wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+    }
+    else
+    {
+        <FrameworkFlexRow Justify="space-between" Style="margin-bottom: 16px;">
+            <span style="font-size: 14px; color: #64748b; font-weight: 600;">@_pointLogs.Length Logbuch-Einträge</span>
+            <FrameworkButton Label="+ Punkte vergeben / abziehen" Variant="primary" OnClick="OpenAwardModal" />
+        </FrameworkFlexRow>
+
+        @if (_pointLogs.Length == 0)
+        {
+            <EmptyState Title="Keine Punkte-Einträge vorhanden" Description="Es wurden bisher noch keine Punkte verbucht. Buchen Sie den ersten Eintrag über den Button oben.">
+                <FrameworkButton Label="Jetzt Buchen" Variant="primary" OnClick="OpenAwardModal" />
+            </EmptyState>
+        }
+        else
+        {
+            <div style="display: grid; gap: 8px;">
+                @foreach (var log in _pointLogs)
+                {
+                    <div style="padding: 12px 16px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                            <span style="width: 14px; height: 14px; border-radius: 50%; background-color: @log.TeamColor; flex-shrink: 0; display: inline-block;"></span>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <strong style="font-size: 15px; color: #1d2528;">@log.TeamName</strong>
+                                    <span style="font-size: 12px; font-weight: 800; color: @(log.DeltaPoints >= 0 ? "#166534" : "#991b1b"); background: @(log.DeltaPoints >= 0 ? "#dcfce7" : "#fee2e2"); padding: 2px 8px; border-radius: 6px;">
+                                        @(log.DeltaPoints >= 0 ? $"+{log.DeltaPoints}" : log.DeltaPoints.ToString()) Pkt.
+                                    </span>
+                                    <span style="font-size: 12px; color: #64748b;">(Neuer Stand: @log.NewTotalPoints Pkt.)</span>
+                                </div>
+                                <span style="font-size: 12px; color: #475569; display: block; margin-top: 2px;">
+                                    Grund: <em>@log.Reason</em> &bull; Gebucht am: @log.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </span>
+                            </div>
+                        </div>
+
+                        <FrameworkFlexRow Gap="8px" Justify="flex-end" Style="flex-shrink: 0;">
+                            <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(log)" />
+                            <FrameworkButton Label="Löschen" Variant="secondary" OnClick="() => DeleteLogAsync(log.Id)" />
+                        </FrameworkFlexRow>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <!-- AWARD POINTS MODAL -->
+    <FrameworkModal IsOpen="@_isAwardModalOpen" Title="Punkte vergeben oder abziehen" OnClose="CloseAwardModal">
+        <div style="display: grid; gap: 14px;">
+            <FrameworkFormGroup Label="Team auswählen">
+                <FrameworkSelect Value="@_formTeamId.ToString()" ValueChanged="v => Guid.TryParse(v, out _formTeamId)" Options="@_teamOptions" />
+            </FrameworkFormGroup>
+
+            <FrameworkFormGroup Label="Punkteänderung (positiv oder negativ)" HelpText="z. B. 10 für Bonus oder -5 für Abzug">
+                <FrameworkInputText Value="@_formDeltaPoints.ToString()" ValueChanged="v => int.TryParse(v, out _formDeltaPoints)" Type="number" />
+            </FrameworkFormGroup>
+
+            <FrameworkFormGroup Label="Begründung / Ursache">
+                <FrameworkInputText @bind-Value="_formReason" Placeholder="z. B. Bonus Quiz-Runde 1 oder Schnelligkeitsbonus" />
+            </FrameworkFormGroup>
+
+            @if (!string.IsNullOrEmpty(_modalError))
+            {
+                <FrameworkNotice Message="@_modalError" Severity="error" />
+            }
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseAwardModal" />
+                <FrameworkButton Label="Verbuchen" Variant="primary" OnClick="SaveAwardAsync" Busy="_isSaving" />
+            </div>
+        </div>
+    </FrameworkModal>
+
+    <!-- EDIT LOG ENTRY MODAL -->
+    <FrameworkModal IsOpen="@_isEditModalOpen" Title="Punkte-Eintrag korrigieren" OnClose="CloseEditModal">
+        @if (_editingLog is not null)
+        {
+            <div style="display: grid; gap: 14px;">
+                <FrameworkNotice Message="Eine Korrektur dieses Eintrags berechnet automatisch alle nachfolgenden Punkte-Einträge dieses Teams neu." Severity="warning" />
+
+                <div style="padding: 10px; background: #f8faf9; border-radius: 8px; border: 1px solid #dce5e2; font-size: 13px; color: #1d2528;">
+                    <strong>Team:</strong> @_editingLog.TeamName &bull; <strong>Ursprungsdatum:</strong> @_editingLog.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                </div>
+
+                <FrameworkFormGroup Label="Korrigerte Punkteänderung">
+                    <FrameworkInputText Value="@_editDeltaPoints.ToString()" ValueChanged="v => int.TryParse(v, out _editDeltaPoints)" Type="number" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Begründung / Ursache">
+                    <FrameworkInputText @bind-Value="_editReason" />
+                </FrameworkFormGroup>
+
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <FrameworkNotice Message="@_modalError" Severity="error" />
+                }
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseEditModal" />
+                    <FrameworkButton Label="Änderungen speichern" Variant="primary" OnClick="SaveEditLogAsync" Busy="_isSaving" />
+                </div>
+            </div>
+        }
+    </FrameworkModal>
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamPointLogDto[] _pointLogs = [];
+    private TeamSummary[] _teams = [];
+
+    private bool _isAwardModalOpen;
+    private Guid _formTeamId;
+    private int _formDeltaPoints = 10;
+    private string _formReason = string.Empty;
+
+    private bool _isEditModalOpen;
+    private TeamPointLogDto? _editingLog;
+    private int _editDeltaPoints;
+    private string _editReason = string.Empty;
+
+    private bool _isSaving;
+    private string? _modalError;
+
+    private FrameworkSelectOption[] _teamOptions =>
+        _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        await LoadDataAsync();
+    });
+
+    private async Task LoadDataAsync()
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            var logsTask = ProjectApiClient.GetPointLogsAsync(token, ProjectId);
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            await Task.WhenAll(logsTask, teamsTask);
+
+            _pointLogs = await logsTask;
+            _teams = await teamsTask;
+
+            if (_teams.Length > 0 && _formTeamId == Guid.Empty)
+            {
+                _formTeamId = _teams[0].Id;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OpenAwardModal()
+    {
+        _formDeltaPoints = 10;
+        _formReason = string.Empty;
+        _modalError = null;
+        _isAwardModalOpen = true;
+    }
+
+    private void CloseAwardModal() => _isAwardModalOpen = false;
+
+    private async Task SaveAwardAsync()
+    {
+        if (_formTeamId == Guid.Empty)
+        {
+            _modalError = "Bitte wähle ein Team aus.";
+            return;
+        }
+
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, _formTeamId, _formDeltaPoints, _formReason);
+                _isAwardModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void OpenEditModal(TeamPointLogDto log)
+    {
+        _editingLog = log;
+        _editDeltaPoints = log.DeltaPoints;
+        _editReason = log.Reason;
+        _modalError = null;
+        _isEditModalOpen = true;
+    }
+
+    private void CloseEditModal()
+    {
+        _isEditModalOpen = false;
+        _editingLog = null;
+    }
+
+    private async Task SaveEditLogAsync()
+    {
+        if (_editingLog is null) return;
+
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdatePointLogAsync(token, ProjectId, _editingLog.Id, _editDeltaPoints, _editReason);
+                _isEditModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _modalError = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteLogAsync(Guid logId)
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            await ProjectApiClient.DeletePointLogAsync(token, ProjectId, logId);
+            await LoadDataAsync();
+        });
+    }
+}

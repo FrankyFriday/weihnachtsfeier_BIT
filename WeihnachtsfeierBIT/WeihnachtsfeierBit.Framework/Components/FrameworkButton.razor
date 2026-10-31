@@ -1,8 +1,15 @@
+@namespace WeihnachtsfeierBit.Framework
+
 <button class="framework-button framework-button-@Variant @(Busy ? "is-busy" : string.Empty) @Class" type="@Type" disabled="@(Disabled || Busy)" style="@Style" @onclick="OnClick" @attributes="AdditionalAttributes">
-    @(Busy ? BusyLabel : Label)
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 4px;">@Icon</span>
+    }
+    <span class="framework-btn-label">@(Busy ? BusyLabel : Label)</span>
 </button>
 
 @code {
+    [Parameter] public string? Icon { get; set; }
     [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
     [Parameter] public string BusyLabel { get; set; } = "Bitte warten ...";
     [Parameter] public string Variant { get; set; } = "primary";

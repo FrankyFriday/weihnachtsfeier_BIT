@@ -1,0 +1,130 @@
+@namespace WeihnachtsfeierBit.Framework
+@using System.Globalization
+
+<div class="framework-chart-container @Class" style="width: 100%; box-sizing: border-box; @Style">
+    @if (ChartType == "line_graph" && Teams.Length > 0)
+    {
+        <!-- ZEITLICHER VERLAUFSGRAPH (SVG LINE CHART) -->
+        <div style="background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <strong style="font-size: 15px; color: #1d2528;">Zeitlicher Punkteverlauf</strong>
+                <span style="font-size: 11px; color: #64748b;">@PointLogs.Length Punkteeinträge</span>
+            </div>
+
+            @{
+                var nowUtc = DateTime.UtcNow;
+                var sortedLogs = PointLogs.OrderBy(l => l.CreatedAtUtc).ToList();
+                int maxP = Math.Max(10, Math.Max(
+                    PointLogs.Length > 0 ? PointLogs.Max(l => l.NewTotalPoints) : 0,
+                    Teams.Length > 0 ? Teams.Max(t => t.Points) : 0));
+
+                int width = 500;
+                int height = 200;
+                int padding = 30;
+
+                double startTime = sortedLogs.Count > 0 ? sortedLogs.First().CreatedAtUtc.Ticks : nowUtc.AddMinutes(-30).Ticks;
+                double nowTicks = Math.Max(startTime + 1000, nowUtc.Ticks);
+                double timeSpan = Math.Max(1, nowTicks - startTime);
+
+                // Group logs by team & append current live data point for NOW
+                var teamGroups = Teams.Select(team =>
+                {
+                    var teamLogs = sortedLogs.Where(l => l.TeamId == team.Id).ToList();
+                    var pointsList = new List<(double X, double Y)>();
+
+                    // Initial start point (0 points at startTime)
+                    pointsList.Add((padding, height - padding));
+
+                    // Logged points over time
+                    foreach (var log in teamLogs)
+                    {
+                        double xRatio = (log.CreatedAtUtc.Ticks - startTime) / timeSpan;
+                        double x = padding + xRatio * (width - 2 * padding);
+                        double yRatio = (double)log.NewTotalPoints / maxP;
+                        double y = (height - padding) - yRatio * (height - 2 * padding);
+                        pointsList.Add((x, y));
+                    }
+
+                    // FINAL CURRENT LIVE DATA POINT (at current time = right edge with current team.Points)
+                    double finalX = width - padding;
+                    double finalY = (height - padding) - ((double)team.Points / maxP) * (height - 2 * padding);
+                    pointsList.Add((finalX, finalY));
+
+                    return new { Team = team, Points = pointsList };
+                }).ToList();
+            }
+
+            <svg viewBox="0 0 @width @height" style="width: 100%; height: auto; overflow: visible;">
+                <!-- GRID LINES -->
+                <line x1="@padding" y1="@padding" x2="@width" y2="@padding" stroke="#e2e8f0" stroke-dasharray="4" />
+                <line x1="@padding" y1="@(height/2)" x2="@width" y2="@(height/2)" stroke="#e2e8f0" stroke-dasharray="4" />
+                <line x1="@padding" y1="@(height - padding)" x2="@width" y2="@(height - padding)" stroke="#cbd5e1" stroke-width="1.5" />
+
+                <!-- TEAM LINES -->
+                @foreach (var tg in teamGroups)
+                {
+                    if (tg.Points.Count > 1)
+                    {
+                        var pathData = string.Join(" L ", tg.Points.Select(p => $"{p.X.ToString(CultureInfo.InvariantCulture)},{p.Y.ToString(CultureInfo.InvariantCulture)}"));
+                        <path d="M @pathData" fill="none" stroke="@tg.Team.Color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        @foreach (var p in tg.Points.Skip(1))
+                        {
+                            <circle cx="@p.X.ToString(CultureInfo.InvariantCulture)" cy="@p.Y.ToString(CultureInfo.InvariantCulture)" r="4" fill="@tg.Team.Color" stroke="#ffffff" stroke-width="1.5" />
+                        }
+                    }
+                }
+            </svg>
+
+            <!-- LEGEND -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; justify-content: center;">
+                @foreach (var team in Teams)
+                {
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1d2528;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @team.Color; display: inline-block;"></span>
+                        <span>@team.DisplayName (@team.Points Pkt.)</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- SÄULENDIAGRAMM / BALKENDIAGRAMM (BAR CHART) -->
+        <div style="display: grid; gap: 10px;">
+            @{
+                int maxPoints = Math.Max(1, Teams.Length > 0 ? Teams.Max(t => t.Points) : 1);
+                var sortedTeams = Teams.OrderByDescending(t => t.Points).ToList();
+            }
+            @for (int i = 0; i < sortedTeams.Count; i++)
+            {
+                var team = sortedTeams[i];
+                var rank = i + 1;
+                double pct = Math.Max(8, ((double)team.Points / maxPoints) * 100);
+
+                <div style="background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 800; color: #105c4d; font-size: 13px;">#@rank</span>
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @team.Color; display: inline-block;"></span>
+                            <strong style="font-size: 14px; color: #1d2528;">@team.DisplayName</strong>
+                        </div>
+                        <strong style="font-size: 15px; color: #105c4d;">@team.Points Pkt.</strong>
+                    </div>
+
+                    <!-- ANIMATED BAR -->
+                    <div style="width: 100%; height: 12px; background: #e8f3ef; border-radius: 6px; overflow: hidden; position: relative;">
+                        <div style="width: @(pct.ToString(CultureInfo.InvariantCulture))%; height: 100%; background-color: @team.Color; border-radius: 6px; transition: width 0.4s ease;"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
+    [Parameter] public string ChartType { get; set; } = "bar_chart";
+    [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+}

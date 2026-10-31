@@ -398,6 +398,15 @@
 }
 
 /* Mobile Navigation & Bottom Bar for Admin Client */
+@media (max-width: 768px) {
+    .admin-add-event-btn .framework-button .framework-btn-label {
+        display: none !important;
+    }
+    .admin-add-event-btn .framework-button .material-symbols-outlined {
+        margin-right: 0 !important;
+    }
+}
+
 .admin-mobile-toggle-btn {
     display: none;
     background: transparent;
@@ -460,6 +469,68 @@
 
     .admin-mobile-nav-item .material-symbols-outlined {
         font-size: 22px;
+    }
+
+    /* PROTRUDING CENTER FAB BUTTON */
+    .admin-fab-wrapper {
+        position: relative;
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .admin-fab-button {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 3px solid #ffffff;
+        background: #105c4d;
+        color: #ffffff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 16px rgba(16, 92, 77, 0.4);
+        transform: translateY(-16px);
+        transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .admin-fab-button:active {
+        transform: translateY(-14px) scale(0.96);
+        background: #0d4a3e;
+    }
+
+    /* MOBILE BOTTOM SHEET POPUP */
+    .admin-mobile-sheet-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 10001;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .admin-mobile-bottom-sheet {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+        z-index: 10002;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.2);
+        animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        box-sizing: border-box;
+    }
+
+    .sheet-handle {
+        width: 38px;
+        height: 4px;
+        border-radius: 2px;
+        background: #cbd7d3;
+        margin: 0 auto 14px;
     }
 
     /* Mobile Drawer Sidebar */
@@ -530,4 +601,9 @@
     .slide-editor-layout {
         grid-template-columns: 1fr;
     }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
 }

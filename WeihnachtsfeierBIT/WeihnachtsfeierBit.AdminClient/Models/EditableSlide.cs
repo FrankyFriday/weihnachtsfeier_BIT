@@ -45,6 +45,7 @@ public sealed class EditableSlide
     public string RankingTitle { get; set; } = "Zwischenstand";
     public int? RankingTopCount { get; set; }
     public bool RankingAnimatePodium { get; set; }
+    public string RankingChartType { get; set; } = "bar_chart";
 
     // Estimation
     public string EstimationQuestion { get; set; } = string.Empty;
@@ -101,6 +102,7 @@ public sealed class EditableSlide
                 RankingTitle = !string.IsNullOrWhiteSpace(ReadString(parameters, "title")) ? ReadString(parameters, "title") : "Zwischenstand";
                 RankingTopCount = ReadNullableInt(parameters, "topCount");
                 RankingAnimatePodium = ReadBool(parameters, "animatePodium");
+                RankingChartType = !string.IsNullOrWhiteSpace(ReadString(parameters, "chartType")) ? ReadString(parameters, "chartType") : "bar_chart";
                 break;
             case "estimation":
                 EstimationQuestion = ReadString(parameters, "question");
@@ -230,7 +232,8 @@ public sealed class EditableSlide
                     isDisabled = IsDisabled,
                     title = string.IsNullOrWhiteSpace(RankingTitle) ? "Zwischenstand" : RankingTitle.Trim(),
                     topCount = RankingTopCount,
-                    animatePodium = RankingAnimatePodium
+                    animatePodium = RankingAnimatePodium,
+                    chartType = string.IsNullOrWhiteSpace(RankingChartType) ? "bar_chart" : RankingChartType
                 };
                 break;
 

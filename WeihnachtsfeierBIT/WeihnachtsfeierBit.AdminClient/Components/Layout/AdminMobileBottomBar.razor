@@ -1,5 +1,9 @@
 @namespace WeihnachtsfeierBit.AdminClient.Components.Layout
+@using WeihnachtsfeierBit.Framework
+@implements IDisposable
 @inject NavigationManager Navigation
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @if (ProjectId.HasValue)
 {
@@ -8,37 +12,237 @@
             <span class="material-symbols-outlined">play_circle</span>
             <span>Session</span>
         </a>
-        <a href="@ProjectUrl("chat")" class="admin-mobile-nav-item @(CurrentSection == "chat" ? "active" : null)">
-            <span class="material-symbols-outlined">chat</span>
-            <span>Chat</span>
-        </a>
         <a href="@ProjectUrl("participants")" class="admin-mobile-nav-item @(CurrentSection == "participants" ? "active" : null)">
             <span class="material-symbols-outlined">group</span>
             <span>Gäste</span>
         </a>
+
+        <!-- PROTRUDING CENTER FAB BUTTON FOR QUICK POINT AWARD -->
+        <div class="admin-fab-wrapper">
+            <button type="button" @onclick="OpenAwardSheetAsync" class="admin-fab-button" title="Punkte verbuchen">
+                <span class="material-symbols-outlined" style="font-size: 26px;">add</span>
+            </button>
+        </div>
+
         <a href="@ProjectUrl("jukebox")" class="admin-mobile-nav-item @(CurrentSection == "jukebox" ? "active" : null)">
             <span class="material-symbols-outlined">music_note</span>
             <span>Musik</span>
         </a>
-        <button type="button" @onclick="OnToggleMenu" class="admin-mobile-nav-item">
-            <span class="material-symbols-outlined">menu</span>
-            <span>Menü</span>
+        <button type="button" @onclick="ToggleMoreSheet" class="admin-mobile-nav-item @(IsMoreSection ? "active" : null)">
+            <span class="material-symbols-outlined">more_horiz</span>
+            <span>Mehr</span>
         </button>
     </div>
+
+    <!-- QUICK AWARD POINTS BOTTOM SHEET -->
+    @if (_isAwardSheetOpen)
+    {
+        <div class="admin-mobile-sheet-backdrop" @onclick="CloseAwardSheet"></div>
+        <div class="admin-mobile-bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Punkte verbuchen</h3>
+                <button type="button" @onclick="CloseAwardSheet" style="border: none; background: transparent; color: #64748b; cursor: pointer; padding: 4px;">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form @onsubmit="SubmitQuickAwardAsync" @onsubmit:preventDefault="true" style="display: grid; gap: 12px;">
+                <FrameworkFormGroup Label="Team auswählen">
+                    <FrameworkSelect Value="@_sheetTeamId.ToString()" ValueChanged="v => Guid.TryParse(v, out _sheetTeamId)" Options="@_teamSelectOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Punkteänderung (z. B. 10 oder -5)">
+                    <FrameworkInputText Value="@_sheetDeltaPoints.ToString()" ValueChanged="v => int.TryParse(v, out _sheetDeltaPoints)" Type="number" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Begründung / Ursache">
+                    <FrameworkInputText @bind-Value="_sheetReason" Placeholder="z. B. Bester Witz, Kostüm-Bonus" />
+                </FrameworkFormGroup>
+
+                @if (!string.IsNullOrEmpty(_sheetError))
+                {
+                    <FrameworkNotice Message="@_sheetError" Severity="error" />
+                }
+
+                <FrameworkButton Label="Punkte verbuchen" Variant="primary" Type="submit" Busy="_isSubmitting" />
+            </form>
+        </div>
+    }
+
+    <!-- MORE PAGES GRID TILE BOTTOM SHEET -->
+    @if (_isMoreSheetOpen)
+    {
+        <div class="admin-mobile-sheet-backdrop" @onclick="CloseMoreSheet"></div>
+        <div class="admin-mobile-bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Projektmanagement</h3>
+                <button type="button" @onclick="CloseMoreSheet" style="border: none; background: transparent; color: #64748b; cursor: pointer; padding: 4px;">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 60vh; overflow-y: auto; padding-bottom: 8px;">
+                <a href="@ProjectUrl(null)" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">dashboard</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Übersicht</strong>
+                </a>
+
+                <a href="@ProjectUrl("teams")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">badge</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Teams</strong>
+                </a>
+
+                <a href="@ProjectUrl("point-logs")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">history</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Punkte-Log</strong>
+                </a>
+
+                <a href="@ProjectUrl("chat")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">chat</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Live-Chat</strong>
+                </a>
+
+                <a href="@ProjectUrl("info-pages")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">info</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Info-Seiten</strong>
+                </a>
+
+                <a href="@ProjectUrl("shows")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">collections_bookmark</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Shows</strong>
+                </a>
+
+                <a href="@ProjectUrl("sessions")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">pending_actions</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Historie</strong>
+                </a>
+
+                <a href="@ProjectUrl("settings")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">settings</span>
+                    <strong style="font-size: 13px; color: #1d2528;">Einstellungen</strong>
+                </a>
+            </div>
+        </div>
+    }
 }
 
 @code {
     [Parameter] public Guid? ProjectId { get; set; }
     [Parameter] public EventCallback OnToggleMenu { get; set; }
 
+    private bool _isAwardSheetOpen;
+    private bool _isMoreSheetOpen;
+
+    private TeamSummary[] _teams = [];
+    private Guid _sheetTeamId;
+    private int _sheetDeltaPoints = 10;
+    private string _sheetReason = string.Empty;
+    private bool _isSubmitting;
+    private string? _sheetError;
+
     private string CurrentSection => GetProjectSection(Navigation.Uri);
 
-    private string ProjectUrl(string section) =>
-        $"{Navigation.BaseUri}projects/{ProjectId}/{section}";
+    private bool IsMoreSection => CurrentSection is "overview" or "shows" or "point-logs" or "info-pages" or "teams" or "sessions" or "settings" or "chat";
+
+    private FrameworkSelectOption[] _teamSelectOptions =>
+        _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(() =>
+    {
+        StateHasChanged();
+    });
+
+    private string ProjectUrl(string? section = null) =>
+        string.IsNullOrEmpty(section)
+            ? $"{Navigation.BaseUri}projects/{ProjectId}"
+            : $"{Navigation.BaseUri}projects/{ProjectId}/{section}";
 
     private string GetProjectSection(string uri)
     {
-        var segments = Navigation.ToBaseRelativePath(uri).Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length >= 3 && segments[0] == "projects" ? segments[2] : "overview";
+        var relative = Navigation.ToBaseRelativePath(uri);
+        var segments = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length >= 2 && segments[0] == "projects")
+        {
+            return segments.Length >= 3 ? segments[2] : "overview";
+        }
+        return "overview";
     }
+
+    private void ToggleMoreSheet()
+    {
+        _isMoreSheetOpen = !_isMoreSheetOpen;
+        _isAwardSheetOpen = false;
+    }
+
+    private void CloseMoreSheet() => _isMoreSheetOpen = false;
+
+    private async Task OpenAwardSheetAsync()
+    {
+        if (!ProjectId.HasValue) return;
+        _isMoreSheetOpen = false;
+        _isAwardSheetOpen = true;
+        _sheetDeltaPoints = 10;
+        _sheetReason = string.Empty;
+        _sheetError = null;
+
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId.Value);
+                if (_teams.Length > 0 && _sheetTeamId == Guid.Empty)
+                {
+                    _sheetTeamId = _teams[0].Id;
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void CloseAwardSheet() => _isAwardSheetOpen = false;
+
+    private async Task SubmitQuickAwardAsync()
+    {
+        if (!ProjectId.HasValue || _sheetTeamId == Guid.Empty)
+        {
+            _sheetError = "Bitte wähle ein Team aus.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _sheetError = null;
+
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId.Value, _sheetTeamId, _sheetDeltaPoints, _sheetReason);
+                _isAwardSheetOpen = false;
+                Navigation.NavigateTo(Navigation.Uri, forceLoad: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _sheetError = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 }
