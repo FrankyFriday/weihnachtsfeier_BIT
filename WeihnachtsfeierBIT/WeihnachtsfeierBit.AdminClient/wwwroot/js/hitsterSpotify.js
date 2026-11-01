@@ -3,12 +3,18 @@ let deviceId;
 let accessToken;
 let pendingPopup;
 let sdkPromise;
+let authorizationInProgress = false;
 const preparedButtons = new WeakSet();
 
 export function prepareAuthButton(button) {
   if (!button || preparedButtons.has(button)) return;
   preparedButtons.add(button);
-  button.addEventListener("click", () => {
+  button.addEventListener("click", event => {
+    if (pendingPopup || authorizationInProgress) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
     pendingPopup?.close();
     pendingPopup = window.open("about:blank", "spotify-hitster-login", "width=540,height=720,popup");
     if (pendingPopup) {
@@ -21,12 +27,18 @@ export function prepareAuthButton(button) {
 export function cancelAuthorization() {
   pendingPopup?.close();
   pendingPopup = undefined;
+  authorizationInProgress = false;
+}
+
+export function completeAuthorization() {
+  authorizationInProgress = false;
 }
 
 export async function authorize(url, dotNetReference) {
   const popup = pendingPopup;
   pendingPopup = null;
   if (!popup) throw new Error("Der Spotify-Anmeldepopup wurde blockiert. Bitte Popups für diese Seite erlauben.");
+  authorizationInProgress = true;
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => finish(null, new Error("Spotify-Anmeldung abgebrochen oder Zeitüberschreitung.")), 180_000);

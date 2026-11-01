@@ -89,6 +89,7 @@
     private string? _deviceId;
     private string? _error;
     private bool _busy;
+    private bool _spotifyConnectInProgress;
     private bool _spotifyConnected;
     private bool _spotifyReady;
 
@@ -118,40 +119,53 @@
 
     private async Task ConnectSpotifyAsync()
     {
-        await RunBusyAsync(async () =>
+        if (_spotifyConnectInProgress)
         {
-            await RunAuthenticatedAsync(async token =>
+            return;
+        }
+
+        _spotifyConnectInProgress = true;
+        try
+        {
+            await RunBusyAsync(async () =>
             {
-                var flow = await ProjectApiClient.BeginHitsterSpotifyAuthAsync(token, ProjectId);
-                var authorizationUrl = BuildAuthorizationUrl(flow);
-                var callback = await _spotify!.InvokeAsync<SpotifyAuthorizationResult>("authorize", authorizationUrl);
-                if (!string.IsNullOrEmpty(callback.Error))
+                await RunAuthenticatedAsync(async token =>
                 {
-                    throw new InvalidOperationException($"Spotify-Anmeldung fehlgeschlagen: {callback.Error}");
-                }
-                if (string.IsNullOrWhiteSpace(callback.Code) || callback.State != flow.State)
-                {
-                    throw new InvalidOperationException("Die Spotify-Anmeldung ist ungültig oder abgelaufen. Bitte erneut versuchen.");
-                }
+                    var flow = await ProjectApiClient.BeginHitsterSpotifyAuthAsync(token, ProjectId);
+                    var authorizationUrl = BuildAuthorizationUrl(flow);
+                    var callback = await _spotify!.InvokeAsync<SpotifyAuthorizationResult>("authorize", authorizationUrl);
+                    if (!string.IsNullOrEmpty(callback.Error))
+                    {
+                        throw new InvalidOperationException($"Spotify-Anmeldung fehlgeschlagen: {callback.Error}");
+                    }
+                    if (string.IsNullOrWhiteSpace(callback.Code) || callback.State != flow.State)
+                    {
+                        throw new InvalidOperationException("Die Spotify-Anmeldung ist ungültig oder abgelaufen. Bitte erneut versuchen.");
+                    }
 
-                var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
-                    token,
-                    ProjectId,
-                    "authorization_code",
-                    callback.Code,
-                    callback.State,
-                    codeVerifier: flow.Verifier);
-                SetSpotifyToken(spotifyToken);
-                _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
-                _spotifyConnected = true;
+                    var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
+                        token,
+                        ProjectId,
+                        "authorization_code",
+                        callback.Code,
+                        callback.State,
+                        codeVerifier: flow.Verifier);
+                    SetSpotifyToken(spotifyToken);
+                    _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
+                    _spotifyConnected = true;
+                });
+
+                _error ??= ErrorMessage;
             });
-
-            _error ??= ErrorMessage;
-        });
-
-        if (!_spotifyConnected && _spotify is not null)
+        }
+        finally
         {
-            await _spotify.InvokeVoidAsync("cancelAuthorization");
+            _spotifyConnectInProgress = false;
+            if (_spotify is not null)
+            {
+                await _spotify.InvokeVoidAsync(
+                    _spotifyConnected ? "completeAuthorization" : "cancelAuthorization");
+            }
         }
     }
 
