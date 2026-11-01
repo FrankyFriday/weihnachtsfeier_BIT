@@ -1,0 +1,28 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Frage / Skalen-Thema">
+        <FrameworkInputText @bind-Value="Slide.SliderQuestion" Placeholder="z. B. Wie hoch war die Motivation beim Sommerfest?" />
+    </FrameworkFormGroup>
+
+    <FrameworkGrid Columns="1fr 1fr 1fr" Gap="10px">
+        <FrameworkFormGroup Label="Minimum (Min)">
+            <FrameworkInputNumber @bind-Value="Slide.SliderMin" />
+        </FrameworkFormGroup>
+        <FrameworkFormGroup Label="Maximum (Max)">
+            <FrameworkInputNumber @bind-Value="Slide.SliderMax" />
+        </FrameworkFormGroup>
+        <FrameworkFormGroup Label="Schrittweite (Step)">
+            <FrameworkInputNumber @bind-Value="Slide.SliderStep" Min="1" />
+        </FrameworkFormGroup>
+    </FrameworkGrid>
+
+    <FrameworkFormGroup Label="Einheit / Bezeichnung (optional)">
+        <FrameworkInputText @bind-Value="Slide.SliderUnit" Placeholder="z. B. % oder Punkte" />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

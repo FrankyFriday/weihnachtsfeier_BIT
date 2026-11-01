@@ -221,6 +221,27 @@
                                 case "buzzer":
                                     <BuzzerResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
+                                case "text":
+                                    <TextResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "word_cloud":
+                                    <WordCloudResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "slider":
+                                    <SliderResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "rating":
+                                    <RatingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "ordering":
+                                    <OrderingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "countdown":
+                                    <CountdownResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                                    break;
+                                case "point_award":
+                                    <PointAwardResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                                    break;
                                 default:
                                     <FallbackResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
@@ -514,6 +535,27 @@
                 case "buzzer":
                     <BuzzerSlideEditor Slide="_spontaneousSlide" />
                     break;
+                case "text":
+                    <TextSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "word_cloud":
+                    <WordCloudSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "slider":
+                    <SliderSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "rating":
+                    <RatingSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "ordering":
+                    <OrderingSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "countdown":
+                    <CountdownSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "point_award":
+                    <PointAwardSlideEditor Slide="_spontaneousSlide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(_modalError))
@@ -621,7 +663,14 @@
         new("quiz", "Quiz"),
         new("estimation", "Schätzfrage"),
         new("buzzer", "Buzzer"),
-        new("ranking", "Rangliste")
+        new("ranking", "Rangliste"),
+        new("text", "Freitext-Frage"),
+        new("word_cloud", "Wortwolke"),
+        new("slider", "Schieberegler"),
+        new("rating", "Sterne-Bewertung"),
+        new("ordering", "Reihenfolge sortieren"),
+        new("countdown", "Timer / Countdown"),
+        new("point_award", "Punktevergabe")
     ];
 
     private static readonly FrameworkSelectOption[] _modeOptions =

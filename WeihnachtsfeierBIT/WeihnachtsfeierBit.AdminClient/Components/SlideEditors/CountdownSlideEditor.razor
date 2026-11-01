@@ -1,0 +1,20 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Titel des Countdowns">
+        <FrameworkInputText @bind-Value="Slide.CountdownTitle" Placeholder="z. B. Pause / Vorbereitung" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Dauer in Sekunden">
+        <FrameworkInputNumber @bind-Value="Slide.CountdownSeconds" Min="5" Max="3600" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Nachricht beim Ablauf (optional)">
+        <FrameworkInputText @bind-Value="Slide.CountdownMessage" Placeholder="z. B. Los geht's! Bitte Plätze einnehmen." />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

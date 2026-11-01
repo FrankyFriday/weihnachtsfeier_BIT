@@ -202,6 +202,9 @@ public sealed class GameStateNotifier(
             gie.AutoStartOnSchedule,
             slideStates.ToArray(),
             responseStates,
-            gie.StartedAtUtc);
+            gie.StartedAtUtc,
+            gie.AccumulatedElapsedSeconds,
+            gie.IsPaused,
+            gie.LastResumedAtUtc);
     }
 }

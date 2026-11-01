@@ -1,0 +1,84 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@implements IDisposable
+
+<div style="flex: 1; width: 100%; padding: 24px 16px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+    <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 11px;">COUNTDOWN</span>
+    <h2 style="font-size: 24px; font-weight: 800; margin: 0 0 20px 0; color: #1d2528;">@_title</h2>
+
+    <div style="font-size: 54px; font-weight: 900; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d"); font-family: monospace; letter-spacing: 2px; margin-bottom: 16px;">
+        @FormatSeconds(_remainingSeconds)
+    </div>
+
+    @if (_remainingSeconds == 0 && !string.IsNullOrWhiteSpace(_message))
+    {
+        <div style="padding: 12px 16px; background: #fee2e2; border-radius: 8px; color: #991b1b; font-weight: 700; font-size: 16px; max-width: 340px;">
+            @_message
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <p style="font-size: 15px; color: #475569; margin: 0; max-width: 320px;">@_message</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private int _remainingSeconds;
+    private CancellationTokenSource? _cts;
+
+    private string _title => ReadString(CurrentSlide.Parameters, "title");
+    private string _message => ReadString(CurrentSlide.Parameters, "message");
+    private int _seconds => ReadInt(CurrentSlide.Parameters, "seconds", 60);
+
+    protected override void OnParametersSet()
+    {
+        UpdateRemaining();
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _ = StartTimerAsync(_cts.Token);
+    }
+
+    private void UpdateRemaining()
+    {
+        double elapsed = Event.AccumulatedElapsedSeconds;
+        if (!Event.IsPaused)
+        {
+            var refTime = Event.LastResumedAtUtc ?? Event.StartedAtUtc;
+            elapsed += Math.Max(0, (DateTime.UtcNow - refTime).TotalSeconds);
+        }
+        _remainingSeconds = Math.Max(0, _seconds - (int)elapsed);
+    }
+
+    private async Task StartTimerAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (_remainingSeconds > 0 && !token.IsCancellationRequested && await timer.WaitForNextTickAsync(token))
+            {
+                if (!Event.IsPaused)
+                {
+                    UpdateRemaining();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int ReadInt(JsonElement el, string prop, int def) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : def;
+
+    private static string FormatSeconds(int sec) => TimeSpan.FromSeconds(sec).ToString(@"mm\:ss");
+
+    public void Dispose() => _cts?.Cancel();
+}

@@ -175,16 +175,7 @@ public static class AdminShowEndpoints
         {
             var slideResult = ShowSlideEndpoints.CreateSlide(
                 new SlideRequest(
-                    originalSlide switch
-                    {
-                        PollSlide => "poll",
-                        AnnouncementSlide => "announcement",
-                        QuizSlide => "quiz",
-                        RankingSlide => "ranking",
-                        EstimationSlide => "estimation",
-                        BuzzerSlide => "buzzer",
-                        _ => "announcement"
-                    },
+                    ShowSlideEndpoints.GetSlideType(originalSlide),
                     originalSlide.Position,
                     JsonDocument.Parse(originalSlide.ParametersJson).RootElement),
                 newShow);

@@ -1,0 +1,20 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Frage / Aufgabenstellung">
+        <FrameworkInputText @bind-Value="Slide.TextQuestion" Placeholder="z. B. Was war dein lustigster Büromoment?" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Platzhalter-Text im Eingabefeld">
+        <FrameworkInputText @bind-Value="Slide.TextPlaceholder" Placeholder="z. B. Schreibe deine Antwort..." />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Maximale Zeichenlänge">
+        <FrameworkInputNumber @bind-Value="Slide.TextMaxLength" Min="10" Max="1000" />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

@@ -1,0 +1,16 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Frage / Thema der Wortwolke">
+        <FrameworkInputText @bind-Value="Slide.WordCloudQuestion" Placeholder="z. B. Beschreibe unser Jahr in einem Wort" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Maximale Wörter pro Teilnehmer">
+        <FrameworkInputNumber @bind-Value="Slide.WordCloudMaxWordsPerUser" Min="1" Max="10" />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

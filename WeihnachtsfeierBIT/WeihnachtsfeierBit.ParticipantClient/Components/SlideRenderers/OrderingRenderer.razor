@@ -1,0 +1,106 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">REIHENFOLGE SORTIEREN</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 16px 0; color: #1d2528;">@_question</h2>
+
+        <div style="display: grid; gap: 8px; margin-bottom: 20px;">
+            @for (int i = 0; i < _userItems.Count; i++)
+            {
+                var idx = i;
+                var item = _userItems[idx];
+                <div style="padding: 12px; border: 1.5px solid #dce5e2; border-radius: 10px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 800; color: #105c4d; font-size: 14px;">#@(idx + 1)</span>
+                        <strong style="font-size: 14px; color: #1d2528;">@item</strong>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" @onclick="() => MoveItem(idx, -1)" disabled="@(idx == 0)" style="border: 1px solid #cbd7d3; background: #f8faf9; border-radius: 6px; padding: 4px 8px; cursor: pointer;">▲</button>
+                        <button type="button" @onclick="() => MoveItem(idx, 1)" disabled="@(idx == _userItems.Count - 1)" style="border: 1px solid #cbd7d3; background: #f8faf9; border-radius: 6px; padding: 4px 8px; cursor: pointer;">▼</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
+        }
+
+        @if (_submitted)
+        {
+            <FrameworkNotice Message="Sortierung erfolgreich abgegeben!" Severity="success" Style="margin-bottom: 12px;" />
+        }
+
+        <FrameworkButton Label="@(_submitted ? "Sortierung aktualisieren" : "Sortierung abgeben")" Variant="primary" OnClick="SubmitOrderingAsync" Busy="_isSubmitting" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private List<string> _userItems = [];
+    private bool _isSubmitting;
+    private bool _submitted;
+    private string? _error;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+
+    protected override void OnParametersSet()
+    {
+        if (_userItems.Count == 0)
+        {
+            var items = ReadStringList(CurrentSlide.Parameters, "items").ToList();
+            var itemsArray = items.ToArray();
+            Random.Shared.Shuffle(itemsArray);
+            _userItems = itemsArray.ToList();
+        }
+    }
+
+    private void MoveItem(int index, int delta)
+    {
+        int target = index + delta;
+        if (target >= 0 && target < _userItems.Count)
+        {
+            var temp = _userItems[index];
+            _userItems[index] = _userItems[target];
+            _userItems[target] = temp;
+        }
+    }
+
+    private async Task SubmitOrderingAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        _isSubmitting = true;
+        _error = null;
+
+        try
+        {
+            var payload = JsonSerializer.SerializeToElement(new { items = _userItems });
+            await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
+            _submitted = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static string[] ReadStringList(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToArray()
+            : [];
+}

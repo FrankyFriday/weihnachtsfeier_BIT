@@ -8,7 +8,7 @@
         <h2 style="font-size: 20px; font-weight: 800; margin: 0; color: #1d2528;">@_rankingTitle</h2>
     </div>
 
-    @if (_isLoading)
+    @if (_isLoading && _teams.Length == 0)
     {
         <FrameworkLoading Message="Ergebnisse werden geladen ..." />
     }
@@ -21,6 +21,7 @@
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
 
@@ -33,12 +34,17 @@
     protected override async Task OnParametersSetAsync()
     {
         ReadSlideParameters();
-        _isLoading = true;
-        if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty)
+        if (Teams.Length > 0)
+        {
+            _teams = Teams;
+            _isLoading = false;
+        }
+
+        if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty && (_teams.Length == 0 || _chartType == "line_graph"))
         {
             try
             {
-                var teamsTask = ProjectApiClient.GetTeamsAsync(AccessToken, ProjectId);
+                var teamsTask = _teams.Length == 0 ? ProjectApiClient.GetTeamsAsync(AccessToken, ProjectId) : Task.FromResult(_teams);
                 var logsTask = ProjectApiClient.GetPointLogsAsync(AccessToken, ProjectId);
                 await Task.WhenAll(teamsTask, logsTask);
                 _teams = await teamsTask;
@@ -47,8 +53,8 @@
             catch
             {
             }
+            _isLoading = false;
         }
-        _isLoading = false;
     }
 
     private void ReadSlideParameters()

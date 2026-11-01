@@ -131,7 +131,14 @@
         new("quiz", "Quiz"),
         new("ranking", "Zwischenstand (Automatisch)"),
         new("estimation", "Schätzfrage"),
-        new("buzzer", "Buzzer-Frage")
+        new("buzzer", "Buzzer-Frage"),
+        new("text", "Freitext-Frage"),
+        new("word_cloud", "Wortwolke"),
+        new("slider", "Schieberegler"),
+        new("rating", "Sterne-Bewertung"),
+        new("ordering", "Reihenfolge sortieren"),
+        new("countdown", "Timer / Countdown"),
+        new("point_award", "Punktevergabe")
     ];
 
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);

@@ -1,0 +1,72 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_question</h3>
+        <FrameworkBadge Text="@($"{_slideResponses.Count} Bewertungen")" Variant="primary" />
+    </div>
+
+    @if (_slideResponses.Count == 0)
+    {
+        <p style="color: #64748b; font-size: 13px;">Noch keine Sterne-Bewertungen für diese Folie vorhanden.</p>
+    }
+    else
+    {
+        double avg = _slideResponses.Average(r => ReadResponseValue(r.ResponseData));
+        <div style="padding: 20px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; text-align: center;">
+            <span class="mobile-eyebrow" style="font-size: 11px;">DURCHSCHNITTLICHE BEWERTUNG</span>
+            <div style="font-size: 36px; font-weight: 800; color: #105c4d; margin: 4px 0; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>⭐ @avg.ToString("0.0")</span>
+                <span style="font-size: 18px; color: #64748b;">/ @_maxStars</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
+                @(_showDetails ? "▲ Einzelne Bewertungen ausblenden" : "▼ Einzelne Bewertungen anzeigen")
+            </button>
+
+            @if (_showDetails)
+            {
+                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                    @foreach (var resp in _slideResponses)
+                    {
+                        var rating = ReadResponseValue(resp.ResponseData);
+                        <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                            <div>
+                                <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
+                                @if (!string.IsNullOrEmpty(resp.TeamName))
+                                {
+                                    <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
+                                }
+                            </div>
+                            <strong style="color: #1d2528;">⭐ @rating / @_maxStars</strong>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private bool _showDetails;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private int _maxStars => ReadInt(CurrentSlide.Parameters, "maxStars", 5);
+
+    private List<EventResponseState> _slideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId).ToList();
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int ReadInt(JsonElement el, string prop, int def) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : def;
+
+    private static int ReadResponseValue(JsonElement el) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty("rating", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
+}

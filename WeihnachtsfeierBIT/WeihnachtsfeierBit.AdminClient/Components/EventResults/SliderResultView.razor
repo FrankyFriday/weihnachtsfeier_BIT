@@ -1,0 +1,74 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_question</h3>
+        <FrameworkBadge Text="@($"{_slideResponses.Count} Stimmen")" Variant="primary" />
+    </div>
+
+    @if (_slideResponses.Count == 0)
+    {
+        <p style="color: #64748b; font-size: 13px;">Noch keine Schieberegler-Eingaben für diese Folie vorhanden.</p>
+    }
+    else
+    {
+        double avg = _slideResponses.Average(r => ReadResponseValue(r.ResponseData));
+        <div style="padding: 20px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; text-align: center;">
+            <span class="mobile-eyebrow" style="font-size: 11px;">DURCHSCHNITT</span>
+            <div style="font-size: 36px; font-weight: 800; color: #105c4d; margin: 4px 0;">
+                @avg.ToString("0.0") @_unit
+            </div>
+            <span style="font-size: 12px; color: #64748b;">Skala von @_min bis @_max</span>
+        </div>
+
+        <div style="margin-top: 16px;">
+            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
+                @(_showDetails ? "▲ Einzelne Abgaben ausblenden" : "▼ Einzelne Abgaben anzeigen")
+            </button>
+
+            @if (_showDetails)
+            {
+                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                    @foreach (var resp in _slideResponses)
+                    {
+                        var val = ReadResponseValue(resp.ResponseData);
+                        <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                            <div>
+                                <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
+                                @if (!string.IsNullOrEmpty(resp.TeamName))
+                                {
+                                    <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
+                                }
+                            </div>
+                            <strong style="color: #1d2528;">@val.ToString("0") @_unit</strong>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private bool _showDetails;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private string _unit => ReadString(CurrentSlide.Parameters, "unit");
+    private double _min => ReadDouble(CurrentSlide.Parameters, "min");
+    private double _max => ReadDouble(CurrentSlide.Parameters, "max");
+
+    private List<EventResponseState> _slideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId).ToList();
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static double ReadDouble(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+
+    private static double ReadResponseValue(JsonElement el) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+}

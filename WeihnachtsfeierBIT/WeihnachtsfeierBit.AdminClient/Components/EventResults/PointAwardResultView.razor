@@ -1,0 +1,200 @@
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_title</h3>
+        <FrameworkBadge Text="Live-Punktevergabe" Variant="primary" />
+    </div>
+
+    @if (_isLoading)
+    {
+        <FrameworkLoading Message="Teams werden geladen ..." />
+    }
+    else
+    {
+        <!-- ANIMATED LIVE BAR CHART -->
+        <FrameworkChart Teams="_teams" ChartType="bar_chart" Style="margin-bottom: 20px;" />
+
+        <!-- ADMIN POINT AWARD FORM FOR TEAMS -->
+        <div style="padding: 16px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; display: grid; gap: 14px;">
+            <strong style="font-size: 15px; color: #1d2528;">Punkte an Teams vergeben / abziehen</strong>
+
+            <div style="display: grid; gap: 10px;">
+                @foreach (var team in _teams)
+                {
+                    var teamId = team.Id;
+                    if (!_teamInputs.ContainsKey(teamId))
+                    {
+                        _teamInputs[teamId] = new TeamAwardInputModel
+                        {
+                            DeltaPoints = _defaultDeltaPoints,
+                            Reason = _defaultReason
+                        };
+                    }
+                    var input = _teamInputs[teamId];
+
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #fafcfb;">
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 140px; flex: 1;">
+                            <span style="width: 12px; height: 12px; border-radius: 50%; background-color: @team.Color; display: inline-block;"></span>
+                            <strong style="font-size: 14px; color: #1d2528;">@team.DisplayName</strong>
+                        </div>
+
+                        <div style="width: 100px;">
+                            <FrameworkInputNumber @bind-Value="input.DeltaPoints" Placeholder="+/- Pkt" />
+                        </div>
+
+                        <div style="flex: 2; min-width: 160px;">
+                            <FrameworkInputText @bind-Value="input.Reason" Placeholder="Begründung..." />
+                        </div>
+
+                        <FrameworkButton Label="Buchen" Variant="primary" OnClick="() => AwardSingleTeamAsync(teamId)" Busy="@(_busyTeamId == teamId)" Disabled="@(input.DeltaPoints == 0)" />
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(_noticeMessage))
+            {
+                <FrameworkNotice Message="@_noticeMessage" Severity="success" />
+            }
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <FrameworkNotice Message="@_errorMessage" Severity="error" />
+            }
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                <FrameworkButton Label="Alle Punkte verbuchen" Variant="primary" OnClick="AwardAllTeamsAsync" Busy="_isSubmittingAll" />
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamSummary[] _teams = [];
+    private Dictionary<Guid, TeamAwardInputModel> _teamInputs = [];
+    private bool _isLoading = true;
+    private Guid? _busyTeamId;
+    private bool _isSubmittingAll;
+    private string? _noticeMessage;
+    private string? _errorMessage;
+
+    private string _title => ReadString(CurrentSlide.Parameters, "title");
+    private string _defaultReason => ReadString(CurrentSlide.Parameters, "defaultReason");
+    private int _defaultDeltaPoints => ReadInt(CurrentSlide.Parameters, "defaultDeltaPoints", 10);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ProjectId != Guid.Empty)
+        {
+            await LoadTeamsAsync();
+        }
+    }
+
+    private async Task LoadTeamsAsync()
+    {
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task AwardSingleTeamAsync(Guid teamId)
+    {
+        if (!_teamInputs.TryGetValue(teamId, out var input) || input.DeltaPoints == 0) return;
+
+        _busyTeamId = teamId;
+        _noticeMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                var reason = string.IsNullOrWhiteSpace(input.Reason) ? _defaultReason : input.Reason;
+                await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, teamId, input.DeltaPoints, reason);
+                _noticeMessage = $"Punkte für Team verbucht!";
+                await LoadTeamsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _busyTeamId = null;
+        }
+    }
+
+    private async Task AwardAllTeamsAsync()
+    {
+        _isSubmittingAll = true;
+        _noticeMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                int count = 0;
+                foreach (var team in _teams)
+                {
+                    if (_teamInputs.TryGetValue(team.Id, out var input) && input.DeltaPoints != 0)
+                    {
+                        var reason = string.IsNullOrWhiteSpace(input.Reason) ? _defaultReason : input.Reason;
+                        await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, team.Id, input.DeltaPoints, reason);
+                        count++;
+                    }
+                }
+                if (count > 0)
+                {
+                    _noticeMessage = $"Punkte für {count} Team(s) verbucht!";
+                    await LoadTeamsAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmittingAll = false;
+        }
+    }
+
+    private sealed class TeamAwardInputModel
+    {
+        public int DeltaPoints { get; set; }
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int ReadInt(JsonElement el, string prop, int def) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : def;
+}

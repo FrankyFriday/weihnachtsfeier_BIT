@@ -27,12 +27,40 @@
                 </div>
             }
         </div>
+
+        <div style="margin-top: 16px;">
+            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
+                @(_showDetails ? "▲ Einzelne Stimmen ausblenden" : "▼ Einzelne Stimmen anzeigen")
+            </button>
+
+            @if (_showDetails)
+            {
+                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                    @foreach (var resp in SlideResponses)
+                    {
+                        var optText = ReadSelectedOption(resp.ResponseData);
+                        <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                            <div>
+                                <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
+                                @if (!string.IsNullOrEmpty(resp.TeamName))
+                                {
+                                    <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
+                                }
+                            </div>
+                            <strong style="color: #1d2528;">@optText</strong>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private bool _showDetails;
 
     private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
     private int TotalVotes => SlideResponses.Count();
@@ -46,11 +74,8 @@
             var counts = options.ToDictionary(o => o, _ => 0);
             foreach (var resp in SlideResponses)
             {
-                if (resp.ResponseData.ValueKind == JsonValueKind.Object &&
-                    resp.ResponseData.TryGetProperty("selectedOption", out var sel) &&
-                    sel.ValueKind == JsonValueKind.String &&
-                    sel.GetString() is string optStr &&
-                    counts.ContainsKey(optStr))
+                var optStr = ReadSelectedOption(resp.ResponseData);
+                if (counts.ContainsKey(optStr))
                 {
                     counts[optStr]++;
                 }
@@ -59,6 +84,15 @@
             var total = Math.Max(1, TotalVotes);
             return options.Select(o => new OptionStat(o, counts[o], (double)counts[o] / total * 100.0)).ToList();
         }
+    }
+
+    private static string ReadSelectedOption(JsonElement el)
+    {
+        if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("selectedOption", out var v) && v.ValueKind == JsonValueKind.String)
+        {
+            return v.GetString() ?? string.Empty;
+        }
+        return string.Empty;
     }
 
     private sealed record OptionStat(string Option, int Count, double Percentage);
