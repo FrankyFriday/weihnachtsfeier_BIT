@@ -313,7 +313,7 @@
         {
             try
             {
-                await _spotify.InvokeVoidAsync("disconnect");
+                await _spotify.InvokeVoidAsync("pause");
             }
             catch (JSDisconnectedException)
             {
