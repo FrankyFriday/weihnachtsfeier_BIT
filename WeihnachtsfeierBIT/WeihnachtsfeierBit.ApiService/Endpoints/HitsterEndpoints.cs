@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -559,8 +560,13 @@ public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUr
 public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken, string? CodeVerifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 internal sealed record CachedSpotifyToken(string CodeHash, SpotifyTokenResult Token, DateTimeOffset ExpiresAt);
-public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);
-public sealed record SpotifyTokenError(string? Error, string? ErrorDescription);
+public sealed record SpotifyTokenResponse(
+    [property: JsonPropertyName("access_token")] string AccessToken,
+    [property: JsonPropertyName("refresh_token")] string? RefreshToken,
+    [property: JsonPropertyName("expires_in")] int ExpiresIn);
+public sealed record SpotifyTokenError(
+    [property: JsonPropertyName("error")] string? Error,
+    [property: JsonPropertyName("error_description")] string? ErrorDescription);
 public sealed record HitsterGuessRequest(int Position);
 public sealed record HitsterTrackResponse(string TrackId);
 public sealed record HitsterSong(string Id, string Title, string Artist, int Year);
