@@ -20,7 +20,7 @@
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0;">
         @if (!_spotifyConnected)
         {
-            <button @ref="_connectButton" class="framework-button framework-button-secondary" @onclick="ConnectSpotifyAsync" disabled="@_busy">Spotify verbinden</button>
+            <button @ref="_connectButton" class="framework-button framework-button-secondary" @onclick="ConnectSpotifyAsync" disabled="@(_busy || !_spotifyReady)">Spotify verbinden</button>
         }
         @if (!GameStarted)
         {
@@ -90,6 +90,7 @@
     private string? _error;
     private bool _busy;
     private bool _spotifyConnected;
+    private bool _spotifyReady;
 
     private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
     private bool GameStarted => ReadBool(Game, "started");
@@ -107,32 +108,45 @@
         if (_spotify is not null && !_spotifyConnected)
         {
             await _spotify.InvokeVoidAsync("prepareAuthButton", _connectButton);
+            if (!_spotifyReady)
+            {
+                _spotifyReady = true;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
-    private async Task ConnectSpotifyAsync() => await RunBusyAsync(async () =>
+    private async Task ConnectSpotifyAsync()
     {
-        await RunAuthenticatedAsync(async token =>
+        await RunBusyAsync(async () =>
         {
-            var flow = await ProjectApiClient.BeginHitsterSpotifyAuthAsync(token, ProjectId);
-            var authorizationUrl = BuildAuthorizationUrl(flow);
-            var callback = await _spotify!.InvokeAsync<SpotifyAuthorizationResult>("authorize", authorizationUrl);
-            if (!string.IsNullOrEmpty(callback.Error))
+            await RunAuthenticatedAsync(async token =>
             {
-                throw new InvalidOperationException($"Spotify-Anmeldung fehlgeschlagen: {callback.Error}");
-            }
-            if (string.IsNullOrWhiteSpace(callback.Code) || callback.State != flow.State)
-            {
-                throw new InvalidOperationException("Die Spotify-Anmeldung ist ungültig oder abgelaufen. Bitte erneut versuchen.");
-            }
+                var flow = await ProjectApiClient.BeginHitsterSpotifyAuthAsync(token, ProjectId);
+                var authorizationUrl = BuildAuthorizationUrl(flow);
+                var callback = await _spotify!.InvokeAsync<SpotifyAuthorizationResult>("authorize", authorizationUrl);
+                if (!string.IsNullOrEmpty(callback.Error))
+                {
+                    throw new InvalidOperationException($"Spotify-Anmeldung fehlgeschlagen: {callback.Error}");
+                }
+                if (string.IsNullOrWhiteSpace(callback.Code) || callback.State != flow.State)
+                {
+                    throw new InvalidOperationException("Die Spotify-Anmeldung ist ungültig oder abgelaufen. Bitte erneut versuchen.");
+                }
 
-            var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
-                token, ProjectId, "authorization_code", callback.Code, callback.State);
-            SetSpotifyToken(spotifyToken);
-            _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
-            _spotifyConnected = true;
+                var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
+                    token, ProjectId, "authorization_code", callback.Code, callback.State);
+                SetSpotifyToken(spotifyToken);
+                _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
+                _spotifyConnected = true;
+            });
         });
-    });
+
+        if (!_spotifyConnected && _spotify is not null)
+        {
+            await _spotify.InvokeVoidAsync("cancelAuthorization");
+        }
+    }
 
     private async Task StartAsync() => await RunAuthenticatedAsync(token => RunBusyAsync(
         () => ProjectApiClient.HitsterAdminActionAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, "start")));
