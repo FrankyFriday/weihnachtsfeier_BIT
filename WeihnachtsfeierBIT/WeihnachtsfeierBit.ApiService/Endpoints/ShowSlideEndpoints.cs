@@ -11,10 +11,11 @@ public static class ShowSlideEndpoints
 
     public static void Map(RouteGroupBuilder admin)
     {
-        admin.MapPost("/shows/{showId:guid}/slides", CreateSlideAsync).WithName("CreateSlide");
-        admin.MapPut("/shows/{showId:guid}/slide-positions", ReorderSlidesAsync).WithName("ReorderSlides");
-        admin.MapPut("/shows/{showId:guid}/slides/{slideId:guid}", UpdateSlideAsync).WithName("UpdateSlide");
-        admin.MapDelete("/shows/{showId:guid}/slides/{slideId:guid}", DeleteSlideAsync).WithName("DeleteSlide");
+        admin.MapGet("/shows/{showId:guid}/slides", GetSlidesAsync).WithName("GetAdminSlides");
+        admin.MapPost("/shows/{showId:guid}/slides", CreateSlideAsync).WithName("CreateAdminSlide");
+        admin.MapPut("/shows/{showId:guid}/slides/{slideId:guid}", UpdateSlideAsync).WithName("UpdateAdminSlide");
+        admin.MapDelete("/shows/{showId:guid}/slides/{slideId:guid}", DeleteSlideAsync).WithName("DeleteAdminSlide");
+        admin.MapPut("/shows/{showId:guid}/slide-positions", ReorderSlidesAsync).WithName("ReorderAdminSlides");
     }
 
     public static async Task<IResult> GetSlidesAsync(
@@ -32,6 +33,7 @@ public static class ShowSlideEndpoints
             .Where(slide => slide.ShowId == showId)
             .OrderBy(slide => slide.Position)
             .ToListAsync(cancellationToken);
+
         return Results.Ok(slides.Select(ToResponse));
     }
 
@@ -42,18 +44,21 @@ public static class ShowSlideEndpoints
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var link = await dbContext.ShowProjektZuos
-            .Include(item => item.Show)
-            .FirstOrDefaultAsync(item => item.ProjektId == projectId && item.ShowId == showId, cancellationToken);
-        if (link is null)
+        if (!await IsShowInProjectAsync(dbContext, projectId, showId, cancellationToken))
         {
             return Results.NotFound();
         }
 
-        var slideResult = CreateSlide(request, link.Show);
-        if (slideResult.Slide is null)
+        var show = await dbContext.Shows.FindAsync([showId], cancellationToken);
+        if (show is null)
         {
-            return Results.BadRequest(new ApiError(slideResult.Error!));
+            return Results.NotFound();
+        }
+
+        var slideResult = CreateSlide(request, show);
+        if (slideResult.Error is not null || slideResult.Slide is null)
+        {
+            return Results.BadRequest(new ApiError(slideResult.Error ?? "Slide konnte nicht erstellt werden."));
         }
 
         dbContext.Slides.Add(slideResult.Slide);
@@ -130,21 +135,21 @@ public static class ShowSlideEndpoints
         }
 
         var slides = await dbContext.Slides
-            .Where(slide => slide.ShowId == showId)
+            .Where(s => s.ShowId == showId)
             .ToListAsync(cancellationToken);
-
-        var slideDict = slides.ToDictionary(s => s.Id);
 
         for (int i = 0; i < request.SlideIds.Length; i++)
         {
-            if (slideDict.TryGetValue(request.SlideIds[i], out var slide))
+            var id = request.SlideIds[i];
+            var slide = slides.FirstOrDefault(s => s.Id == id);
+            if (slide is not null)
             {
                 slide.Position = i;
             }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.NoContent();
+        return Results.Ok();
     }
 
     private static async Task<bool> IsShowInProjectAsync(
@@ -167,11 +172,18 @@ public static class ShowSlideEndpoints
             "ranking" => new RankingSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "estimation" => new EstimationSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "buzzer" => new BuzzerSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "text" => new TextSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "word_cloud" => new WordCloudSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "slider" => new SliderSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "rating" => new RatingSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "ordering" => new OrderingSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "countdown" => new CountdownSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "point_award" => new PointAwardSlide { Show = show, ShowId = show.Id, Position = request.Position },
             _ => null
         };
         if (slide is null)
         {
-            return (null, "Slide-Typ muss poll, announcement, quiz, ranking, estimation oder buzzer sein.");
+            return (null, "Unbekannter Slide-Typ.");
         }
 
         var result = ApplyRequest(slide, request);
@@ -207,6 +219,27 @@ public static class ShowSlideEndpoints
                 case BuzzerSlide buzzer when string.Equals(request.Type, "buzzer", StringComparison.OrdinalIgnoreCase):
                     buzzer.Parameters = Deserialize<BuzzerSlideParameters>(request.Parameters);
                     break;
+                case TextSlide text when string.Equals(request.Type, "text", StringComparison.OrdinalIgnoreCase):
+                    text.Parameters = Deserialize<TextSlideParameters>(request.Parameters);
+                    break;
+                case WordCloudSlide wc when string.Equals(request.Type, "word_cloud", StringComparison.OrdinalIgnoreCase):
+                    wc.Parameters = Deserialize<WordCloudSlideParameters>(request.Parameters);
+                    break;
+                case SliderSlide slider when string.Equals(request.Type, "slider", StringComparison.OrdinalIgnoreCase):
+                    slider.Parameters = Deserialize<SliderSlideParameters>(request.Parameters);
+                    break;
+                case RatingSlide rating when string.Equals(request.Type, "rating", StringComparison.OrdinalIgnoreCase):
+                    rating.Parameters = Deserialize<RatingSlideParameters>(request.Parameters);
+                    break;
+                case OrderingSlide ordering when string.Equals(request.Type, "ordering", StringComparison.OrdinalIgnoreCase):
+                    ordering.Parameters = Deserialize<OrderingSlideParameters>(request.Parameters);
+                    break;
+                case CountdownSlide countdown when string.Equals(request.Type, "countdown", StringComparison.OrdinalIgnoreCase):
+                    countdown.Parameters = Deserialize<CountdownSlideParameters>(request.Parameters);
+                    break;
+                case PointAwardSlide pointAward when string.Equals(request.Type, "point_award", StringComparison.OrdinalIgnoreCase):
+                    pointAward.Parameters = Deserialize<PointAwardSlideParameters>(request.Parameters);
+                    break;
                 default:
                     return (false, "Der Slide-Typ kann beim Aktualisieren nicht geändert werden.");
             }
@@ -228,17 +261,29 @@ public static class ShowSlideEndpoints
 
     internal static SlideResponse ToResponse(Slide slide)
     {
-        var (type, parameters) = slide switch
-        {
-            PollSlide poll => ("poll", (object)poll.Parameters),
-            AnnouncementSlide announcement => ("announcement", announcement.Parameters),
-            QuizSlide quiz => ("quiz", quiz.Parameters),
-            RankingSlide ranking => ("ranking", ranking.Parameters),
-            EstimationSlide estimation => ("estimation", estimation.Parameters),
-            BuzzerSlide buzzer => ("buzzer", buzzer.Parameters),
-            _ => throw new InvalidOperationException("Unbekannter Slide-Typ.")
-        };
-        return new SlideResponse(slide.Id, slide.ShowId, type, slide.Position,
-            JsonSerializer.SerializeToElement(parameters, parameters.GetType(), JsonOptions));
+        return new SlideResponse(
+            slide.Id,
+            slide.ShowId,
+            GetSlideType(slide),
+            slide.Position,
+            JsonDocument.Parse(slide.ParametersJson).RootElement);
     }
+
+    internal static string GetSlideType(Slide slide) => slide switch
+    {
+        AnnouncementSlide => "announcement",
+        PollSlide => "poll",
+        QuizSlide => "quiz",
+        EstimationSlide => "estimation",
+        BuzzerSlide => "buzzer",
+        RankingSlide => "ranking",
+        TextSlide => "text",
+        WordCloudSlide => "word_cloud",
+        SliderSlide => "slider",
+        RatingSlide => "rating",
+        OrderingSlide => "ordering",
+        CountdownSlide => "countdown",
+        PointAwardSlide => "point_award",
+        _ => "announcement"
+    };
 }

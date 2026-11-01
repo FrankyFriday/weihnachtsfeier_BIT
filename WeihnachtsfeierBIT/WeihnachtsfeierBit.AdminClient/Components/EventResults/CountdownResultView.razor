@@ -1,0 +1,182 @@
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@implements IDisposable
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_title</h3>
+        <FrameworkBadge Text="@($"{_seconds} Sek. Total")" Variant="primary" />
+    </div>
+
+    <div style="padding: 24px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; text-align: center;">
+        <span class="mobile-eyebrow" style="font-size: 11px;">RESTZEIT</span>
+        <div style="font-size: 54px; font-weight: 900; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d"); font-family: monospace; letter-spacing: 2px; margin: 6px 0;">
+            @FormatSeconds(_remainingSeconds)
+        </div>
+        @if (_remainingSeconds == 0 && !string.IsNullOrWhiteSpace(_message))
+        {
+            <div style="padding: 10px; background: #fee2e2; border-radius: 8px; color: #991b1b; font-weight: 700; font-size: 15px; margin-bottom: 16px;">
+                @_message
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <p style="margin: 0 0 16px 0; font-size: 13px; color: #475569;">@_message</p>
+        }
+
+        <!-- LIVE ADMIN CONTROLS FOR COUNTDOWN -->
+        <FrameworkFlexRow Gap="8px" Justify="center" Style="flex-wrap: wrap; margin-top: 12px;">
+            <FrameworkButton Label="-30 Sek." Variant="secondary" OnClick="() => AdjustTimeAsync(-30)" Disabled="@_isBusy" />
+            <FrameworkButton Label="@(Event.IsPaused ? "Fortsetzen" : "Pausieren")" Variant="secondary" OnClick="TogglePauseAsync" Disabled="@_isBusy" />
+            <FrameworkButton Label="+30 Sek." Variant="secondary" OnClick="() => AdjustTimeAsync(30)" Disabled="@_isBusy" />
+            <FrameworkButton Label="Neu starten" Variant="primary" OnClick="RestartTimerAsync" Disabled="@_isBusy" />
+        </FrameworkFlexRow>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private int _remainingSeconds;
+    private bool _isBusy;
+    private CancellationTokenSource? _cts;
+
+    private string _title => ReadString(CurrentSlide.Parameters, "title");
+    private string _message => ReadString(CurrentSlide.Parameters, "message");
+    private int _seconds => ReadInt(CurrentSlide.Parameters, "seconds", 60);
+
+    protected override void OnParametersSet()
+    {
+        UpdateRemaining();
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _ = StartTimerAsync(_cts.Token);
+    }
+
+    private void UpdateRemaining()
+    {
+        double elapsed = Event.AccumulatedElapsedSeconds;
+        if (!Event.IsPaused)
+        {
+            var refTime = Event.LastResumedAtUtc ?? Event.StartedAtUtc;
+            elapsed += Math.Max(0, (DateTime.UtcNow - refTime).TotalSeconds);
+        }
+        _remainingSeconds = Math.Max(0, _seconds - (int)elapsed);
+    }
+
+    private async Task StartTimerAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (_remainingSeconds > 0 && !token.IsCancellationRequested && await timer.WaitForNextTickAsync(token))
+            {
+                if (!Event.IsPaused)
+                {
+                    UpdateRemaining();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task AdjustTimeAsync(int secondsDelta)
+    {
+        _isBusy = true;
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                if (Event.IsPaused)
+                {
+                    int newElapsed = Math.Max(0, Event.AccumulatedElapsedSeconds - secondsDelta);
+                    await ProjectApiClient.UpdateEventAsync(token, ProjectId, Event.EventId, accumulatedElapsedSeconds: newElapsed);
+                }
+                else
+                {
+                    var currentRef = Event.LastResumedAtUtc ?? Event.StartedAtUtc;
+                    var newRef = currentRef.AddSeconds(secondsDelta);
+                    await ProjectApiClient.UpdateEventAsync(token, ProjectId, Event.EventId, lastResumedAtUtc: newRef, startedAtUtc: newRef);
+                }
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RestartTimerAsync()
+    {
+        _isBusy = true;
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                var now = DateTime.UtcNow;
+                await ProjectApiClient.UpdateEventAsync(
+                    token,
+                    ProjectId,
+                    Event.EventId,
+                    startedAtUtc: now,
+                    accumulatedElapsedSeconds: 0,
+                    isPaused: false,
+                    lastResumedAtUtc: now);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task TogglePauseAsync()
+    {
+        _isBusy = true;
+        try
+        {
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+            if (!string.IsNullOrEmpty(token))
+            {
+                await ProjectApiClient.UpdateEventAsync(token, ProjectId, Event.EventId, isPaused: !Event.IsPaused);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int ReadInt(JsonElement el, string prop, int def) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : def;
+
+    private static string FormatSeconds(int sec) => TimeSpan.FromSeconds(sec).ToString(@"mm\:ss");
+
+    public void Dispose() => _cts?.Cancel();
+}

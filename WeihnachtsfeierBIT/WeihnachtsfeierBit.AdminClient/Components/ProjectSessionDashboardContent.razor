@@ -28,7 +28,8 @@
                 }
             </div>
 
-            <div class="framework-button-row">
+            <div class="framework-button-row" style="align-items: center;">
+                <FrameworkConnectionStatus HubConnection="_hubConnection" ShowLabel="true" />
                 @if (_instance is not null)
                 {
                     <a class="framework-button framework-button-primary"
@@ -220,6 +221,27 @@
                                     break;
                                 case "buzzer":
                                     <BuzzerResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "text":
+                                    <TextResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "word_cloud":
+                                    <WordCloudResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "slider":
+                                    <SliderResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "rating":
+                                    <RatingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "ordering":
+                                    <OrderingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    break;
+                                case "countdown":
+                                    <CountdownResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                                    break;
+                                case "point_award":
+                                    <PointAwardResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 default:
                                     <FallbackResultView Event="ev" CurrentSlide="currentSlide" />
@@ -514,6 +536,27 @@
                 case "buzzer":
                     <BuzzerSlideEditor Slide="_spontaneousSlide" />
                     break;
+                case "text":
+                    <TextSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "word_cloud":
+                    <WordCloudSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "slider":
+                    <SliderSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "rating":
+                    <RatingSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "ordering":
+                    <OrderingSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "countdown":
+                    <CountdownSlideEditor Slide="_spontaneousSlide" />
+                    break;
+                case "point_award":
+                    <PointAwardSlideEditor Slide="_spontaneousSlide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(_modalError))
@@ -603,8 +646,9 @@
     private FrameworkSelectOption[] _teamSelectOptions =>
         _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();
 
-    private static readonly FrameworkDropdownOption[] _sessionOptions =
+    private FrameworkDropdownOption[] _sessionOptions =>
     [
+        new("pause_session", _sessionState?.IsPaused == true ? "Session fortsetzen" : "Session pausieren", _sessionState?.IsPaused == true ? "play_arrow" : "pause"),
         new("end_session", "Session beenden", "power_settings_new")
     ];
 
@@ -621,7 +665,14 @@
         new("quiz", "Quiz"),
         new("estimation", "Schätzfrage"),
         new("buzzer", "Buzzer"),
-        new("ranking", "Rangliste")
+        new("ranking", "Rangliste"),
+        new("text", "Freitext-Frage"),
+        new("word_cloud", "Wortwolke"),
+        new("slider", "Schieberegler"),
+        new("rating", "Sterne-Bewertung"),
+        new("ordering", "Reihenfolge sortieren"),
+        new("countdown", "Timer / Countdown"),
+        new("point_award", "Punktevergabe")
     ];
 
     private static readonly FrameworkSelectOption[] _modeOptions =
@@ -763,12 +814,25 @@
         }
     }
 
-    private void HandleSessionOptionSelect(string optionValue)
+    private async Task HandleSessionOptionSelect(string optionValue)
     {
         if (optionValue == "end_session")
         {
             _isEndSessionConfirmOpen = true;
         }
+        else if (optionValue == "pause_session")
+        {
+            await ToggleSessionPauseAsync();
+        }
+    }
+
+    private async Task ToggleSessionPauseAsync()
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            await ProjectApiClient.ToggleSessionPauseAsync(token, ProjectId);
+            await LoadDataAsync();
+        });
     }
 
     private async Task ConfirmEndSessionAsync()

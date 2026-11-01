@@ -1,0 +1,39 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Aufgabenstellung / Frage">
+        <FrameworkInputText @bind-Value="Slide.OrderingQuestion" Placeholder="z. B. Bringt diese Firmenmeilensteine in die richtige Reihenfolge" />
+    </FrameworkFormGroup>
+
+    <div>
+        <label class="framework-form-label" style="margin-bottom: 6px;">Elemente zum Sortieren (Reihenfolge)</label>
+        @for (int i = 0; i < Slide.OrderingItems.Count; i++)
+        {
+            var idx = i;
+            <div style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                <span style="font-weight: 700; color: #64748b; font-size: 13px;">#@(idx + 1)</span>
+                <FrameworkInputText Value="@Slide.OrderingItems[idx]" ValueChanged="v => Slide.OrderingItems[idx] = v" Placeholder="Element..." />
+                <FrameworkIconButton Icon="delete" Title="Löschen" OnClick="() => RemoveItem(idx)" />
+            </div>
+        }
+        <FrameworkButton Label="+ Element hinzufügen" Variant="secondary" OnClick="AddItem" Style="margin-top: 6px;" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+
+    private void AddItem()
+    {
+        Slide.OrderingItems.Add(string.Empty);
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (index >= 0 && index < Slide.OrderingItems.Count)
+        {
+            Slide.OrderingItems.RemoveAt(index);
+        }
+    }
+}

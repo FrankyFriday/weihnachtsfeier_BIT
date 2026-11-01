@@ -1,10 +1,11 @@
 @namespace WeihnachtsfeierBit.Framework
 @using System.Globalization
+@using System.Text
 
 <div class="framework-chart-container @Class" style="width: 100%; box-sizing: border-box; @Style">
     @if (ChartType == "line_graph" && Teams.Length > 0)
     {
-        <!-- ZEITLICHER VERLAUFSGRAPH (SVG LINE CHART) -->
+        <!-- ZEITLICHER TREPPENSTUFEN-VERLAUFSGRAPH (SVG STEP-LINE CHART) -->
         <div style="background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                 <strong style="font-size: 15px; color: #1d2528;">Zeitlicher Punkteverlauf</strong>
@@ -60,13 +61,25 @@
                 <line x1="@padding" y1="@(height/2)" x2="@width" y2="@(height/2)" stroke="#e2e8f0" stroke-dasharray="4" />
                 <line x1="@padding" y1="@(height - padding)" x2="@width" y2="@(height - padding)" stroke="#cbd5e1" stroke-width="1.5" />
 
-                <!-- TEAM LINES -->
+                <!-- TEAM STEP LINES -->
                 @foreach (var tg in teamGroups)
                 {
                     if (tg.Points.Count > 1)
                     {
-                        var pathData = string.Join(" L ", tg.Points.Select(p => $"{p.X.ToString(CultureInfo.InvariantCulture)},{p.Y.ToString(CultureInfo.InvariantCulture)}"));
-                        <path d="M @pathData" fill="none" stroke="@tg.Team.Color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        var sb = new StringBuilder();
+                        sb.Append($"M {tg.Points[0].X.ToString(CultureInfo.InvariantCulture)},{tg.Points[0].Y.ToString(CultureInfo.InvariantCulture)}");
+
+                        for (int pIdx = 1; pIdx < tg.Points.Count; pIdx++)
+                        {
+                            var prev = tg.Points[pIdx - 1];
+                            var curr = tg.Points[pIdx];
+
+                            // Step-line: Horizontal to curr.X at prev.Y, then Vertical to curr.Y
+                            sb.Append($" L {curr.X.ToString(CultureInfo.InvariantCulture)},{prev.Y.ToString(CultureInfo.InvariantCulture)}");
+                            sb.Append($" L {curr.X.ToString(CultureInfo.InvariantCulture)},{curr.Y.ToString(CultureInfo.InvariantCulture)}");
+                        }
+
+                        <path d="@sb.ToString()" fill="none" stroke="@tg.Team.Color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
                         @foreach (var p in tg.Points.Skip(1))
                         {
                             <circle cx="@p.X.ToString(CultureInfo.InvariantCulture)" cy="@p.Y.ToString(CultureInfo.InvariantCulture)" r="4" fill="@tg.Team.Color" stroke="#ffffff" stroke-width="1.5" />
@@ -87,39 +100,106 @@
             </div>
         </div>
     }
-    else
+    else if (Teams.Length > 0)
     {
-        <!-- SÄULENDIAGRAMM / BALKENDIAGRAMM (BAR CHART) -->
-        <div style="display: grid; gap: 10px;">
+        <!-- ECHTES VERTIKALES SÄULENDIAGRAMM (DYNAMISCHES SMART-ZOOM BEI HOHEN PUNKTEZAHLEN) -->
+        <div style="background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 12px; padding: 24px 16px 16px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: visible;">
             @{
-                int maxPoints = Math.Max(1, Teams.Length > 0 ? Teams.Max(t => t.Points) : 1);
+                int minPoints = Teams.Min(t => t.Points);
+                int maxPoints = Teams.Max(t => t.Points);
+                int diffPoints = maxPoints - minPoints;
+
+                // Smart baseline calculation:
+                // If minPoints > 30 and diffPoints is relatively small, zoom baseline so height differences stay clear & dramatic
+                int baseMin = 0;
+                if (minPoints > 30 && diffPoints < minPoints)
+                {
+                    baseMin = Math.Max(0, minPoints - Math.Max(15, (int)(diffPoints * 0.75)));
+                }
+
+                double effectiveRange = Math.Max(10, maxPoints - baseMin);
                 var sortedTeams = Teams.OrderByDescending(t => t.Points).ToList();
             }
-            @for (int i = 0; i < sortedTeams.Count; i++)
-            {
-                var team = sortedTeams[i];
-                var rank = i + 1;
-                double pct = Math.Max(8, ((double)team.Points / maxPoints) * 100);
 
-                <div style="background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-weight: 800; color: #105c4d; font-size: 13px;">#@rank</span>
-                            <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @team.Color; display: inline-block;"></span>
-                            <strong style="font-size: 14px; color: #1d2528;">@team.DisplayName</strong>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+                <strong style="font-size: 15px; color: #1d2528;">Live-Säulendiagramm</strong>
+                <span style="font-size: 11px; color: #64748b;">Stand: @DateTime.Now.ToString("HH:mm:ss") Uhr</span>
+            </div>
+
+            <!-- PLOT AREA FOR COLUMNS WITH BASELINE -->
+            <div style="height: 180px; display: flex; align-items: flex-end; justify-content: space-around; gap: 12px; border-bottom: 2.5px solid #cbd5e1; padding-bottom: 0; position: relative; margin-top: 36px;">
+                @foreach (var team in Teams)
+                {
+                    double pct = Math.Max(8, (((double)team.Points - baseMin) / effectiveRange) * 100);
+                    bool hasDelta = _recentDeltas.TryGetValue(team.Id, out var delta) && delta != 0;
+
+                    <div style="flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; min-width: 0;" @key="team.Id">
+
+                        <!-- FLOATING DELTA BADGE ANIMATION -->
+                        @if (hasDelta)
+                        {
+                            <div class="column-delta-badge @(delta > 0 ? "positive" : "negative")">
+                                @(delta > 0 ? $"+{delta}" : delta.ToString()) Pkt!
+                            </div>
+                        }
+
+                        <!-- POINTS LABEL ON TOP OF COLUMN -->
+                        <div style="font-size: 13px; font-weight: 800; color: #105c4d; margin-bottom: 6px; white-space: nowrap;">
+                            @team.Points Pkt.
                         </div>
-                        <strong style="font-size: 15px; color: #105c4d;">@team.Points Pkt.</strong>
-                    </div>
 
-                    <!-- ANIMATED BAR -->
-                    <div style="width: 100%; height: 12px; background: #e8f3ef; border-radius: 6px; overflow: hidden; position: relative;">
-                        <div style="width: @(pct.ToString(CultureInfo.InvariantCulture))%; height: 100%; background-color: @team.Color; border-radius: 6px; transition: width 0.4s ease;"></div>
+                        <!-- VERTICAL PILLAR COLUMN -->
+                        <div style="width: 100%; max-width: 52px; height: @(pct.ToString(CultureInfo.InvariantCulture))%; background: @team.Color; border-top-left-radius: 8px; border-top-right-radius: 8px; transition: height 1.2s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; @(hasDelta ? "outline: 3px solid #105c4d; outline-offset: 2px;" : "")">
+                        </div>
                     </div>
-                </div>
-            }
+                }
+            </div>
+
+            <!-- TEAM LABELS FOOTER BELOW BASELINE (NEVER CUT OFF) -->
+            <div style="display: flex; justify-content: space-around; gap: 12px; margin-top: 10px; padding-top: 4px;">
+                @foreach (var team in Teams)
+                {
+                    int rank = sortedTeams.FindIndex(t => t.Id == team.Id) + 1;
+                    <div style="flex: 1; text-align: center; min-width: 0; padding: 0 2px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #105c4d;">#@rank</div>
+                        <strong style="font-size: 12px; color: #1d2528; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@team.DisplayName">@team.DisplayName</strong>
+                    </div>
+                }
+            </div>
         </div>
     }
 </div>
+
+<style>
+.column-delta-badge {
+    position: absolute;
+    top: -30px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 900;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    animation: deltaPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.column-delta-badge.positive {
+    background: #166534;
+    border: 2px solid #22c55e;
+}
+
+.column-delta-badge.negative {
+    background: #991b1b;
+    border: 2px solid #ef4444;
+}
+
+@@keyframes deltaPop {
+    0% { transform: scale(0.3) translateY(12px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+</style>
 
 @code {
     [Parameter] public TeamSummary[] Teams { get; set; } = [];
@@ -127,4 +207,49 @@
     [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
+
+    private Dictionary<Guid, int> _previousPoints = [];
+    private Dictionary<Guid, int> _recentDeltas = [];
+    private CancellationTokenSource? _deltaClearCts;
+
+    protected override void OnParametersSet()
+    {
+        if (Teams.Length > 0)
+        {
+            bool hasChange = false;
+            foreach (var team in Teams)
+            {
+                if (_previousPoints.TryGetValue(team.Id, out var oldPoints))
+                {
+                    int delta = team.Points - oldPoints;
+                    if (delta != 0)
+                    {
+                        _recentDeltas[team.Id] = delta;
+                        hasChange = true;
+                    }
+                }
+                _previousPoints[team.Id] = team.Points;
+            }
+
+            if (hasChange)
+            {
+                _deltaClearCts?.Cancel();
+                _deltaClearCts = new CancellationTokenSource();
+                _ = ScheduleDeltaClearAsync(_deltaClearCts.Token);
+            }
+        }
+    }
+
+    private async Task ScheduleDeltaClearAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(5000, token);
+            _recentDeltas.Clear();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 }

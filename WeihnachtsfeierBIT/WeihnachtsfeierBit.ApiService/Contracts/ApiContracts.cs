@@ -27,7 +27,15 @@ public sealed record LinkShowRequest(Guid ShowId);
 public sealed record SlideRequest(string Type, int Position, JsonElement Parameters);
 public sealed record SlideResponse(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
 public sealed record ReorderSlidesRequest(Guid[] SlideIds);
-public sealed record SessionResponse(Guid Id, string AccessToken, DateTime ExpiresAtUtc, string Role, Guid? ProjectId, string DisplayName);
+public sealed record SessionResponse(
+    Guid Id,
+    string AccessToken,
+    DateTime ExpiresAtUtc,
+    string Role,
+    Guid? ProjectId,
+    string DisplayName,
+    Guid? ParticipantId = null,
+    Guid? TeamId = null);
 public sealed record SessionSummary(Guid Id, Guid UserId, DateTime CreatedAtUtc, DateTime LastActivityAtUtc, DateTime ExpiresAtUtc, string? UserAgent);
 public sealed record ParticipantLoginRequest(int Number);
 public sealed record ApiError(string Message);
@@ -67,7 +75,11 @@ public sealed record UpdateSessionEventRequest(
     int? CurrentSlideIndex,
     string? Mode,
     bool? IsHidden,
-    string? Status);
+    string? Status,
+    DateTime? StartedAtUtc,
+    int? AccumulatedElapsedSeconds,
+    bool? IsPaused,
+    DateTime? LastResumedAtUtc);
 
 public sealed record UpdateEventModeRequest(string Mode);
 public sealed record SubmitResponseRequest(JsonElement ResponseData);

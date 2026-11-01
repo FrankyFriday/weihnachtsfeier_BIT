@@ -1,0 +1,120 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_question</h3>
+        <FrameworkBadge Text="@($"{_slideResponses.Count} Abgaben")" Variant="primary" />
+    </div>
+
+    @if (_slideResponses.Count == 0)
+    {
+        <p style="color: #64748b; font-size: 13px;">Noch keine Sortierungs-Abgaben für diese Folie vorhanden.</p>
+    }
+    else
+    {
+        <div style="display: grid; gap: 8px;">
+            <span class="mobile-eyebrow" style="font-size: 11px;">DURCHSCHNITTLICHE GESAMTSORTIERUNG</span>
+            @for (int i = 0; i < _rankedItems.Count; i++)
+            {
+                var rank = i + 1;
+                var item = _rankedItems[i];
+                <div style="padding: 10px 14px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 800; color: #105c4d; font-size: 14px;">#@rank</span>
+                        <strong style="font-size: 14px; color: #1d2528;">@item.Name</strong>
+                    </div>
+                    <span style="font-size: 11px; color: #64748b; background: #f0f8f4; padding: 2px 8px; border-radius: 4px;">Ø Pos: @item.AvgPosition.ToString("0.0")</span>
+                </div>
+            }
+        </div>
+
+        <div style="margin-top: 16px;">
+            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
+                @(_showDetails ? "▲ Einzelne Sortierungen ausblenden" : "▼ Einzelne Sortierungen anzeigen")
+            </button>
+
+            @if (_showDetails)
+            {
+                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                    @foreach (var resp in _slideResponses)
+                    {
+                        var submittedList = ReadResponseItems(resp.ResponseData);
+                        <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                            <div>
+                                <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
+                                @if (!string.IsNullOrEmpty(resp.TeamName))
+                                {
+                                    <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
+                                }
+                            </div>
+                            <strong style="color: #1d2528; text-align: right;">@string.Join(" → ", submittedList)</strong>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private bool _showDetails;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private List<EventResponseState> _slideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId).ToList();
+
+    private List<RankedItemModel> _rankedItems
+    {
+        get
+        {
+            var originalItems = ReadStringList(CurrentSlide.Parameters, "items");
+            if (originalItems.Length == 0 || _slideResponses.Count == 0)
+            {
+                return originalItems.Select((item, idx) => new RankedItemModel(item, idx + 1)).ToList();
+            }
+
+            var positionSums = new Dictionary<string, (int Sum, int Count)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var orig in originalItems)
+            {
+                positionSums[orig] = (0, 0);
+            }
+
+            foreach (var resp in _slideResponses)
+            {
+                var submittedList = ReadResponseItems(resp.ResponseData);
+                for (int pos = 0; pos < submittedList.Count; pos++)
+                {
+                    var name = submittedList[pos];
+                    if (positionSums.TryGetValue(name, out var current))
+                    {
+                        positionSums[name] = (current.Sum + (pos + 1), current.Count + 1);
+                    }
+                }
+            }
+
+            return positionSums.Select(kvp => new RankedItemModel(
+                kvp.Key,
+                kvp.Value.Count > 0 ? (double)kvp.Value.Sum / kvp.Value.Count : 999.0))
+                .OrderBy(r => r.AvgPosition)
+                .ToList();
+        }
+    }
+
+    private sealed record RankedItemModel(string Name, double AvgPosition);
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static string[] ReadStringList(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToArray()
+            : [];
+
+    private static List<string> ReadResponseItems(JsonElement el) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty("items", out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToList()
+            : [];
+}

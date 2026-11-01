@@ -8,6 +8,8 @@ public class GameInstance
     public required string AccessCode { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
+    public bool IsPaused { get; set; }
+
     public List<Sitzung> Sitzungen { get; set; } = [];
     public List<GameInstanceEvent> Events { get; set; } = [];
     public Guid? ActiveCanvasEventId { get; set; }

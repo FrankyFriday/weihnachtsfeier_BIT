@@ -544,6 +544,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task ToggleSessionPauseAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/toggle-pause", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task UpdateEventModeAsync(string accessToken, Guid projectId, Guid eventId, string mode, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}/mode", accessToken, new { mode });
@@ -564,6 +571,10 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         string? mode = null,
         bool? isHidden = null,
         string? status = null,
+        DateTime? startedAtUtc = null,
+        int? accumulatedElapsedSeconds = null,
+        bool? isPaused = null,
+        DateTime? lastResumedAtUtc = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}", accessToken, new
@@ -576,7 +587,11 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             currentSlideIndex,
             mode,
             isHidden,
-            status
+            status,
+            startedAtUtc,
+            accumulatedElapsedSeconds,
+            isPaused,
+            lastResumedAtUtc
         });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
@@ -805,7 +820,15 @@ public sealed record ProjectShow(Guid Id, string Name);
 public sealed record AdminShow(Guid Id, string Name, int ProjectCount);
 public sealed record CreateGlobalShowRequest(string Name);
 public sealed record LinkShowRequest(Guid ShowId);
-public record ParticipantSessionResponse(Guid SessionId, string AccessToken, DateTime ExpiresAtUtc, string Role, Guid? ProjectId, string DisplayName);
+public record ParticipantSessionResponse(
+    Guid SessionId,
+    string AccessToken,
+    DateTime ExpiresAtUtc,
+    string Role,
+    Guid? ProjectId,
+    string DisplayName,
+    Guid? ParticipantId = null,
+    Guid? TeamId = null);
 public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId);
 public sealed record AdminAccessSessionSummary(
     Guid Id,
@@ -872,7 +895,10 @@ public sealed record EventState(
     bool AutoStartOnSchedule,
     EventSlideState[] Slides,
     EventResponseState[] Responses,
-    DateTime StartedAtUtc);
+    DateTime StartedAtUtc,
+    int AccumulatedElapsedSeconds = 0,
+    bool IsPaused = false,
+    DateTime? LastResumedAtUtc = null);
 
 public sealed record ProjectGameState(
     Guid ProjectId,
@@ -882,7 +908,9 @@ public sealed record ProjectGameState(
     EventState[] PassiveEvents,
     EventState[] ScheduledEvents,
     Guid? ActiveCanvasEventId,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    bool IsPaused = false,
+    bool IsEnded = false);
 public sealed record CanvasTeamState(Guid Id, string DisplayName, int Points, int Rank);
 public sealed record CanvasEventState(Guid EventId, string SlideType, string Title, JsonElement Parameters);
 public sealed record CanvasGameState(

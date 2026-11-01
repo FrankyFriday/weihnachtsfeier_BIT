@@ -1,0 +1,66 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">WORTWOLKE</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 16px 0; color: #1d2528;">@_question</h2>
+
+        <form @onsubmit="SubmitWordAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 12px;">
+            <FrameworkInputText @bind-Value="_wordInput" Placeholder="Dein Begriff..." MaxLength="40" />
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <FrameworkNotice Message="@_error" Severity="error" />
+            }
+
+            @if (_submitted)
+            {
+                <FrameworkNotice Message="Begriff eingesendet! Er erscheint live auf der Wortwolke." Severity="success" />
+            }
+
+            <FrameworkButton Label="Begriff absenden" Variant="primary" Type="submit" Busy="_isSubmitting" Disabled="@(string.IsNullOrWhiteSpace(_wordInput))" />
+        </form>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private string _wordInput = string.Empty;
+    private bool _isSubmitting;
+    private bool _submitted;
+    private string? _error;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+
+    private async Task SubmitWordAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_wordInput) || string.IsNullOrEmpty(AccessToken)) return;
+        _isSubmitting = true;
+        _error = null;
+
+        try
+        {
+            var payload = JsonSerializer.SerializeToElement(new { text = _wordInput.Trim() });
+            await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
+            _submitted = true;
+            _wordInput = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+}

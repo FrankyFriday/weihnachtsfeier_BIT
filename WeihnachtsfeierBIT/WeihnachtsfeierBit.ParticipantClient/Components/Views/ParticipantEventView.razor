@@ -1,3 +1,5 @@
+@using WeihnachtsfeierBit.Framework
+
 <div style="position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;">
     @if (ShowBackButton)
     {
@@ -28,13 +30,34 @@
                     <QuizRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                     break;
                 case "ranking":
-                    <RankingRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    <RankingRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" Teams="Teams" />
                     break;
                 case "estimation":
                     <EstimationRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                     break;
                 case "buzzer":
                     <BuzzerRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
+                    break;
+                case "text":
+                    <TextRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    break;
+                case "word_cloud":
+                    <WordCloudRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    break;
+                case "slider":
+                    <SliderRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    break;
+                case "rating":
+                    <RatingRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    break;
+                case "ordering":
+                    <OrderingRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
+                    break;
+                case "countdown":
+                    <CountdownRenderer Event="Event" CurrentSlide="currentSlide" />
+                    break;
+                case "point_award":
+                    <PointAwardRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" Teams="Teams" />
                     break;
                 default:
                     <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
@@ -55,6 +78,7 @@
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
@@ -84,6 +108,13 @@
         "estimation" => "Schätzfrage",
         "buzzer" => "Buzzer",
         "ranking" => "Rangliste",
+        "text" => "Freitext",
+        "word_cloud" => "Wortwolke",
+        "slider" => "Schieberegler",
+        "rating" => "Bewertung",
+        "ordering" => "Reihenfolge",
+        "countdown" => "Timer",
+        "point_award" => "Punktevergabe",
         _ => "Event"
     };
 }

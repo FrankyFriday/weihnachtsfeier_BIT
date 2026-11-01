@@ -1,5 +1,6 @@
 @page "/"
 @page "/{CodeOrParam}"
+@using Microsoft.AspNetCore.SignalR.Client
 @inject ProjectApiClient ProjectApiClient
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
@@ -27,13 +28,43 @@ else if (!_isLoggedIn)
                           OnLogin="LoginByCodeAsync"
                           OnResetCode="ResetCode" />
 }
+else if (_isDisconnected)
+{
+    <!-- FULLSCREEN DISCONNECTED OVERLAY -->
+    <div style="position: fixed; inset: 0; z-index: 99999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;">
+        <span class="material-symbols-outlined" style="font-size: 64px; color: #dc2626; margin-bottom: 16px;">wifi_off</span>
+        <h2 style="font-size: 22px; font-weight: 800; color: #1d2528; margin: 0 0 8px 0;">Verbindung unterbrochen</h2>
+        <p style="font-size: 14px; color: #64748b; margin: 0 0 24px 0; max-width: 320px;">Es konnte keine Verbindung zum Spielserver hergestellt werden. Bitte überprüfe deine Internetverbindung.</p>
+        <FrameworkButton Label="Neu verbinden" Variant="primary" OnClick="ReconnectSignalRAsync" Busy="_isReconnecting" />
+    </div>
+}
+else if (_isSessionEnded)
+{
+    <!-- FULLSCREEN SESSION ENDED OVERLAY -->
+    <div style="position: fixed; inset: 0; z-index: 99999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;">
+        <span class="material-symbols-outlined" style="font-size: 64px; color: #105c4d; margin-bottom: 16px;">celebration</span>
+        <h2 style="font-size: 22px; font-weight: 800; color: #1d2528; margin: 0 0 8px 0;">Session beendet</h2>
+        <p style="font-size: 14px; color: #64748b; margin: 0 0 24px 0; max-width: 320px;">Vielen Dank für deine Teilnahme! Die Session wurde vom Spielleiter beendet.</p>
+        <FrameworkButton Label="Neue Session beitreten" Variant="primary" OnClick="ResetSessionAndGoToJoin" />
+    </div>
+}
+else if (_liveGameState?.IsPaused == true)
+{
+    <!-- FULLSCREEN SESSION PAUSED OVERLAY -->
+    <div style="position: fixed; inset: 0; z-index: 99999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;">
+        <span class="material-symbols-outlined" style="font-size: 64px; color: #105c4d; margin-bottom: 16px;">pause_circle</span>
+        <h2 style="font-size: 22px; font-weight: 800; color: #1d2528; margin: 0 0 8px 0;">Session aktuell pausiert</h2>
+        <p style="font-size: 14px; color: #64748b; margin: 0 0 24px 0; max-width: 320px;">Der Spielleiter hat die Session vorübergehend pausiert. Bitte gedulde dich einen kurzen Moment...</p>
+        <div style="width: 32px; height: 32px; border: 3px solid #e8f3ef; border-top-color: #105c4d; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+    </div>
+}
 else if (_liveGameState?.ActiveEvent is EventState activeEv && !activeEv.IsHidden)
 {
-    <ParticipantEventView Event="activeEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="false" />
+    <ParticipantEventView Event="activeEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="false" />
 }
 else if (_selectedPassiveEvent is EventState passiveEv)
 {
-    <ParticipantEventView Event="passiveEv" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="true" OnBack="ClosePassiveEvent" />
+    <ParticipantEventView Event="passiveEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="true" OnBack="ClosePassiveEvent" />
 }
 else
 {
@@ -52,7 +83,8 @@ else
                               SuccessMessage="@_successMessage"
                               NameInputChanged="v => _nameInput = v"
                               OnSaveName="SaveMyNameAsync"
-                              OnSelectPassiveEvent="OpenPassiveEvent" />
+                              OnSelectPassiveEvent="OpenPassiveEvent"
+                              HubConnection="_hubConnection" />
 }
 
 @code {
@@ -72,6 +104,9 @@ else
     private bool _isLoading = true;
     private bool _isSubmitting;
     private bool _isSavingName;
+    private bool _isDisconnected;
+    private bool _isReconnecting;
+    private bool _isSessionEnded;
 
     private string? _errorMessage;
     private string? _successMessage;
@@ -85,48 +120,37 @@ else
 
     private TeamState[] AllTeamStates => _liveGameState?.Teams ?? [];
 
+    private TeamSummary[] CurrentTeamsSummary => _liveGameState?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, t.Color, t.Points)).ToArray() ?? [];
+
     protected override async Task OnInitializedAsync()
     {
         _isLoading = true;
-        try
+        if (!string.IsNullOrWhiteSpace(CodeOrParam))
         {
-            if (!string.IsNullOrEmpty(CodeOrParam))
+            var code = CodeOrParam.Trim().ToUpperInvariant();
+            if (code.Length == 6 && code.All(char.IsLetterOrDigit))
             {
-                var cleanParam = CodeOrParam.Trim();
-                if (cleanParam.Length == 6 && int.TryParse(cleanParam, out _))
-                {
-                    _sessionCodeInput = cleanParam;
-                    await ResolveCodeInternalAsync(cleanParam);
-                }
-                else if (Guid.TryParse(cleanParam, out var projId))
-                {
-                    ProjectId = projId;
-                    _project = await ProjectApiClient.GetProjectAsync(string.Empty, ProjectId);
-                }
+                _sessionCodeInput = code;
+                await CheckCodeAsync();
             }
         }
-        catch (Exception ex)
-        {
-            _errorMessage = ex.Message;
-        }
-        finally
-        {
-            _isLoading = false;
-        }
+        _isLoading = false;
     }
-
-    private void OpenPassiveEvent(EventState ev) => _selectedPassiveEvent = ev;
-    private void ClosePassiveEvent() => _selectedPassiveEvent = null;
 
     private async Task CheckCodeAsync()
     {
-        if (_isSubmitting || string.IsNullOrWhiteSpace(_sessionCodeInput)) return;
-
         _errorMessage = null;
+        if (string.IsNullOrWhiteSpace(_sessionCodeInput))
+        {
+            _errorMessage = "Bitte gib einen 6-stelligen Code ein.";
+            return;
+        }
+
         _isSubmitting = true;
         try
         {
-            await ResolveCodeInternalAsync(_sessionCodeInput.Trim());
+            _resolvedSession = await ProjectApiClient.ResolveCodeAsync(_sessionCodeInput);
+            ProjectId = _resolvedSession.ProjektId;
         }
         catch (HttpRequestException ex)
         {
@@ -138,83 +162,55 @@ else
         }
     }
 
-    private async Task ResolveCodeInternalAsync(string code)
+    private async Task LoginByCodeAsync()
     {
-        _resolvedSession = await ProjectApiClient.ResolveCodeAsync(code);
-        ProjectId = _resolvedSession.ProjektId;
+        if (_resolvedSession is null || string.IsNullOrWhiteSpace(_sessionCodeInput)) return;
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var login = await ProjectApiClient.LoginByCodeAsync(
+                _sessionCodeInput,
+                _participantNumberInput);
+
+            _accessToken = login.AccessToken;
+            _participant = new ParticipantSummary(login.ParticipantId ?? login.SessionId, _participantNumberInput, login.DisplayName, login.TeamId);
+            _nameInput = login.DisplayName;
+            _isLoggedIn = true;
+
+            await SetupSignalRAsync();
+            _liveGameState = await ProjectApiClient.GetSessionStateAsync(_accessToken, ProjectId);
+            UpdateCurrentTeamState();
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 
     private void ResetCode()
     {
         _resolvedSession = null;
+        _project = null;
         _sessionCodeInput = string.Empty;
         _errorMessage = null;
     }
 
-    private async Task LoginByCodeAsync()
-    {
-        if (_isSubmitting || _resolvedSession is null) return;
-
-        _errorMessage = null;
-        _isSubmitting = true;
-        try
-        {
-            var session = await ProjectApiClient.LoginByCodeAsync(_resolvedSession.Code, _participantNumberInput);
-            _accessToken = session.AccessToken;
-            ProjectId = session.ProjectId ?? _resolvedSession.ProjektId;
-            _isLoggedIn = true;
-
-            await LoadProfileAsync();
-            await LoadSessionStateAsync();
-            await SetupSignalRAsync();
-        }
-        catch (HttpRequestException ex)
-        {
-            _errorMessage = ex.Message;
-        }
-        finally
-        {
-            _isSubmitting = false;
-        }
-    }
-
-    private async Task LoadProfileAsync()
-    {
-        if (string.IsNullOrEmpty(_accessToken)) return;
-
-        try
-        {
-            _participant = await ProjectApiClient.GetMyProfileAsync(_accessToken, ProjectId);
-            _nameInput = _participant.Name ?? string.Empty;
-        }
-        catch (HttpRequestException ex)
-        {
-            _errorMessage = ex.Message;
-        }
-    }
-
-    private async Task LoadSessionStateAsync()
-    {
-        if (string.IsNullOrEmpty(_accessToken)) return;
-
-        try
-        {
-            _liveGameState = await ProjectApiClient.GetSessionStateAsync(_accessToken, ProjectId);
-            UpdateCurrentTeamState();
-            StateHasChanged();
-        }
-        catch
-        {
-        }
-    }
+    private void OpenPassiveEvent(EventState ev) => _selectedPassiveEvent = ev;
+    private void ClosePassiveEvent() => _selectedPassiveEvent = null;
 
     private async Task SaveMyNameAsync()
     {
-        if (_isSavingName || string.IsNullOrEmpty(_accessToken) || _participant is null) return;
+        if (string.IsNullOrWhiteSpace(_accessToken) || string.IsNullOrWhiteSpace(_nameInput)) return;
 
+        _isSavingName = true;
         _errorMessage = null;
         _successMessage = null;
-        _isSavingName = true;
 
         try
         {
@@ -247,6 +243,11 @@ else
             if (state.ProjectId == ProjectId)
             {
                 _liveGameState = state;
+                _isDisconnected = false;
+                if (state.IsEnded)
+                {
+                    _isSessionEnded = true;
+                }
                 UpdateCurrentTeamState();
 
                 if (_selectedPassiveEvent is not null)
@@ -254,7 +255,7 @@ else
                     var updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
                     if (updatedPassive is null)
                     {
-                        _selectedPassiveEvent = null; // Closed by admin
+                        _selectedPassiveEvent = null;
                     }
                     else
                     {
@@ -281,15 +282,22 @@ else
             });
         });
 
+        _hubConnection.Closed += ex =>
+        {
+            _isDisconnected = true;
+            return InvokeAsync(StateHasChanged);
+        };
+
         _hubConnection.Reconnecting += _ =>
         {
-            InvokeAsync(StateHasChanged);
-            return Task.CompletedTask;
+            _isDisconnected = true;
+            return InvokeAsync(StateHasChanged);
         };
 
         _hubConnection.Reconnected += async _ =>
         {
             await _hubConnection.SendAsync("JoinProject", ProjectId);
+            _isDisconnected = false;
             await InvokeAsync(StateHasChanged);
         };
 
@@ -297,10 +305,45 @@ else
         {
             await _hubConnection.StartAsync();
             await _hubConnection.SendAsync("JoinProject", ProjectId);
+            _isDisconnected = false;
         }
         catch
         {
+            _isDisconnected = true;
         }
+    }
+
+    private async Task ReconnectSignalRAsync()
+    {
+        _isReconnecting = true;
+        try
+        {
+            if (_hubConnection is not null && _hubConnection.State == HubConnectionState.Disconnected)
+            {
+                await _hubConnection.StartAsync();
+                await _hubConnection.SendAsync("JoinProject", ProjectId);
+            }
+            _isDisconnected = false;
+        }
+        catch
+        {
+            _isDisconnected = true;
+        }
+        finally
+        {
+            _isReconnecting = false;
+        }
+    }
+
+    private void ResetSessionAndGoToJoin()
+    {
+        _isLoggedIn = false;
+        _accessToken = null;
+        _participant = null;
+        _liveGameState = null;
+        _isSessionEnded = false;
+        _isDisconnected = false;
+        Navigation.NavigateTo("/", forceLoad: false);
     }
 
     private void UpdateCurrentTeamState()

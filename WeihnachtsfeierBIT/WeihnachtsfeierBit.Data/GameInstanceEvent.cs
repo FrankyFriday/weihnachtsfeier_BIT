@@ -37,5 +37,11 @@ public class GameInstanceEvent
 
     public DateTime? ClosedAtUtc { get; set; }
 
+    public int AccumulatedElapsedSeconds { get; set; }
+
+    public bool IsPaused { get; set; }
+
+    public DateTime? LastResumedAtUtc { get; set; }
+
     public ICollection<GameInstanceEventResponse> Responses { get; set; } = new List<GameInstanceEventResponse>();
 }

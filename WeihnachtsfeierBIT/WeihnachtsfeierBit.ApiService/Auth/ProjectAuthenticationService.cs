@@ -163,8 +163,15 @@ public sealed class ProjectAuthenticationService(
         dbContext.Sitzungen.Add(session);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return (new SessionResponse(session.Id, rawToken, session.LaeuftAbAmUtc, "participant", projectId,
-            participant.Name ?? $"Teilnehmer {participant.Nummer}"), null);
+        return (new SessionResponse(
+            session.Id,
+            rawToken,
+            session.LaeuftAbAmUtc,
+            "participant",
+            projectId,
+            participant.Name ?? $"Teilnehmer {participant.Nummer}",
+            participant.Id,
+            participant.TeamId), null);
     }
 
     public async Task<(SessionResponse? Session, string? Error)> LoginAdminAsync(

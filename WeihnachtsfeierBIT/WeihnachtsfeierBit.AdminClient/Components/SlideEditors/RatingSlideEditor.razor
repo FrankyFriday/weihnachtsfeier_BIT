@@ -1,0 +1,16 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Frage / Bewertungs-Thema">
+        <FrameworkInputText @bind-Value="Slide.RatingQuestion" Placeholder="z. B. Wie bewertest du das Essen heute Abend?" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Anzahl Sterne (Skala)">
+        <FrameworkInputNumber @bind-Value="Slide.RatingMaxStars" Min="3" Max="10" />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

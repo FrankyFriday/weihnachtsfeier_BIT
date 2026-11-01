@@ -1,0 +1,91 @@
+@using System.Globalization
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">SCHIEBEREGLER</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 20px 0; color: #1d2528;">@_question</h2>
+
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 42px; font-weight: 800; color: #105c4d;">
+                @_sliderValue.ToString("0") @_unit
+            </div>
+        </div>
+
+        <input type="range"
+               min="@_min.ToString(CultureInfo.InvariantCulture)"
+               max="@_max.ToString(CultureInfo.InvariantCulture)"
+               step="@_step.ToString(CultureInfo.InvariantCulture)"
+               value="@_sliderValue.ToString(CultureInfo.InvariantCulture)"
+               @oninput="e => double.TryParse(e.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out _sliderValue)"
+               style="width: 100%; height: 12px; border-radius: 6px; accent-color: #105c4d; cursor: pointer; margin-bottom: 20px;" />
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
+        }
+
+        @if (_submitted)
+        {
+            <FrameworkNotice Message="Wert erfolgreich abgegeben!" Severity="success" Style="margin-bottom: 12px;" />
+        }
+
+        <FrameworkButton Label="@(_submitted ? "Wert aktualisieren" : "Wert abgeben")" Variant="primary" OnClick="SubmitSliderAsync" Busy="_isSubmitting" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private double _sliderValue;
+    private bool _isSubmitting;
+    private bool _submitted;
+    private string? _error;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private string _unit => ReadString(CurrentSlide.Parameters, "unit");
+    private double _min => ReadDouble(CurrentSlide.Parameters, "min");
+    private double _max => ReadDouble(CurrentSlide.Parameters, "max");
+    private double _step => ReadDouble(CurrentSlide.Parameters, "step");
+
+    protected override void OnParametersSet()
+    {
+        if (_sliderValue == 0)
+        {
+            _sliderValue = (_min + _max) / 2;
+        }
+    }
+
+    private async Task SubmitSliderAsync()
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        _isSubmitting = true;
+        _error = null;
+
+        try
+        {
+            var payload = JsonSerializer.SerializeToElement(new { value = _sliderValue });
+            await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
+            _submitted = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static double ReadDouble(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+}

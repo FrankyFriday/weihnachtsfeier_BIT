@@ -46,5 +46,7 @@ public sealed class GameStateHub(
         await base.OnDisconnectedAsync(exception);
     }
 
+    public Task Ping() => Task.CompletedTask;
+
     public static string GetGroupName(Guid projectId) => $"project_{projectId}";
 }

@@ -20,6 +20,28 @@ public static class SessionControlEndpoints
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
+        admin.MapPost("/session/toggle-pause", ToggleSessionPauseAsync).WithName("ToggleSessionPause");
+    }
+
+    private static async Task<IResult> ToggleSessionPauseAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var instance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+        if (instance is null)
+        {
+            return Results.NotFound(new ApiError("Keine aktive Session für dieses Projekt gefunden."));
+        }
+
+        instance.IsPaused = !instance.IsPaused;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok(new { isPaused = instance.IsPaused });
     }
 
     private static async Task<IResult> GetSessionStateAsync(
@@ -159,6 +181,38 @@ public static class SessionControlEndpoints
         if (request.AutoStartOnSchedule.HasValue)
         {
             ev.AutoStartOnSchedule = request.AutoStartOnSchedule.Value;
+        }
+
+        if (request.StartedAtUtc.HasValue)
+        {
+            ev.StartedAtUtc = request.StartedAtUtc.Value;
+        }
+
+        if (request.AccumulatedElapsedSeconds.HasValue)
+        {
+            ev.AccumulatedElapsedSeconds = Math.Max(0, request.AccumulatedElapsedSeconds.Value);
+        }
+
+        if (request.IsPaused.HasValue)
+        {
+            bool wantsPause = request.IsPaused.Value;
+            if (wantsPause && !ev.IsPaused)
+            {
+                var refTime = ev.LastResumedAtUtc ?? ev.StartedAtUtc;
+                ev.AccumulatedElapsedSeconds += (int)Math.Max(0, (DateTime.UtcNow - refTime).TotalSeconds);
+                ev.IsPaused = true;
+                ev.LastResumedAtUtc = null;
+            }
+            else if (!wantsPause && ev.IsPaused)
+            {
+                ev.IsPaused = false;
+                ev.LastResumedAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        if (request.LastResumedAtUtc.HasValue)
+        {
+            ev.LastResumedAtUtc = request.LastResumedAtUtc.Value;
         }
 
         if (request.Mode is string newMode && !string.IsNullOrWhiteSpace(newMode))
@@ -450,6 +504,13 @@ public static class SessionControlEndpoints
         EstimationSlide => "estimation",
         BuzzerSlide => "buzzer",
         RankingSlide => "ranking",
+        TextSlide => "text",
+        WordCloudSlide => "word_cloud",
+        SliderSlide => "slider",
+        RatingSlide => "rating",
+        OrderingSlide => "ordering",
+        CountdownSlide => "countdown",
+        PointAwardSlide => "point_award",
         _ => "announcement"
     };
 

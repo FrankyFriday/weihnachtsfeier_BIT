@@ -51,6 +51,27 @@
                 case "buzzer":
                     <BuzzerSlideEditor Slide="Slide" />
                     break;
+                case "text":
+                    <TextSlideEditor Slide="Slide" />
+                    break;
+                case "word_cloud":
+                    <WordCloudSlideEditor Slide="Slide" />
+                    break;
+                case "slider":
+                    <SliderSlideEditor Slide="Slide" />
+                    break;
+                case "rating":
+                    <RatingSlideEditor Slide="Slide" />
+                    break;
+                case "ordering":
+                    <OrderingSlideEditor Slide="Slide" />
+                    break;
+                case "countdown":
+                    <CountdownSlideEditor Slide="Slide" />
+                    break;
+                case "point_award":
+                    <PointAwardSlideEditor Slide="Slide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(Slide.ErrorMessage))

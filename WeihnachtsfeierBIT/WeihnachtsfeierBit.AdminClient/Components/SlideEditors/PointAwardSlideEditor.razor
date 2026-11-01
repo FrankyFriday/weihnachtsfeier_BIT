@@ -1,0 +1,20 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Titel der Punktevergabe">
+        <FrameworkInputText @bind-Value="Slide.PointAwardTitle" Placeholder="z. B. Punktevergabe - Spiel 1" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Standard-Begründung für das Punkte-Logbuch">
+        <FrameworkInputText @bind-Value="Slide.PointAwardReason" Placeholder="z. B. Spiel 1 Sieg oder Schnelligkeitsbonus" />
+    </FrameworkFormGroup>
+
+    <FrameworkFormGroup Label="Standard-Punktezahl (Vorausfüllung)">
+        <FrameworkInputNumber @bind-Value="Slide.PointAwardDefaultPoints" Placeholder="10" />
+    </FrameworkFormGroup>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

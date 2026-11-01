@@ -1,0 +1,112 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_question</h3>
+        <FrameworkBadge Text="@($"{_words.Count} verschiedene Begriffe")" Variant="primary" />
+    </div>
+
+    @if (_words.Count == 0)
+    {
+        <p style="color: #64748b; font-size: 13px;">Noch keine Begriffe für diese Folie eingegangen.</p>
+    }
+    else
+    {
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; padding: 20px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; justify-content: center; align-items: center; min-height: 120px;">
+            @foreach (var pair in _words.OrderByDescending(w => w.Value))
+            {
+                int fontSize = Math.Clamp(14 + pair.Value * 5, 14, 34);
+                <span style="font-size: @(fontSize)px; font-weight: 800; color: #105c4d; padding: 6px 12px; background: #ffffff; border: 1.5px solid #dce5e2; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: inline-flex; align-items: center; gap: 6px;">
+                    <span>@pair.Key</span>
+                    <span style="font-size: 11px; color: #64748b; background: #e8f3ef; padding: 2px 6px; border-radius: 4px;">@pair.Value</span>
+                </span>
+            }
+        </div>
+
+        <div style="margin-top: 16px;">
+            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
+                @(_showDetails ? "▲ Einzelne Eingaben ausblenden" : "▼ Einzelne Eingaben anzeigen")
+            </button>
+
+            @if (_showDetails)
+            {
+                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                    @foreach (var resp in _slideResponses)
+                    {
+                        var text = ReadResponseText(resp.ResponseData);
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                                <div>
+                                    <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
+                                    @if (!string.IsNullOrEmpty(resp.TeamName))
+                                    {
+                                        <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
+                                    }
+                                </div>
+                                <strong style="color: #1d2528;">@text</strong>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private bool _showDetails;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private List<EventResponseState> _slideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId).ToList();
+
+    private Dictionary<string, int> _words
+    {
+        get
+        {
+            var dict = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var resp in _slideResponses)
+            {
+                var text = ReadResponseText(resp.ResponseData);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    var parts = text.Split(new[] { ',', ' ', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var word in parts)
+                    {
+                        var clean = word.Trim();
+                        if (clean.Length > 1)
+                        {
+                            var key = char.ToUpperInvariant(clean[0]) + clean[1..].ToLowerInvariant();
+                            dict[key] = dict.GetValueOrDefault(key, 0) + 1;
+                        }
+                    }
+                }
+            }
+            return dict;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static string ReadResponseText(JsonElement el)
+    {
+        if (el.ValueKind == JsonValueKind.String)
+        {
+            return el.GetString() ?? string.Empty;
+        }
+        if (el.ValueKind == JsonValueKind.Object)
+        {
+            if (el.TryGetProperty("text", out var v) && v.ValueKind == JsonValueKind.String)
+            {
+                return v.GetString() ?? string.Empty;
+            }
+        }
+        return string.Empty;
+    }
+}
