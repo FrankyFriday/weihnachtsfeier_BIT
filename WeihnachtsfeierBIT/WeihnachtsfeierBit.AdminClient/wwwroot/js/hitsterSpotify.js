@@ -1,5 +1,6 @@
 let player;
 let deviceId;
+let playerConnected = false;
 let accessToken;
 let pendingPopup;
 let sdkPromise;
@@ -88,6 +89,7 @@ function loadSdk() {
 export async function connect(token) {
   accessToken = token;
   await loadSdk();
+  if (player && playerConnected && deviceId) return deviceId;
   if (player) await player.disconnect();
 
   player = new window.Spotify.Player({
@@ -101,7 +103,12 @@ export async function connect(token) {
     player.addListener("ready", event => {
       clearTimeout(timeout);
       deviceId = event.device_id;
+      playerConnected = true;
       resolve(deviceId);
+    });
+    player.addListener("not_ready", () => {
+      deviceId = undefined;
+      playerConnected = false;
     });
     for (const eventName of ["initialization_error", "authentication_error", "account_error", "playback_error"]) {
       player.addListener(eventName, event => {
@@ -122,18 +129,31 @@ export function setToken(token) {
 
 export async function play(token, trackId) {
   accessToken = token;
-  if (!player || !deviceId) throw new Error("Bitte zuerst Spotify verbinden.");
+  if (!player || !playerConnected || !deviceId) {
+    await connect(token);
+  }
   await player.activateElement();
 
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json"
   };
-  const transfer = await fetch("https://api.spotify.com/v1/me/player", {
+  let transfer = await fetch("https://api.spotify.com/v1/me/player", {
     method: "PUT",
     headers,
     body: JSON.stringify({ device_ids: [deviceId], play: true })
   });
+  if (transfer.status === 404) {
+    deviceId = undefined;
+    playerConnected = false;
+    await connect(token);
+    await player.activateElement();
+    transfer = await fetch("https://api.spotify.com/v1/me/player", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ device_ids: [deviceId], play: true })
+    });
+  }
   if (!transfer.ok && transfer.status !== 204) {
     throw new Error(`Spotify-Gerät konnte nicht aktiviert werden (${transfer.status}).`);
   }
@@ -156,6 +176,7 @@ export async function disconnect() {
   if (player) await player.disconnect();
   player = undefined;
   deviceId = undefined;
+  playerConnected = false;
   accessToken = undefined;
   pendingPopup?.close();
   pendingPopup = undefined;
