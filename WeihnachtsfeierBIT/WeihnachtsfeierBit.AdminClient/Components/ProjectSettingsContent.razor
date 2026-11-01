@@ -15,6 +15,7 @@
     {
         <PageHeading Eyebrow="PROJEKT" Title="Einstellungen" Description="@($"Allgemeine Angaben für {_project.Name}.")" />
         <ProjectSettingsForm Project="_project" AccessToken="@AccessToken" OnSaved="UpdateProject" OnDeleted="ProjectDeleted" />
+        <AdminShareSection TargetId="ProjectId" IsProject="true" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
     }
 </FrameworkPage>
 

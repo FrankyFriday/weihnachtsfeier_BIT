@@ -8,6 +8,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<Projekt> Projekte => Set<Projekt>();
     public DbSet<ProjektAdmin> ProjektAdmins => Set<ProjektAdmin>();
     public DbSet<ProjektAdminProjekt> ProjektAdminProjekte => Set<ProjektAdminProjekt>();
+    public DbSet<ProjektAdminShow> ProjektAdminShows => Set<ProjektAdminShow>();
     public DbSet<ProjektAdminSitzung> ProjektAdminSitzungen => Set<ProjektAdminSitzung>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
@@ -269,6 +270,30 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .WithMany(project => project.Admins)
             .HasForeignKey(membership => membership.ProjektId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var adminShows = modelBuilder.Entity<ProjektAdminShow>();
+        adminShows.HasKey(membership => new { membership.ProjektAdminId, membership.ShowId });
+        adminShows.HasIndex(membership => membership.ShowId);
+        adminShows.HasOne(membership => membership.ProjektAdmin)
+            .WithMany()
+            .HasForeignKey(membership => membership.ProjektAdminId)
+            .OnDelete(DeleteBehavior.Cascade);
+        adminShows.HasOne(membership => membership.Show)
+            .WithMany(show => show.Admins)
+            .HasForeignKey(membership => membership.ShowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Projekt>()
+            .HasOne(p => p.ErstellerAdmin)
+            .WithMany()
+            .HasForeignKey(p => p.ErstellerAdminId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Show>()
+            .HasOne(s => s.ErstellerAdmin)
+            .WithMany()
+            .HasForeignKey(s => s.ErstellerAdminId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         var adminSitzungen = modelBuilder.Entity<ProjektAdminSitzung>();
         adminSitzungen.Property(sitzung => sitzung.TokenHash)

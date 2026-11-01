@@ -1,0 +1,182 @@
+@using WeihnachtsfeierBit.Framework
+
+<Card Class="settings-card" Style="margin-top: 24px;">
+    <ChildContent>
+        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1d2528;">Admins & Berechtigungen</h2>
+        <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px;">Teile dieses @(IsProject ? "Projekt" : "Show") mit anderen Administratoren.</p>
+
+        @if (_isLoading)
+        {
+            <FrameworkLoading Message="Berechtigungen werden geladen ..." />
+        }
+        else
+        {
+            @if (_shareList is not null)
+            {
+                @if (_shareList.CanManage)
+                {
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-end; position: relative;">
+                        <div style="flex: 1; position: relative;">
+                            <FrameworkFormGroup Label="Admin einladen (Benutzername)">
+                                <FrameworkInputText Value="@_searchQuery" ValueChanged="OnSearchInput" Placeholder="Benutzername eingeben..." />
+                            </FrameworkFormGroup>
+
+                            @if (_suggestions.Length > 0)
+                            {
+                                <div style="position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1.5px solid #dce5e2; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; max-height: 180px; overflow-y: auto;">
+                                    @foreach (var admin in _suggestions)
+                                    {
+                                        <div @onclick="() => SelectAdmin(admin.Username)" style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #e7ecea; font-size: 13px; font-weight: 600;" onmouseover="this.style.background='#f0f8f4'" onmouseout="this.style.background='#fff'">
+                                            @admin.Username
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <FrameworkButton Label="Einladen" Variant="primary" OnClick="InviteAdminAsync" Busy="_isInviting" Disabled="@(string.IsNullOrWhiteSpace(_searchQuery))" />
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
+                }
+
+                <div style="display: grid; gap: 8px;">
+                    @foreach (var admin in _shareList.Admins)
+                    {
+                        <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 8px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="font-size: 14px; color: #1d2528;">@admin.Username</strong>
+                                @if (admin.IsCreator)
+                                {
+                                    <span style="font-size: 11px; font-weight: 800; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Ersteller</span>
+                                }
+                            </div>
+                            @if (_shareList.CanManage && !admin.IsCreator)
+                            {
+                                <FrameworkButton Label="Entfernen" Variant="secondary" OnClick="() => RemoveAdminAsync(admin.AdminId)" />
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </ChildContent>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public Guid TargetId { get; set; }
+    [Parameter, EditorRequired] public bool IsProject { get; set; }
+    [Parameter, EditorRequired] public string AccessToken { get; set; } = null!;
+    [Parameter] public ProjectApiClient ProjectApiClient { get; set; } = null!;
+
+    private AdminShareListResponse? _shareList;
+    private AdminDto[] _suggestions = [];
+    private string _searchQuery = string.Empty;
+    private bool _isLoading = true;
+    private bool _isInviting;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            if (IsProject)
+            {
+                _shareList = await ProjectApiClient.GetProjectAdminsAsync(AccessToken, TargetId);
+            }
+            else
+            {
+                _shareList = await ProjectApiClient.GetShowAdminsAsync(AccessToken, TargetId);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnSearchInput(string query)
+    {
+        _searchQuery = query;
+        if (_searchQuery.Length >= 1)
+        {
+            try
+            {
+                _suggestions = await ProjectApiClient.SearchAdminsAsync(AccessToken, _searchQuery);
+            }
+            catch
+            {
+                _suggestions = [];
+            }
+        }
+        else
+        {
+            _suggestions = [];
+        }
+    }
+
+    private void SelectAdmin(string username)
+    {
+        _searchQuery = username;
+        _suggestions = [];
+    }
+
+    private async Task InviteAdminAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return;
+        _isInviting = true;
+        _error = null;
+
+        try
+        {
+            if (IsProject)
+            {
+                await ProjectApiClient.InviteProjectAdminAsync(AccessToken, TargetId, _searchQuery.Trim());
+            }
+            else
+            {
+                await ProjectApiClient.InviteShowAdminAsync(AccessToken, TargetId, _searchQuery.Trim());
+            }
+            _searchQuery = string.Empty;
+            _suggestions = [];
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isInviting = false;
+        }
+    }
+
+    private async Task RemoveAdminAsync(Guid adminId)
+    {
+        _error = null;
+        try
+        {
+            if (IsProject)
+            {
+                await ProjectApiClient.RemoveProjectAdminAsync(AccessToken, TargetId, adminId);
+            }
+            else
+            {
+                await ProjectApiClient.RemoveShowAdminAsync(AccessToken, TargetId, adminId);
+            }
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

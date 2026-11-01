@@ -1,12 +1,19 @@
 using WeihnachtsfeierBit.Web;
 using WeihnachtsfeierBit.Web.Components;
 using WeihnachtsfeierBit.Framework;
+using Microsoft.AspNetCore.DataProtection;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
+
+var keysFolder = Path.Combine(Path.GetTempPath(), "weihnachtsfeier-keys");
+Directory.CreateDirectory(keysFolder);
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysFolder));
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

@@ -60,8 +60,9 @@
                     </div>
                 }
 
-                <div class="slide-list-footer">
+                <div class="slide-list-footer" style="display: grid; gap: 8px;">
                     <FrameworkButton Label="+ Slide hinzufügen" Variant="primary" OnClick="OpenAddModal" Disabled="@_adding" />
+                    <FrameworkButton Label="Show teilen / Admins" Variant="secondary" OnClick="() => _isShareModalOpen = true" />
                 </div>
             </div>
 
@@ -109,6 +110,14 @@
     </div>
 </FrameworkModal>
 
+<!-- SHARE SHOW MODAL -->
+<FrameworkModal IsOpen="@_isShareModalOpen" Title="Show teilen & Admins verwalten" OnClose="() => _isShareModalOpen = false">
+    @if (!string.IsNullOrEmpty(AccessToken))
+    {
+        <AdminShareSection TargetId="ShowId" IsProject="false" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
+    }
+</FrameworkModal>
+
 @code {
     [Parameter] public Guid ShowId { get; set; }
 
@@ -117,6 +126,7 @@
     private EditableSlide? _selectedSlide;
 
     private bool _isAddModalOpen;
+    private bool _isShareModalOpen;
     private string _newSlideType = "announcement";
     private string _newSlideInternalName = string.Empty;
     private string? _addModalError;
