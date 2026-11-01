@@ -44,6 +44,8 @@ services:
       ApiBaseUrl: http://apiservice:8080
     depends_on:
       - apiservice
+    volumes:
+      - admin-dataprotection-keys:/var/dpkeys
     networks:
       - proxy
     restart: unless-stopped
@@ -58,6 +60,8 @@ services:
       ApiBaseUrl: http://apiservice:8080
     depends_on:
       - apiservice
+    volumes:
+      - participant-dataprotection-keys:/var/dpkeys
     networks:
       - proxy
     restart: unless-stopped
@@ -76,6 +80,8 @@ services:
       - apiservice
       - adminclient
       - participantclient
+    volumes:
+      - web-dataprotection-keys:/var/dpkeys
     networks:
       proxy:
         aliases:
@@ -84,6 +90,9 @@ services:
 
 volumes:
   postgres-data:
+  admin-dataprotection-keys:
+  participant-dataprotection-keys:
+  web-dataprotection-keys:
 
 networks:
   proxy:
