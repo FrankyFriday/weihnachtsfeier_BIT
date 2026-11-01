@@ -65,10 +65,9 @@ Auf dem Server werden Docker Engine, Docker Compose v2, Git und das vorhandene e
 Für den initialen Start im Repository-Verzeichnis:
 
 ```bash
-printf 'POSTGRES_PASSWORD=%s\nSPOTIFY_CLIENT_ID=%s\nSPOTIFY_CLIENT_SECRET=%s\nSPOTIFY_REDIRECT_URI=%s\n' \
+printf 'POSTGRES_PASSWORD=%s\nSPOTIFY_CLIENT_ID=%s\nSPOTIFY_REDIRECT_URI=%s\n' \
   "$(openssl rand -hex 32)" \
   '<Spotify-Client-ID>' \
-  '<Spotify-Client-Secret>' \
   'https://<app-host>/admin/spotify-callback.html' > .env
 chmod 600 .env
 docker compose -f WeihnachtsfeierBIT/docker-compose.production.yml -p weihnachtsfeierbit up -d --build
@@ -76,7 +75,7 @@ docker compose -f WeihnachtsfeierBIT/docker-compose.production.yml -p weihnachts
 
 Das `.env` mit dem zufälligen Datenbankpasswort muss im Server-Checkout bleiben und darf nicht committet werden. Das PostgreSQL-Volume wird beim normalen Deployment beibehalten; `down --volumes` löscht die Produktionsdatenbank und ist zu vermeiden. Der API-Start wendet vorhandene EF-Migrationen automatisch an. Admin-Data-Protection-Keys sind derzeit nicht persistent; ein Container-Neubau kann daher Admin-Cookies ungültig machen.
 
-Für die Hitster-Slide `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` und `SPOTIFY_REDIRECT_URI` in derselben `.env` setzen. Client ID und Client Secret stehen in den Einstellungen der Spotify-App. Das Client Secret bleibt ausschließlich serverseitig und darf nicht ins Repository oder Frontend gelangen. Die Redirect-URI muss außerdem exakt im Spotify Developer Dashboard eingetragen sein und auf `/admin/spotify-callback.html` zeigen. Der Server tauscht den Autorisierungscode mit HTTP Basic Auth gegen Spotify-Tokens; die Spielleitung benötigt Spotify Premium und die Wiedergabe läuft im Browser des Admin-Geräts.
+Für die Hitster-Slide `SPOTIFY_CLIENT_ID` und `SPOTIFY_REDIRECT_URI` in derselben `.env` setzen. Der Spotify-OAuth-Flow verwendet PKCE wie die Anwendung im Ordner `Hitster`; ein Client Secret wird nicht benötigt. Die Redirect-URI muss exakt im Spotify Developer Dashboard eingetragen sein und auf `/admin/spotify-callback.html` zeigen. Die Spielleitung benötigt Spotify Premium und die Wiedergabe läuft im Browser des Admin-Geräts.
 
 ### Automatisches Deployment
 

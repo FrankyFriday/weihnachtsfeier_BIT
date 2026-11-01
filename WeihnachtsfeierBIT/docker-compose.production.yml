@@ -25,7 +25,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       Spotify__ClientId: ${SPOTIFY_CLIENT_ID:-}
-      Spotify__ClientSecret: ${SPOTIFY_CLIENT_SECRET:-}
       Spotify__RedirectUri: ${SPOTIFY_REDIRECT_URI:-}
       ConnectionStrings__weihnachtsfeierdb: Host=postgres;Port=5432;Database=weihnachtsfeierdb;Username=postgres;Password=${POSTGRES_PASSWORD}
     depends_on:
