@@ -126,6 +126,8 @@ public sealed class GameStateNotifier(
             }
         }
 
+        bool isEnded = instance is null;
+
         return new ProjectGameState(
             project.Id,
             project.Name,
@@ -134,7 +136,9 @@ public sealed class GameStateNotifier(
             passiveEvents.ToArray(),
             scheduledEvents.ToArray(),
             instance?.ActiveCanvasEventId,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            IsPaused: instance?.IsPaused ?? false,
+            IsEnded: isEnded);
     }
 
     private static EventState ToEventState(GameInstanceEvent gie)

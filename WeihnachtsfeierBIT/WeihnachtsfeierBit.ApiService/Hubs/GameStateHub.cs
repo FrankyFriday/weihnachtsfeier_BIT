@@ -14,5 +14,7 @@ public sealed class GameStateHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetGroupName(projectId));
     }
 
+    public Task Ping() => Task.CompletedTask;
+
     public static string GetGroupName(Guid projectId) => $"project_{projectId}";
 }

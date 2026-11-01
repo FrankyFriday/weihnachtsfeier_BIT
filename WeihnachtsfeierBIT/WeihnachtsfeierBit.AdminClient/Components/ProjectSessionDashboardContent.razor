@@ -28,7 +28,8 @@
                 }
             </div>
 
-            <div class="framework-button-row">
+            <div class="framework-button-row" style="align-items: center;">
+                <FrameworkConnectionStatus HubConnection="_hubConnection" ShowLabel="true" />
                 @if (_instance is not null)
                 {
                     <a class="framework-button framework-button-primary"
@@ -645,8 +646,9 @@
     private FrameworkSelectOption[] _teamSelectOptions =>
         _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();
 
-    private static readonly FrameworkDropdownOption[] _sessionOptions =
+    private FrameworkDropdownOption[] _sessionOptions =>
     [
+        new("pause_session", _sessionState?.IsPaused == true ? "Session fortsetzen" : "Session pausieren", _sessionState?.IsPaused == true ? "play_arrow" : "pause"),
         new("end_session", "Session beenden", "power_settings_new")
     ];
 
@@ -809,12 +811,25 @@
         }
     }
 
-    private void HandleSessionOptionSelect(string optionValue)
+    private async Task HandleSessionOptionSelect(string optionValue)
     {
         if (optionValue == "end_session")
         {
             _isEndSessionConfirmOpen = true;
         }
+        else if (optionValue == "pause_session")
+        {
+            await ToggleSessionPauseAsync();
+        }
+    }
+
+    private async Task ToggleSessionPauseAsync()
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            await ProjectApiClient.ToggleSessionPauseAsync(token, ProjectId);
+            await LoadDataAsync();
+        });
     }
 
     private async Task ConfirmEndSessionAsync()

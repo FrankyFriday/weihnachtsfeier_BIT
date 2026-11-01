@@ -199,6 +199,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsPaused")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("ProjektId")
                         .HasColumnType("uuid");
 

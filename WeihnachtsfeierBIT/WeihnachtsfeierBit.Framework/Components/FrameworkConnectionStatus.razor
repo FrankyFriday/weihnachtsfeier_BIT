@@ -1,0 +1,106 @@
+@namespace WeihnachtsfeierBit.Framework
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IDisposable
+
+<div class="framework-connection-status @Class" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; background: @_badgeBg; color: @_badgeColor; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; @Style" title="@_tooltipText" @onclick="CheckLatencyAsync">
+    <span class="material-symbols-outlined" style="font-size: 18px;">@_iconName</span>
+    @if (ShowLabel)
+    {
+        <span>@_labelText</span>
+    }
+</div>
+
+@code {
+    [Parameter] public HubConnection? HubConnection { get; set; }
+    [Parameter] public bool ShowLabel { get; set; } = false;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private long _latencyMs = -1;
+    private CancellationTokenSource? _pingCts;
+
+    private HubConnectionState State => HubConnection?.State ?? HubConnectionState.Disconnected;
+
+    private string _iconName => State switch
+    {
+        HubConnectionState.Connected => _latencyMs < 0 ? "wifi" : _latencyMs < 150 ? "signal_cellular_4_bar" : _latencyMs < 350 ? "signal_cellular_3_bar" : "signal_cellular_1_bar",
+        HubConnectionState.Connecting or HubConnectionState.Reconnecting => "sync",
+        _ => "wifi_off"
+    };
+
+    private string _badgeBg => State switch
+    {
+        HubConnectionState.Connected => _latencyMs < 0 || _latencyMs < 150 ? "#dcfce7" : _latencyMs < 350 ? "#fef3c7" : "#fee2e2",
+        HubConnectionState.Connecting or HubConnectionState.Reconnecting => "#fef3c7",
+        _ => "#fee2e2"
+    };
+
+    private string _badgeColor => State switch
+    {
+        HubConnectionState.Connected => _latencyMs < 0 || _latencyMs < 150 ? "#166534" : _latencyMs < 350 ? "#92400e" : "#991b1b",
+        HubConnectionState.Connecting or HubConnectionState.Reconnecting => "#92400e",
+        _ => "#991b1b"
+    };
+
+    private string _labelText => State switch
+    {
+        HubConnectionState.Connected => _latencyMs < 0 ? "Verbunden" : $"{_latencyMs} ms",
+        HubConnectionState.Connecting => "Verbinde...",
+        HubConnectionState.Reconnecting => "Neu verbinden...",
+        _ => "Getrennt"
+    };
+
+    private string _tooltipText => State switch
+    {
+        HubConnectionState.Connected => _latencyMs < 0 ? "Verbindung hergestellt" : $"Verbindung ausgezeichnet ({_latencyMs} ms)",
+        HubConnectionState.Connecting => "Verbindung wird aufgebaut...",
+        HubConnectionState.Reconnecting => "Verbindung wiederherstellen...",
+        _ => "Keine Verbindung zum Server"
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (HubConnection is not null && _pingCts is null)
+        {
+            _pingCts = new CancellationTokenSource();
+            _ = PingLoopAsync(_pingCts.Token);
+        }
+    }
+
+    private async Task PingLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(6));
+            while (!token.IsCancellationRequested)
+            {
+                await CheckLatencyAsync();
+                await timer.WaitForNextTickAsync(token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task CheckLatencyAsync()
+    {
+        if (HubConnection is not null && HubConnection.State == HubConnectionState.Connected)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                await HubConnection.InvokeAsync("Ping");
+                sw.Stop();
+                _latencyMs = sw.ElapsedMilliseconds;
+            }
+            catch
+            {
+                _latencyMs = -1;
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose() => _pingCts?.Cancel();
+}

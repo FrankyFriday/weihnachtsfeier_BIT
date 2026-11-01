@@ -1,3 +1,4 @@
+@using Microsoft.AspNetCore.SignalR.Client
 @using WeihnachtsfeierBit.Framework
 
 <div style="position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #f6f8f7; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; z-index: 999;">
@@ -7,7 +8,8 @@
             <span class="mobile-eyebrow" style="font-size: 10px; margin-bottom: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">@ProjectName</span>
             <strong style="display: block; font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
         </div>
-        <div style="flex-shrink: 0;">
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
+            <FrameworkConnectionStatus HubConnection="HubConnection" />
             <FrameworkBadge Text="Live" Variant="primary" />
         </div>
     </div>
@@ -40,39 +42,37 @@
                                    IsAdmin="false" />
                 </div>
             }
-            else if (_activeTab == "actions")
+            else if (_activeTab == "profile")
             {
                 <ParticipantProfileActions ProjectId="@ProjectId"
-                                          AccessToken="@AccessToken"
-                                          ProjectName="@ProjectName"
-                                          ParticipantNumber="@ParticipantNumber"
-                                          NameInput="@NameInput"
-                                          IsSavingName="@IsSavingName"
-                                          NameInputChanged="@NameInputChanged"
-                                          OnSaveName="@OnSaveName" />
+                                           AccessToken="@AccessToken"
+                                           NameInput="@NameInput"
+                                           IsSavingName="@IsSavingName"
+                                           NameInputChanged="@NameInputChanged"
+                                           OnSaveName="@OnSaveName" />
             }
         </div>
     </div>
 
-    <!-- BOTTOM NAVIGATION BAR WITH MATERIAL ICONS -->
-    <div style="flex-shrink: 0; height: max(60px, calc(60px + env(safe-area-inset-bottom, 0px))); padding-bottom: env(safe-area-inset-bottom, 0px); background: #ffffff; border-top: 1.5px solid #dce5e2; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.06); width: 100vw; box-sizing: border-box;">
-        <button type="button" @onclick='() => SetTab("home")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
+    <!-- BOTTOM MOBILE NAVIGATION BAR -->
+    <div style="background: #ffffff; border-top: 1.5px solid #dce5e2; display: flex; justify-content: space-around; align-items: center; height: max(56px, calc(56px + env(safe-area-inset-bottom, 0px))); padding-bottom: env(safe-area-inset-bottom, 0px); flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); z-index: 1000; box-sizing: border-box;">
+        <button type="button" @onclick='() => _activeTab = "home"' style="border: none; background: transparent; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">home</span>
-            <span style="font-size: 11px; font-weight: @(_activeTab == "home" ? "800" : "600");">Home</span>
+            <span>Home</span>
         </button>
-        <button type="button" @onclick='() => SetTab("chat")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
+        <button type="button" @onclick='() => _activeTab = "chat"' style="border: none; background: transparent; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">chat</span>
-            <span style="font-size: 11px; font-weight: @(_activeTab == "chat" ? "800" : "600");">Chat</span>
+            <span>Chat</span>
         </button>
-        <button type="button" @onclick='() => SetTab("actions")' style="flex: 1; height: 100%; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: @(_activeTab == "actions" ? "#105c4d" : "#657276"); transition: color 0.15s ease;">
-            <span class="material-symbols-outlined" style="font-size: 22px;">tune</span>
-            <span style="font-size: 11px; font-weight: @(_activeTab == "actions" ? "800" : "600");">Aktionen</span>
+        <button type="button" @onclick='() => _activeTab = "profile"' style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+            <span class="material-symbols-outlined" style="font-size: 22px;">person</span>
+            <span>Aktionen</span>
         </button>
     </div>
 </div>
 
 @code {
-    [Parameter] public string ProjectName { get; set; } = string.Empty;
+    [Parameter] public string ProjectName { get; set; } = "Projekt";
     [Parameter] public int ParticipantNumber { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public string AccessToken { get; set; } = string.Empty;
@@ -88,13 +88,9 @@
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
+    [Parameter] public HubConnection? HubConnection { get; set; }
 
     private string _activeTab = "home";
 
     private int TotalTeamCount => AllTeams.Length;
-
-    private void SetTab(string tab)
-    {
-        _activeTab = tab;
-    }
 }

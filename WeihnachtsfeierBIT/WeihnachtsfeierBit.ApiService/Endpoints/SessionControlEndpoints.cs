@@ -20,6 +20,28 @@ public static class SessionControlEndpoints
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
+        admin.MapPost("/session/toggle-pause", ToggleSessionPauseAsync).WithName("ToggleSessionPause");
+    }
+
+    private static async Task<IResult> ToggleSessionPauseAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var instance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+
+        if (instance is null)
+        {
+            return Results.NotFound(new ApiError("Keine aktive Session für dieses Projekt gefunden."));
+        }
+
+        instance.IsPaused = !instance.IsPaused;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok(new { isPaused = instance.IsPaused });
     }
 
     private static async Task<IResult> GetSessionStateAsync(
