@@ -11,7 +11,16 @@ export function prepareAuthButton(button) {
   button.addEventListener("click", () => {
     pendingPopup?.close();
     pendingPopup = window.open("about:blank", "spotify-hitster-login", "width=540,height=720,popup");
+    if (pendingPopup) {
+      pendingPopup.document.title = "Spotify verbinden";
+      pendingPopup.document.body.textContent = "Spotify-Anmeldung wird vorbereitet …";
+    }
   }, true);
+}
+
+export function cancelAuthorization() {
+  pendingPopup?.close();
+  pendingPopup = undefined;
 }
 
 export async function authorize(url, dotNetReference) {
@@ -35,7 +44,11 @@ export async function authorize(url, dotNetReference) {
     };
 
     window.addEventListener("message", onMessage);
-    popup.location.href = url;
+    try {
+      popup.location.href = url;
+    } catch (error) {
+      finish(null, error);
+    }
   });
 }
 
