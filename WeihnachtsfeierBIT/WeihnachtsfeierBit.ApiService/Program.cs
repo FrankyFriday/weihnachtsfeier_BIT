@@ -18,7 +18,6 @@ builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
 
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.SpotifyAuthFlowStore>();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.ProjectHubConnectionManager>();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier, WeihnachtsfeierBit.ApiService.Services.GameStateNotifier>();
 builder.Services.AddHostedService<WeihnachtsfeierBit.ApiService.Services.ScheduledEventsBackgroundService>();

@@ -135,7 +135,12 @@
                 }
 
                 var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
-                    token, ProjectId, "authorization_code", callback.Code, callback.State);
+                    token,
+                    ProjectId,
+                    "authorization_code",
+                    callback.Code,
+                    callback.State,
+                    codeVerifier: flow.CodeVerifier);
                 SetSpotifyToken(spotifyToken);
                 _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
                 _spotifyConnected = true;
