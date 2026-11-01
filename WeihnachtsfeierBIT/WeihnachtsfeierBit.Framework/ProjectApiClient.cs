@@ -776,6 +776,87 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<SpotifyAuthStartResponse> BeginHitsterSpotifyAuthAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/spotify/auth", accessToken, new { });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SpotifyAuthStartResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Spotify-Anmeldevorgang gestartet.");
+    }
+
+    public async Task<SpotifyTokenResult> ExchangeHitsterSpotifyTokenAsync(
+        string accessToken,
+        Guid projectId,
+        string grantType,
+        string? code = null,
+        string? state = null,
+        string? refreshToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/spotify/token",
+            accessToken,
+            new { grantType, code, state, refreshToken });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SpotifyTokenResult>(cancellationToken)
+            ?? throw new InvalidOperationException("Spotify hat kein Zugriffstoken zurückgegeben.");
+    }
+
+    public async Task HitsterAdminActionAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/{action}",
+            accessToken,
+            new { });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<string> GetHitsterTrackIdAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            $"/api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/track",
+            accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<HitsterTrackResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat keinen Spotify-Track zurückgegeben.");
+        return result.TrackId;
+    }
+
+    public async Task SubmitHitsterGuessAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/guess",
+            accessToken,
+            new { position });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -947,3 +1028,6 @@ public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, s
 public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string CodeChallenge);
+public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
+public sealed record HitsterTrackResponse(string TrackId);

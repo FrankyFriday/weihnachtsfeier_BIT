@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.ApiService.Hubs;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
@@ -155,6 +156,10 @@ public sealed class GameStateNotifier(
                     string type = elem.TryGetProperty("type", out var typeProp) && typeProp.ValueKind == JsonValueKind.String ? typeProp.GetString() ?? "announcement" : "announcement";
                     int pos = elem.TryGetProperty("position", out var posProp) && posProp.ValueKind == JsonValueKind.Number ? posProp.GetInt32() : 0;
                     JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
+                    if (type.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        paramsElem = HitsterGameService.PublicParameters(paramsElem);
+                    }
 
                     slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));
                 }

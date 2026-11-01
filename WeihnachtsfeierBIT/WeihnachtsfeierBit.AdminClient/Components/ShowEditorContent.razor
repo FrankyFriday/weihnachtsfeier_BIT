@@ -132,6 +132,7 @@
         new("ranking", "Zwischenstand (Automatisch)"),
         new("estimation", "Schätzfrage"),
         new("buzzer", "Buzzer-Frage"),
+        new("hitster", "Hitster"),
         new("text", "Freitext-Frage"),
         new("word_cloud", "Wortwolke"),
         new("slider", "Schieberegler"),
@@ -206,6 +207,7 @@
                     "ranking" => new { internalName = _newSlideInternalName.Trim(), title = "Zwischenstand", topCount = (int?)null, animatePodium = false },
                     "estimation" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, correctValue = 0.0, unit = string.Empty, points = 100 },
                     "buzzer" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, points = 100, timeLimitSeconds = (int?)null },
+                    "hitster" => new { internalName = _newSlideInternalName.Trim(), title = "Hitster", instructions = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.", cardsToWin = 10 },
                     _ => new { internalName = _newSlideInternalName.Trim() }
                 };
 

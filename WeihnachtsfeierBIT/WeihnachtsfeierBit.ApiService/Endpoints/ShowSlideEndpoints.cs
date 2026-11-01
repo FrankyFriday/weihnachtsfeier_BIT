@@ -172,6 +172,7 @@ public static class ShowSlideEndpoints
             "ranking" => new RankingSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "estimation" => new EstimationSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "buzzer" => new BuzzerSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "hitster" => new HitsterSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "text" => new TextSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "word_cloud" => new WordCloudSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "slider" => new SliderSlide { Show = show, ShowId = show.Id, Position = request.Position },
@@ -218,6 +219,17 @@ public static class ShowSlideEndpoints
                     break;
                 case BuzzerSlide buzzer when string.Equals(request.Type, "buzzer", StringComparison.OrdinalIgnoreCase):
                     buzzer.Parameters = Deserialize<BuzzerSlideParameters>(request.Parameters);
+                    break;
+                case HitsterSlide hitster when string.Equals(request.Type, "hitster", StringComparison.OrdinalIgnoreCase):
+                    hitster.Parameters = Deserialize<HitsterSlideParameters>(request.Parameters);
+                    if (string.IsNullOrWhiteSpace(hitster.Parameters.Title) || hitster.Parameters.Title.Trim().Length > 120)
+                    {
+                        return (false, "Der Hitster-Titel muss zwischen 1 und 120 Zeichen lang sein.");
+                    }
+                    if (hitster.Parameters.Instructions.Length > 1000 || hitster.Parameters.CardsToWin is < 3 or > 20)
+                    {
+                        return (false, "Die Anleitung darf maximal 1000 Zeichen lang sein und die Siegbedingung muss zwischen 3 und 20 Karten liegen.");
+                    }
                     break;
                 case TextSlide text when string.Equals(request.Type, "text", StringComparison.OrdinalIgnoreCase):
                     text.Parameters = Deserialize<TextSlideParameters>(request.Parameters);
@@ -276,6 +288,7 @@ public static class ShowSlideEndpoints
         QuizSlide => "quiz",
         EstimationSlide => "estimation",
         BuzzerSlide => "buzzer",
+        HitsterSlide => "hitster",
         RankingSlide => "ranking",
         TextSlide => "text",
         WordCloudSlide => "word_cloud",
