@@ -123,6 +123,35 @@
 }
 
 .project-summary-card .framework-card-content { display: grid; align-content: space-between; gap: 12px; min-height: 90px; }
+
+.access-session-section {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid #dce5e2;
+    border-radius: 12px;
+    background: #ffffff;
+}
+.access-session-section h2 { display: flex; align-items: center; gap: 10px; margin: 0; font: 800 18px 'Manrope', sans-serif; color: #1d2528; }
+.access-session-count { padding: 2px 9px; border-radius: 999px; background: #e8f3f0; color: #105c4d; font: 700 12px sans-serif; }
+.access-session-description { margin: 6px 0 16px; color: #64748b; font-size: 13px; }
+.access-session-list { display: grid; gap: 10px; }
+.access-session-row, .access-session-participant { min-width: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 9px; }
+.access-session-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.access-session-details { display: grid; min-width: 0; gap: 4px; color: #64748b; font-size: 12px; }
+.access-session-details strong { color: #1d2528; font-size: 14px; }
+.access-session-user-agent { overflow-wrap: anywhere; }
+.access-session-current { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e8f3f0; color: #105c4d; font-size: 12px; font-weight: 700; }
+.access-session-empty { margin: 12px 0 0; color: #64748b; font-size: 13px; }
+.access-session-participant-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.access-session-participant-header > div { display: grid; gap: 3px; }
+.access-session-participant-header strong { color: #1d2528; }
+.access-session-participant-header span { color: #64748b; font-size: 13px; }
+.access-session-nested-list { margin-top: 12px; }
+
+@media (max-width: 600px) {
+    .access-session-section { padding: 14px; }
+    .access-session-row, .access-session-participant-header { align-items: flex-start; flex-direction: column; }
+}
 .project-summary-card .framework-card-content > span { color: #657276; font-size: 13px; }
 .project-summary-card .framework-card-content strong { font-family: 'Manrope', sans-serif; font-size: 28px; }
 .project-settings-prompt { margin-top: 28px; }

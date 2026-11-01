@@ -1,0 +1,8 @@
+@page "/projects/{ProjectId:guid}/access-sessions"
+
+<PageTitle>Zugriffssitzungen | Projekt | Admin</PageTitle>
+<ProjectAccessSessionsContent ProjectId="ProjectId" />
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+}
