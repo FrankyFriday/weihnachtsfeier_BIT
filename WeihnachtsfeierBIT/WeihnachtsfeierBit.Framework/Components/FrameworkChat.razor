@@ -370,7 +370,8 @@
             var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
 
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
+                .WithUrl(hubUrl, options =>
+                    options.AccessTokenProvider = () => Task.FromResult<string?>(AccessToken))
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -386,6 +387,11 @@
                     await LoadGroupsAsync();
                 });
             });
+
+            _hubConnection.Reconnected += async _ =>
+            {
+                await _hubConnection.SendAsync("JoinProject", ProjectId);
+            };
 
             await _hubConnection.StartAsync();
             await _hubConnection.SendAsync("JoinProject", ProjectId);

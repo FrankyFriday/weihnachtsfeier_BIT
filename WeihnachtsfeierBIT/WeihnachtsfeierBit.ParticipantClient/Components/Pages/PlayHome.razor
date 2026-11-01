@@ -233,7 +233,8 @@ else
         var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
 
         _hubConnection = new HubConnectionBuilder()
-            .WithUrl(hubUrl)
+            .WithUrl(hubUrl, options =>
+                options.AccessTokenProvider = () => Task.FromResult<string?>(_accessToken))
             .WithAutomaticReconnect()
             .Build();
 
@@ -266,6 +267,21 @@ else
             }
         });
 
+        _hubConnection.On("SessionRevoked", () =>
+        {
+            return InvokeAsync(() =>
+            {
+                _accessToken = null;
+                _participant = null;
+                _liveGameState = null;
+                _selectedPassiveEvent = null;
+                CurrentTeamState = null;
+                _isLoggedIn = false;
+                _errorMessage = "Deine Sitzung wurde beendet. Bitte melde dich erneut an.";
+                StateHasChanged();
+            });
+        });
+
         _hubConnection.Closed += ex =>
         {
             _isDisconnected = true;
@@ -278,10 +294,11 @@ else
             return InvokeAsync(StateHasChanged);
         };
 
-        _hubConnection.Reconnected += _ =>
+        _hubConnection.Reconnected += async _ =>
         {
+            await _hubConnection.SendAsync("JoinProject", ProjectId);
             _isDisconnected = false;
-            return InvokeAsync(StateHasChanged);
+            await InvokeAsync(StateHasChanged);
         };
 
         try

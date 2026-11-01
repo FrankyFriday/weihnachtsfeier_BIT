@@ -58,7 +58,7 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `GET /api/projects/{projectId}/admins` | Projektadmin | Memberships anzeigen. |
 | `POST /api/projects/{projectId}/admins` | Projektadmin | Bereits registriertes Konto mit `{ "username": "..." }` zuordnen. Erstellt kein Konto. |
 | `DELETE /api/projects/{projectId}/admins/{adminId}` | Projektadmin | Membership entfernen; Selbstentfernung und Entfernen des letzten Admins sind gesperrt. |
-| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen. |
+| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen; kennzeichnet die anfragende Sitzung mit `isCurrent`. |
 | `DELETE /api/projects/{projectId}/admin-sessions/{sessionId}` | Projektadmin | Adminsession widerrufen. |
 | `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
 | `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
@@ -82,7 +82,7 @@ Die Beameransicht unter `/play/canvas/{sessionCode}` verbindet sich über `/hubs
 
 Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`, `/session/state`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
 
-SignalR WebSockets: `/hubs/gamestate` erlaubt Clients, per `JoinProject(projectId)` Live-Updates (`GameStateUpdated`) mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows) zu empfangen.
+SignalR WebSockets: `/hubs/gamestate` verlangt beim Beitritt per `JoinProject(projectId)` ein gültiges Teilnehmer- oder Admin-API-Token für genau dieses Projekt. Das Token wird über den SignalR-`AccessTokenProvider` übertragen; die Sitzung und Projektmitgliedschaft werden beim Beitritt geprüft. Berechtigte Verbindungen erhalten `GameStateUpdated` mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows). Beim Widerruf einer Sitzung werden ihre bestehenden Hub-Verbindungen aus allen Projektgruppen entfernt und erhalten `SessionRevoked`; ein erneuter Beitritt ist nicht möglich.
 
 Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `POST /participants/generate` (automatische 2-, 3- oder 4-stellige Nummern-Generierung), `POST /participants/randomize-teams` (gleichmäßige Zufallsverteilung auf Teams), `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
 

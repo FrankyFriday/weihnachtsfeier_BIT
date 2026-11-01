@@ -281,6 +281,48 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<ParticipantSummary[]>(cancellationToken) ?? [];
     }
 
+    public async Task<AdminAccessSessionSummary[]> GetAdminSessionsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/admin-sessions", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminAccessSessionSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task RevokeAdminSessionAsync(string accessToken, Guid projectId, Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/admin-sessions/{sessionId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<SessionSummary[]> GetParticipantSessionsAsync(
+        string accessToken,
+        Guid projectId,
+        Guid participantId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/participants/{participantId}/sessions", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<SessionSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task RevokeParticipantSessionAsync(
+        string accessToken,
+        Guid projectId,
+        Guid participantId,
+        Guid sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Delete,
+            $"/api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}",
+            accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<ParticipantSummary> CreateParticipantAsync(string accessToken, Guid projectId, int number, string? name, Guid? teamId, CancellationToken cancellationToken = default)
     {
         return await CreateParticipantAsync(accessToken, projectId, new CreateParticipantRequest(number, name, teamId), cancellationToken);
@@ -788,6 +830,22 @@ public record ParticipantSessionResponse(
     Guid? ParticipantId = null,
     Guid? TeamId = null);
 public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId);
+public sealed record AdminAccessSessionSummary(
+    Guid Id,
+    Guid ProjektAdminId,
+    string Username,
+    DateTime ErstelltAmUtc,
+    DateTime LetzteAktivitaetAmUtc,
+    DateTime LaeuftAbAmUtc,
+    string? UserAgent,
+    bool IsCurrent);
+public sealed record SessionSummary(
+    Guid Id,
+    Guid UserId,
+    DateTime CreatedAtUtc,
+    DateTime LastActivityAtUtc,
+    DateTime ExpiresAtUtc,
+    string? UserAgent);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);
 public sealed record UpdateParticipantRequest(string? Name, Guid? TeamId, int? Number);
 public sealed record GenerateParticipantsRequest(int Count, int Digits, Guid? TeamId);
