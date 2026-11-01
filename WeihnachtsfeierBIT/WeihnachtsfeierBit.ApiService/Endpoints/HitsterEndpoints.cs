@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
@@ -15,7 +14,6 @@ public static class HitsterEndpoints
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly Lazy<HitsterSong[]> Playlist = new(LoadPlaylist);
-    private static readonly ConcurrentDictionary<string, SpotifyAuthFlow> SpotifyAuthFlows = new(StringComparer.Ordinal);
 
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
@@ -48,28 +46,14 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        var now = DateTimeOffset.UtcNow;
-        foreach (var flow in SpotifyAuthFlows)
-        {
-            if (flow.Value.ExpiresAt <= now)
-            {
-                SpotifyAuthFlows.TryRemove(flow.Key, out _);
-            }
-        }
-
         var verifier = CreateRandomValue(48);
         var state = CreateRandomValue(24);
         var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(verifier)))
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
-        var authFlow = new SpotifyAuthFlow(verifier, redirectUri, now.AddMinutes(10));
-        if (!SpotifyAuthFlows.TryAdd(state, authFlow))
-        {
-            return Results.Problem("Der Spotify-Anmeldevorgang konnte nicht gestartet werden.");
-        }
 
-        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge));
+        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge, verifier));
     }
 
     private static IResult InvalidSpotifyConfiguration() =>
@@ -99,21 +83,16 @@ public static class HitsterEndpoints
         if (string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(request.Code) ||
-                string.IsNullOrWhiteSpace(request.State))
+                string.IsNullOrWhiteSpace(request.State) ||
+                string.IsNullOrWhiteSpace(request.CodeVerifier))
             {
-                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder Status fehlen."));
-            }
-
-            if (!SpotifyAuthFlows.TryRemove(request.State, out var flow) ||
-                flow.ExpiresAt <= DateTimeOffset.UtcNow)
-            {
-                return Results.BadRequest(new ApiError("Spotify-Anmeldung ist abgelaufen oder ungültig. Bitte erneut verbinden."));
+                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode, Status oder PKCE-Verifier fehlen."));
             }
 
             form["grant_type"] = "authorization_code";
             form["code"] = request.Code;
-            form["redirect_uri"] = flow.RedirectUri;
-            form["code_verifier"] = flow.Verifier;
+            form["redirect_uri"] = configuration["Spotify:RedirectUri"]!;
+            form["code_verifier"] = request.CodeVerifier;
         }
         else if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
                  !string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -516,11 +495,10 @@ public static class HitsterEndpoints
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
-    private sealed record SpotifyAuthFlow(string Verifier, string RedirectUri, DateTimeOffset ExpiresAt);
 }
 
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge);
-public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge, string Verifier);
+public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken, string? CodeVerifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenError(string? Error, string? ErrorDescription);
