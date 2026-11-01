@@ -311,8 +311,21 @@
     {
         if (_spotify is not null)
         {
-            await _spotify.InvokeVoidAsync("disconnect");
-            await _spotify.DisposeAsync();
+            try
+            {
+                await _spotify.InvokeVoidAsync("disconnect");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+
+            try
+            {
+                await _spotify.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
     }
 }

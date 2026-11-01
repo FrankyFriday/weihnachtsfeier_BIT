@@ -41,6 +41,8 @@ services:
       ApiBaseUrl: http://apiservice:8080
     depends_on:
       - apiservice
+    volumes:
+      - admin-dataprotection-keys:/var/dpkeys
     restart: unless-stopped
 
   participantclient:
@@ -52,6 +54,8 @@ services:
       ApiBaseUrl: http://apiservice:8080
     depends_on:
       - apiservice
+    volumes:
+      - participant-dataprotection-keys:/var/dpkeys
     restart: unless-stopped
 
   webfrontend:
@@ -69,7 +73,12 @@ services:
       - apiservice
       - adminclient
       - participantclient
+    volumes:
+      - web-dataprotection-keys:/var/dpkeys
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  admin-dataprotection-keys:
+  participant-dataprotection-keys:
+  web-dataprotection-keys:

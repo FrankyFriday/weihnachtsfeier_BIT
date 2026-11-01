@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using WeihnachtsfeierBit.Framework;
 using WeihnachtsfeierBit.ParticipantClient.Components;
 
@@ -7,6 +8,9 @@ builder.AddServiceDefaults();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit.ParticipantClient")
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/dpkeys"));
 
 builder.Services.AddWeihnachtsfeierFramework(client =>
 {
