@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
@@ -14,6 +15,8 @@ public static class HitsterEndpoints
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly Lazy<HitsterSong[]> Playlist = new(LoadPlaylist);
+    private static readonly SemaphoreSlim SpotifyCodeExchangeLock = new(1, 1);
+    private static readonly ConcurrentDictionary<string, CachedSpotifyToken> SpotifyCodeExchangeResults = new(StringComparer.Ordinal);
 
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
@@ -79,7 +82,6 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        var form = new Dictionary<string, string> { ["client_id"] = clientId };
         if (string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(request.Code) ||
@@ -89,22 +91,78 @@ public static class HitsterEndpoints
                 return Results.BadRequest(new ApiError("Spotify-Autorisierungscode, Status oder PKCE-Verifier fehlen."));
             }
 
-            form["grant_type"] = "authorization_code";
-            form["code"] = request.Code;
-            form["redirect_uri"] = configuration["Spotify:RedirectUri"]!;
-            form["code_verifier"] = request.CodeVerifier;
-        }
-        else if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
-                 !string.IsNullOrWhiteSpace(request.RefreshToken))
-        {
-            form["grant_type"] = "refresh_token";
-            form["refresh_token"] = request.RefreshToken;
-        }
-        else
-        {
-            return Results.BadRequest(new ApiError("Spotify-Token-Anfrage ist ungültig."));
+            await SpotifyCodeExchangeLock.WaitAsync(cancellationToken);
+            try
+            {
+                var now = DateTimeOffset.UtcNow;
+                foreach (var cached in SpotifyCodeExchangeResults)
+                {
+                    if (cached.Value.ExpiresAt <= now)
+                    {
+                        SpotifyCodeExchangeResults.TryRemove(cached.Key, out _);
+                    }
+                }
+
+                var codeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Code)));
+                if (SpotifyCodeExchangeResults.TryGetValue(request.State, out var cachedResult))
+                {
+                    if (!CryptographicOperations.FixedTimeEquals(
+                            Encoding.ASCII.GetBytes(codeHash),
+                            Encoding.ASCII.GetBytes(cachedResult.CodeHash)))
+                    {
+                        return Results.BadRequest(new ApiError("Der Spotify-Anmeldestatus wurde bereits mit einem anderen Code verwendet."));
+                    }
+
+                    return Results.Ok(cachedResult.Token);
+                }
+
+                var form = new Dictionary<string, string>
+                {
+                    ["client_id"] = clientId,
+                    ["grant_type"] = "authorization_code",
+                    ["code"] = request.Code,
+                    ["redirect_uri"] = configuration["Spotify:RedirectUri"]!,
+                    ["code_verifier"] = request.CodeVerifier
+                };
+                var (token, error) = await RequestSpotifyTokenAsync(form, httpClientFactory, cancellationToken);
+                if (error is not null)
+                {
+                    return error;
+                }
+
+                SpotifyCodeExchangeResults[request.State] = new CachedSpotifyToken(
+                    codeHash,
+                    token!,
+                    now.AddMinutes(2));
+                return Results.Ok(token);
+            }
+            finally
+            {
+                SpotifyCodeExchangeLock.Release();
+            }
         }
 
+        if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            var form = new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["grant_type"] = request.GrantType,
+                ["refresh_token"] = request.RefreshToken
+            };
+            var (token, error) = await RequestSpotifyTokenAsync(form, httpClientFactory, cancellationToken);
+            return error ?? Results.Ok(token);
+        }
+
+        return Results.BadRequest(new ApiError("Spotify-Token-Anfrage ist ungültig."));
+    }
+
+    private static async Task<(SpotifyTokenResult? Token, IResult? Error)> RequestSpotifyTokenAsync(
+        Dictionary<string, string> form,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
         using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://accounts.spotify.com/api/token")
         {
             Content = new FormUrlEncodedContent(form)
@@ -114,16 +172,16 @@ public static class HitsterEndpoints
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadFromJsonAsync<SpotifyTokenError>(cancellationToken);
-            return Results.BadRequest(new ApiError(error?.ErrorDescription ?? error?.Error ?? "Spotify hat die Anmeldung abgelehnt."));
+            return (null, Results.BadRequest(new ApiError(error?.ErrorDescription ?? error?.Error ?? "Spotify hat die Anmeldung abgelehnt.")));
         }
 
         var token = await response.Content.ReadFromJsonAsync<SpotifyTokenResponse>(cancellationToken);
         if (token is null || string.IsNullOrWhiteSpace(token.AccessToken))
         {
-            return Results.Json(new ApiError("Spotify hat kein gültiges Zugriffstoken zurückgegeben."), statusCode: StatusCodes.Status502BadGateway);
+            return (null, Results.Json(new ApiError("Spotify hat kein gültiges Zugriffstoken zurückgegeben."), statusCode: StatusCodes.Status502BadGateway));
         }
 
-        return Results.Ok(new SpotifyTokenResult(token.AccessToken, token.RefreshToken, token.ExpiresIn));
+        return (new SpotifyTokenResult(token.AccessToken, token.RefreshToken, token.ExpiresIn), null);
     }
 
     private static async Task<IResult> StartAsync(
@@ -500,6 +558,7 @@ public static class HitsterEndpoints
 public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge, string Verifier);
 public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken, string? CodeVerifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
+internal sealed record CachedSpotifyToken(string CodeHash, SpotifyTokenResult Token, DateTimeOffset ExpiresAt);
 public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenError(string? Error, string? ErrorDescription);
 public sealed record HitsterGuessRequest(int Position);
