@@ -114,6 +114,104 @@ public sealed class BuzzerSlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class TextSlide : Slide
+{
+    private TextSlideParameters? _parameters;
+
+    [NotMapped]
+    public TextSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<TextSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class WordCloudSlide : Slide
+{
+    private WordCloudSlideParameters? _parameters;
+
+    [NotMapped]
+    public WordCloudSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<WordCloudSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class SliderSlide : Slide
+{
+    private SliderSlideParameters? _parameters;
+
+    [NotMapped]
+    public SliderSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<SliderSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class RatingSlide : Slide
+{
+    private RatingSlideParameters? _parameters;
+
+    [NotMapped]
+    public RatingSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<RatingSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class OrderingSlide : Slide
+{
+    private OrderingSlideParameters? _parameters;
+
+    [NotMapped]
+    public OrderingSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<OrderingSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class CountdownSlide : Slide
+{
+    private CountdownSlideParameters? _parameters;
+
+    [NotMapped]
+    public CountdownSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<CountdownSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
+public sealed class PointAwardSlide : Slide
+{
+    private PointAwardSlideParameters? _parameters;
+
+    [NotMapped]
+    public PointAwardSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<PointAwardSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public abstract class SlideParameters
 {
     public int SchemaVersion { get; set; } = 1;
@@ -191,4 +289,52 @@ public sealed class BuzzerSlideParameters : SlideParameters
     public int Points { get; set; } = 100;
 
     public int? TimeLimitSeconds { get; set; }
+}
+
+public sealed class TextSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+    public string Placeholder { get; set; } = string.Empty;
+    public int MaxLength { get; set; } = 200;
+}
+
+public sealed class WordCloudSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+    public int MaxWordsPerUser { get; set; } = 3;
+}
+
+public sealed class SliderSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+    public double Min { get; set; } = 0;
+    public double Max { get; set; } = 100;
+    public double Step { get; set; } = 1;
+    public string Unit { get; set; } = string.Empty;
+}
+
+public sealed class RatingSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+    public int MaxStars { get; set; } = 5;
+}
+
+public sealed class OrderingSlideParameters : SlideParameters
+{
+    public string Question { get; set; } = string.Empty;
+    public List<string> Items { get; set; } = [];
+}
+
+public sealed class CountdownSlideParameters : SlideParameters
+{
+    public string Title { get; set; } = string.Empty;
+    public int Seconds { get; set; } = 60;
+    public string Message { get; set; } = string.Empty;
+}
+
+public sealed class PointAwardSlideParameters : SlideParameters
+{
+    public string Title { get; set; } = string.Empty;
+    public string DefaultReason { get; set; } = string.Empty;
+    public int DefaultDeltaPoints { get; set; } = 10;
 }

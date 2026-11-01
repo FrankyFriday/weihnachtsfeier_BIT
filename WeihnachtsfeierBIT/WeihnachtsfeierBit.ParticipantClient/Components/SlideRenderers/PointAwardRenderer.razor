@@ -1,0 +1,63 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; overflow-y: auto;">
+    <div style="text-align: center; margin-bottom: 16px;">
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">PUNKTEVERGABE</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0; color: #1d2528;">@_title</h2>
+    </div>
+
+    @if (_isLoading && _teams.Length == 0)
+    {
+        <FrameworkLoading Message="Teams & Punktestände werden geladen ..." />
+    }
+    else
+    {
+        <FrameworkChart Teams="_teams" ChartType="bar_chart" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamSummary[] _teams = [];
+    private string _title = "Punktevergabe";
+    private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ReadSlideParameters();
+        if (Teams.Length > 0)
+        {
+            _teams = Teams;
+            _isLoading = false;
+        }
+        else if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty)
+        {
+            try
+            {
+                _teams = await ProjectApiClient.GetTeamsAsync(AccessToken, ProjectId);
+            }
+            catch
+            {
+            }
+            _isLoading = false;
+        }
+    }
+
+    private void ReadSlideParameters()
+    {
+        if (CurrentSlide.Parameters.ValueKind == JsonValueKind.Object)
+        {
+            if (CurrentSlide.Parameters.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == JsonValueKind.String)
+            {
+                _title = titleProp.GetString() ?? "Punktevergabe";
+            }
+        }
+    }
+}

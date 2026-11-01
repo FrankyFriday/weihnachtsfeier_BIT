@@ -1,0 +1,53 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="margin-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px; color: #1d2528;">@_question</h3>
+        <FrameworkBadge Text="@($"{_slideResponses.Count} Antworten")" Variant="primary" />
+    </div>
+
+    @if (_slideResponses.Count == 0)
+    {
+        <p style="color: #64748b; font-size: 13px;">Noch keine Freitext-Antworten für diese Folie eingegangen.</p>
+    }
+    else
+    {
+        <div style="display: grid; gap: 8px; max-height: 350px; overflow-y: auto;">
+            @foreach (var resp in _slideResponses.OrderByDescending(r => r.SubmittedAtUtc))
+            {
+                var text = ReadResponseText(resp.ResponseData);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    <div style="padding: 10px 14px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="font-size: 12px; color: #105c4d;">@resp.ParticipantName (#@resp.ParticipantNumber)</strong>
+                            <span style="font-size: 11px; color: #94a3b8;">@resp.SubmittedAtUtc.ToLocalTime().ToString("HH:mm:ss") Uhr</span>
+                        </div>
+                        <p style="margin: 0; font-size: 14px; color: #1d2528; word-break: break-word;">@text</p>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private List<EventResponseState> _slideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId).ToList();
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static string ReadResponseText(JsonElement el)
+    {
+        if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("text", out var v) && v.ValueKind == JsonValueKind.String)
+        {
+            return v.GetString() ?? string.Empty;
+        }
+        return string.Empty;
+    }
+}

@@ -67,7 +67,11 @@ public sealed record UpdateSessionEventRequest(
     int? CurrentSlideIndex,
     string? Mode,
     bool? IsHidden,
-    string? Status);
+    string? Status,
+    DateTime? StartedAtUtc,
+    int? AccumulatedElapsedSeconds,
+    bool? IsPaused,
+    DateTime? LastResumedAtUtc);
 
 public sealed record UpdateEventModeRequest(string Mode);
 public sealed record SubmitResponseRequest(JsonElement ResponseData);

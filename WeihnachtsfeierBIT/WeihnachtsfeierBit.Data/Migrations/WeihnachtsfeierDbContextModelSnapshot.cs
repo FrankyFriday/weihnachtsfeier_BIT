@@ -218,6 +218,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AccumulatedElapsedSeconds")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("AutoStartOnSchedule")
                         .HasColumnType("boolean");
 
@@ -232,6 +235,12 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.Property<bool>("IsHidden")
                         .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPaused")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastResumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Mode")
                         .IsRequired()
@@ -805,11 +814,32 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("buzzer");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.CountdownSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("countdown");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.EstimationSlide", b =>
                 {
                     b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
 
                     b.HasDiscriminator().HasValue("estimation");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.OrderingSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("ordering");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.PointAwardSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("point_award");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.PollSlide", b =>
@@ -831,6 +861,34 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
 
                     b.HasDiscriminator().HasValue("ranking");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.RatingSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("rating");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.SliderSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("slider");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TextSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("text");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.WordCloudSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("word_cloud");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.AdminChatRead", b =>

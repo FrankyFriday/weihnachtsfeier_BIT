@@ -161,6 +161,38 @@ public static class SessionControlEndpoints
             ev.AutoStartOnSchedule = request.AutoStartOnSchedule.Value;
         }
 
+        if (request.StartedAtUtc.HasValue)
+        {
+            ev.StartedAtUtc = request.StartedAtUtc.Value;
+        }
+
+        if (request.AccumulatedElapsedSeconds.HasValue)
+        {
+            ev.AccumulatedElapsedSeconds = Math.Max(0, request.AccumulatedElapsedSeconds.Value);
+        }
+
+        if (request.IsPaused.HasValue)
+        {
+            bool wantsPause = request.IsPaused.Value;
+            if (wantsPause && !ev.IsPaused)
+            {
+                var refTime = ev.LastResumedAtUtc ?? ev.StartedAtUtc;
+                ev.AccumulatedElapsedSeconds += (int)Math.Max(0, (DateTime.UtcNow - refTime).TotalSeconds);
+                ev.IsPaused = true;
+                ev.LastResumedAtUtc = null;
+            }
+            else if (!wantsPause && ev.IsPaused)
+            {
+                ev.IsPaused = false;
+                ev.LastResumedAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        if (request.LastResumedAtUtc.HasValue)
+        {
+            ev.LastResumedAtUtc = request.LastResumedAtUtc.Value;
+        }
+
         if (request.Mode is string newMode && !string.IsNullOrWhiteSpace(newMode))
         {
             var cleanMode = string.Equals(newMode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
@@ -450,6 +482,13 @@ public static class SessionControlEndpoints
         EstimationSlide => "estimation",
         BuzzerSlide => "buzzer",
         RankingSlide => "ranking",
+        TextSlide => "text",
+        WordCloudSlide => "word_cloud",
+        SliderSlide => "slider",
+        RatingSlide => "rating",
+        OrderingSlide => "ordering",
+        CountdownSlide => "countdown",
+        PointAwardSlide => "point_award",
         _ => "announcement"
     };
 

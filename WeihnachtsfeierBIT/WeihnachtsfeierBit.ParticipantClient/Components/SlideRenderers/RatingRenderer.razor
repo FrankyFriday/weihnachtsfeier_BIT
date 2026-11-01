@@ -1,0 +1,87 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">BEWERTUNG</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 20px 0; color: #1d2528;">@_question</h2>
+
+        <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 24px;">
+            @for (int i = 1; i <= _maxStars; i++)
+            {
+                var star = i;
+                <button type="button" @onclick="() => SelectStar(star)" style="border: none; background: transparent; font-size: 36px; cursor: pointer; transition: transform 0.15s ease;" title="@($"{star} Sterne")">
+                    @if (star <= _selectedRating)
+                    {
+                        <span>⭐</span>
+                    }
+                    else
+                    {
+                        <span style="opacity: 0.3; filter: grayscale(100%);">⭐</span>
+                    }
+                </button>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
+        }
+
+        @if (_submitted)
+        {
+            <FrameworkNotice Message="Bewertung erfolgreich abgegeben!" Severity="success" Style="margin-bottom: 12px;" />
+        }
+
+        <FrameworkButton Label="@(_submitted ? "Bewertung aktualisieren" : "Bewertung abgeben")" Variant="primary" OnClick="SubmitRatingAsync" Busy="_isSubmitting" Disabled="@(_selectedRating == 0)" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private int _selectedRating = 0;
+    private bool _isSubmitting;
+    private bool _submitted;
+    private string? _error;
+
+    private string _question => ReadString(CurrentSlide.Parameters, "question");
+    private int _maxStars => ReadInt(CurrentSlide.Parameters, "maxStars", 5);
+
+    private void SelectStar(int star)
+    {
+        _selectedRating = star;
+    }
+
+    private async Task SubmitRatingAsync()
+    {
+        if (_selectedRating == 0 || string.IsNullOrEmpty(AccessToken)) return;
+        _isSubmitting = true;
+        _error = null;
+
+        try
+        {
+            var payload = JsonSerializer.SerializeToElement(new { rating = _selectedRating });
+            await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
+            _submitted = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static int ReadInt(JsonElement el, string prop, int def) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : def;
+}
