@@ -139,8 +139,7 @@
                     ProjectId,
                     "authorization_code",
                     callback.Code,
-                    callback.State,
-                    codeVerifier: flow.CodeVerifier);
+                    callback.State);
                 SetSpotifyToken(spotifyToken);
                 _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
                 _spotifyConnected = true;
@@ -231,8 +230,6 @@
             ["client_id"] = flow.ClientId,
             ["response_type"] = "code",
             ["redirect_uri"] = flow.RedirectUri,
-            ["code_challenge_method"] = "S256",
-            ["code_challenge"] = flow.CodeChallenge,
             ["state"] = flow.State,
             ["scope"] = "streaming user-modify-playback-state"
         };

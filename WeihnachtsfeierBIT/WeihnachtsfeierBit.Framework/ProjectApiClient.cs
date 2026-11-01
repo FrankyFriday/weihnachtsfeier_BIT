@@ -792,14 +792,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         string? code = null,
         string? state = null,
         string? refreshToken = null,
-        string? codeVerifier = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(
             HttpMethod.Post,
             $"/api/projects/{projectId}/session/spotify/token",
             accessToken,
-            new { grantType, code, state, refreshToken, codeVerifier });
+            new { grantType, code, state, refreshToken });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<SpotifyTokenResult>(cancellationToken)
@@ -1029,6 +1028,6 @@ public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, s
 public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string CodeChallenge, string CodeVerifier);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record HitsterTrackResponse(string TrackId);

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -30,8 +31,10 @@ public static class HitsterEndpoints
         IConfiguration configuration)
     {
         var clientId = configuration["Spotify:ClientId"];
+        var clientSecret = configuration["Spotify:ClientSecret"];
         var redirectUri = configuration["Spotify:RedirectUri"];
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(redirectUri) ||
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret) ||
+            string.IsNullOrWhiteSpace(redirectUri) ||
             !Uri.TryCreate(redirectUri, UriKind.Absolute, out var callback) || callback is null)
         {
             return InvalidSpotifyConfiguration();
@@ -46,13 +49,7 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        var state = CreateRandomValue(24);
-        var verifier = CreateRandomValue(48);
-        var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge, verifier));
+        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, CreateRandomValue(24)));
     }
 
     private static IResult InvalidSpotifyConfiguration() =>
@@ -67,32 +64,30 @@ public static class HitsterEndpoints
         CancellationToken cancellationToken)
     {
         var clientId = configuration["Spotify:ClientId"];
-        if (string.IsNullOrWhiteSpace(clientId))
+        var clientSecret = configuration["Spotify:ClientSecret"];
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {
-            return Results.Json(new ApiError("SPOTIFY_CLIENT_ID fehlt."), statusCode: StatusCodes.Status503ServiceUnavailable);
+            return Results.Json(
+                new ApiError("Spotify ist nicht vollständig konfiguriert. SPOTIFY_CLIENT_ID und SPOTIFY_CLIENT_SECRET müssen gesetzt sein."),
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
         if (string.IsNullOrWhiteSpace(configuration["Spotify:RedirectUri"]))
         {
             return InvalidSpotifyConfiguration();
         }
 
-        var form = new Dictionary<string, string>
-        {
-            ["client_id"] = clientId
-        };
+        var form = new Dictionary<string, string>();
         if (string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(request.Code) ||
-                string.IsNullOrWhiteSpace(request.State) ||
-                !IsValidCodeVerifier(request.CodeVerifier))
+                string.IsNullOrWhiteSpace(request.State))
             {
-                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder PKCE-Daten sind ungültig."));
+                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder Status fehlen."));
             }
 
             form["grant_type"] = "authorization_code";
             form["code"] = request.Code;
             form["redirect_uri"] = configuration["Spotify:RedirectUri"]!;
-            form["code_verifier"] = request.CodeVerifier!;
         }
         else if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
                  !string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -105,8 +100,14 @@ public static class HitsterEndpoints
             return Results.BadRequest(new ApiError("Spotify-Token-Anfrage ist ungültig."));
         }
 
+        using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://accounts.spotify.com/api/token")
+        {
+            Content = new FormUrlEncodedContent(form)
+        };
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+        tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
         using var response = await httpClientFactory.CreateClient()
-            .PostAsync("https://accounts.spotify.com/api/token", new FormUrlEncodedContent(form), cancellationToken);
+            .SendAsync(tokenRequest, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadFromJsonAsync<SpotifyTokenError>(cancellationToken);
@@ -486,11 +487,6 @@ public static class HitsterEndpoints
             : throw new InvalidOperationException("Die Hitster-Playlist ist leer oder ungültig.");
     }
 
-    private static bool IsValidCodeVerifier(string? verifier) =>
-        verifier is { Length: >= 43 and <= 128 } &&
-        verifier.All(character =>
-            char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
-
     private static string CreateRandomValue(int byteCount) =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(byteCount))
             .TrimEnd('=')
@@ -498,8 +494,8 @@ public static class HitsterEndpoints
             .Replace('/', '_');
 }
 
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string CodeChallenge, string CodeVerifier);
-public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken, string? CodeVerifier);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State);
+public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenError(string? Error, string? ErrorDescription);
