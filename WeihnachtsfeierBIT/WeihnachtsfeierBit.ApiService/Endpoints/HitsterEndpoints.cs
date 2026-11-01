@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
@@ -25,8 +27,7 @@ public static class HitsterEndpoints
     }
 
     private static IResult BeginSpotifyAuth(
-        IConfiguration configuration,
-        SpotifyAuthFlowStore flowStore)
+        IConfiguration configuration)
     {
         var clientId = configuration["Spotify:ClientId"];
         var redirectUri = configuration["Spotify:RedirectUri"];
@@ -45,8 +46,13 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        var (state, challenge) = flowStore.Create(redirectUri);
-        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge));
+        var state = CreateRandomValue(24);
+        var verifier = CreateRandomValue(48);
+        var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge, verifier));
     }
 
     private static IResult InvalidSpotifyConfiguration() =>
@@ -57,7 +63,6 @@ public static class HitsterEndpoints
     private static async Task<IResult> GetSpotifyTokenAsync(
         SpotifyTokenRequest request,
         IConfiguration configuration,
-        SpotifyAuthFlowStore flowStore,
         IHttpClientFactory httpClientFactory,
         CancellationToken cancellationToken)
     {
@@ -66,6 +71,10 @@ public static class HitsterEndpoints
         {
             return Results.Json(new ApiError("SPOTIFY_CLIENT_ID fehlt."), statusCode: StatusCodes.Status503ServiceUnavailable);
         }
+        if (string.IsNullOrWhiteSpace(configuration["Spotify:RedirectUri"]))
+        {
+            return InvalidSpotifyConfiguration();
+        }
 
         var form = new Dictionary<string, string>
         {
@@ -73,21 +82,17 @@ public static class HitsterEndpoints
         };
         if (string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
         {
-            if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.State))
+            if (string.IsNullOrWhiteSpace(request.Code) ||
+                string.IsNullOrWhiteSpace(request.State) ||
+                !IsValidCodeVerifier(request.CodeVerifier))
             {
-                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder Status fehlt."));
-            }
-
-            var flow = flowStore.Consume(request.State);
-            if (flow is null)
-            {
-                return Results.BadRequest(new ApiError("Spotify-Anmeldung ist abgelaufen oder ungültig. Bitte erneut verbinden."));
+                return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder PKCE-Daten sind ungültig."));
             }
 
             form["grant_type"] = "authorization_code";
             form["code"] = request.Code;
-            form["redirect_uri"] = flow.RedirectUri;
-            form["code_verifier"] = flow.Verifier;
+            form["redirect_uri"] = configuration["Spotify:RedirectUri"]!;
+            form["code_verifier"] = request.CodeVerifier!;
         }
         else if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
                  !string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -480,10 +485,21 @@ public static class HitsterEndpoints
             ? songs
             : throw new InvalidOperationException("Die Hitster-Playlist ist leer oder ungültig.");
     }
+
+    private static bool IsValidCodeVerifier(string? verifier) =>
+        verifier is { Length: >= 43 and <= 128 } &&
+        verifier.All(character =>
+            char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+
+    private static string CreateRandomValue(int byteCount) =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(byteCount))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
 }
 
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string CodeChallenge);
-public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string CodeChallenge, string CodeVerifier);
+public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken, string? CodeVerifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenError(string? Error, string? ErrorDescription);
