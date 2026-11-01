@@ -70,9 +70,9 @@
             </article>
         }
     </div>
-    @if (!string.IsNullOrEmpty(_error))
+    @if (!string.IsNullOrEmpty(_error) || !string.IsNullOrEmpty(ErrorMessage))
     {
-        <p role="alert" style="margin-top:14px;color:#ffb4ab;">@_error</p>
+        <p role="alert" style="margin-top:14px;color:#ffb4ab;">@(_error ?? ErrorMessage)</p>
     }
 </section>
 
@@ -140,6 +140,8 @@
                 _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
                 _spotifyConnected = true;
             });
+
+            _error ??= ErrorMessage;
         });
 
         if (!_spotifyConnected && _spotify is not null)
