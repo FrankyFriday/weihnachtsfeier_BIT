@@ -9,7 +9,9 @@
     overflow: auto;
     padding: clamp(1.25rem, 4vw, 4rem);
     color: #1d2528;
-    background: #f0f4f3;
+    background:
+        radial-gradient(ellipse at 12% 0%, #dceee8 0, transparent 38rem),
+        linear-gradient(145deg, #f7faf9 0%, #eaf1ee 100%);
 }
 
 .canvas-header,
@@ -78,8 +80,9 @@
     min-width: 0;
     min-height: 0;
     border: 1px solid #dce5e2;
-    border-radius: 6px;
+    border-radius: 18px;
     background: #fff;
+    box-shadow: 0 14px 40px #18352c12;
 }
 
 .canvas-event {
@@ -138,6 +141,40 @@
     content: counter(canvas-option, upper-alpha) ". ";
     color: #197b67;
     font-weight: 800;
+}
+
+.canvas-hitster-teams {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: clamp(0.75rem, 1.5vw, 1.25rem);
+    margin-top: clamp(1.25rem, 3vh, 2rem);
+}
+
+.canvas-hitster-teams > div {
+    min-width: 0;
+    padding: clamp(0.9rem, 1.5vw, 1.35rem);
+    border: 1px solid #dce5e2;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #fbfdfc, #edf5f1);
+    box-shadow: 0 5px 16px #18352c0a;
+}
+
+.canvas-hitster-teams strong {
+    color: #105c4d;
+    font-size: clamp(1rem, 1.4vw, 1.4rem);
+    font-weight: 850;
+}
+
+.canvas-hitster-teams .canvas-options {
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+}
+
+.canvas-hitster-teams .canvas-options li {
+    padding: 0.6rem 0.75rem;
+    border-radius: 9px;
+    background: #fff;
+    font-size: clamp(0.9rem, 1.1vw, 1.1rem);
 }
 
 .canvas-scoreboard {
