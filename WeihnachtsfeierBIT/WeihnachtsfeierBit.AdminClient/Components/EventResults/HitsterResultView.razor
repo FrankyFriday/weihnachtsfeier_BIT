@@ -248,7 +248,7 @@
             ["state"] = flow.State,
             ["code_challenge_method"] = "S256",
             ["code_challenge"] = flow.Challenge,
-            ["scope"] = "streaming user-modify-playback-state"
+            ["scope"] = "streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state"
         };
         return "https://accounts.spotify.com/authorize?" +
             string.Join("&", query.Select(item => $"{Uri.EscapeDataString(item.Key)}={Uri.EscapeDataString(item.Value)}"));
