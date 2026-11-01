@@ -139,7 +139,8 @@
                     ProjectId,
                     "authorization_code",
                     callback.Code,
-                    callback.State);
+                    callback.State,
+                    codeVerifier: flow.Verifier);
                 SetSpotifyToken(spotifyToken);
                 _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
                 _spotifyConnected = true;
