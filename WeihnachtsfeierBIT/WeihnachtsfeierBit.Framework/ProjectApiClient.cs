@@ -1028,6 +1028,6 @@ public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, s
 public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record HitsterTrackResponse(string TrackId);

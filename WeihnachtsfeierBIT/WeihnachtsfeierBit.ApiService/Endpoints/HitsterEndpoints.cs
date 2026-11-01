@@ -1,6 +1,6 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +15,7 @@ public static class HitsterEndpoints
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly Lazy<HitsterSong[]> Playlist = new(LoadPlaylist);
+    private static readonly ConcurrentDictionary<string, SpotifyAuthFlow> SpotifyAuthFlows = new(StringComparer.Ordinal);
 
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
@@ -31,10 +32,8 @@ public static class HitsterEndpoints
         IConfiguration configuration)
     {
         var clientId = configuration["Spotify:ClientId"];
-        var clientSecret = configuration["Spotify:ClientSecret"];
         var redirectUri = configuration["Spotify:RedirectUri"];
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret) ||
-            string.IsNullOrWhiteSpace(redirectUri) ||
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(redirectUri) ||
             !Uri.TryCreate(redirectUri, UriKind.Absolute, out var callback) || callback is null)
         {
             return InvalidSpotifyConfiguration();
@@ -49,7 +48,28 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, CreateRandomValue(24)));
+        var now = DateTimeOffset.UtcNow;
+        foreach (var flow in SpotifyAuthFlows)
+        {
+            if (flow.Value.ExpiresAt <= now)
+            {
+                SpotifyAuthFlows.TryRemove(flow.Key, out _);
+            }
+        }
+
+        var verifier = CreateRandomValue(48);
+        var state = CreateRandomValue(24);
+        var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(verifier)))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+        var authFlow = new SpotifyAuthFlow(verifier, redirectUri, now.AddMinutes(10));
+        if (!SpotifyAuthFlows.TryAdd(state, authFlow))
+        {
+            return Results.Problem("Der Spotify-Anmeldevorgang konnte nicht gestartet werden.");
+        }
+
+        return Results.Ok(new SpotifyAuthStartResponse(clientId, redirectUri, state, challenge));
     }
 
     private static IResult InvalidSpotifyConfiguration() =>
@@ -64,11 +84,10 @@ public static class HitsterEndpoints
         CancellationToken cancellationToken)
     {
         var clientId = configuration["Spotify:ClientId"];
-        var clientSecret = configuration["Spotify:ClientSecret"];
-        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        if (string.IsNullOrWhiteSpace(clientId))
         {
             return Results.Json(
-                new ApiError("Spotify ist nicht vollständig konfiguriert. SPOTIFY_CLIENT_ID und SPOTIFY_CLIENT_SECRET müssen gesetzt sein."),
+                new ApiError("Spotify ist nicht vollständig konfiguriert. SPOTIFY_CLIENT_ID muss gesetzt sein."),
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
         if (string.IsNullOrWhiteSpace(configuration["Spotify:RedirectUri"]))
@@ -76,7 +95,7 @@ public static class HitsterEndpoints
             return InvalidSpotifyConfiguration();
         }
 
-        var form = new Dictionary<string, string>();
+        var form = new Dictionary<string, string> { ["client_id"] = clientId };
         if (string.Equals(request.GrantType, "authorization_code", StringComparison.Ordinal))
         {
             if (string.IsNullOrWhiteSpace(request.Code) ||
@@ -85,9 +104,16 @@ public static class HitsterEndpoints
                 return Results.BadRequest(new ApiError("Spotify-Autorisierungscode oder Status fehlen."));
             }
 
+            if (!SpotifyAuthFlows.TryRemove(request.State, out var flow) ||
+                flow.ExpiresAt <= DateTimeOffset.UtcNow)
+            {
+                return Results.BadRequest(new ApiError("Spotify-Anmeldung ist abgelaufen oder ungültig. Bitte erneut verbinden."));
+            }
+
             form["grant_type"] = "authorization_code";
             form["code"] = request.Code;
-            form["redirect_uri"] = configuration["Spotify:RedirectUri"]!;
+            form["redirect_uri"] = flow.RedirectUri;
+            form["code_verifier"] = flow.Verifier;
         }
         else if (string.Equals(request.GrantType, "refresh_token", StringComparison.Ordinal) &&
                  !string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -104,8 +130,6 @@ public static class HitsterEndpoints
         {
             Content = new FormUrlEncodedContent(form)
         };
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
-        tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
         using var response = await httpClientFactory.CreateClient()
             .SendAsync(tokenRequest, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -492,9 +516,10 @@ public static class HitsterEndpoints
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
+    private sealed record SpotifyAuthFlow(string Verifier, string RedirectUri, DateTimeOffset ExpiresAt);
 }
 
-public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State);
+public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge);
 public sealed record SpotifyTokenRequest(string GrantType, string? Code, string? State, string? RefreshToken);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record SpotifyTokenResponse(string AccessToken, string? RefreshToken, int ExpiresIn);

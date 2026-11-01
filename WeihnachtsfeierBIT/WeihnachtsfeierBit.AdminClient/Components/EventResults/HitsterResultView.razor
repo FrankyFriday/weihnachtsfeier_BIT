@@ -231,6 +231,8 @@
             ["response_type"] = "code",
             ["redirect_uri"] = flow.RedirectUri,
             ["state"] = flow.State,
+            ["code_challenge_method"] = "S256",
+            ["code_challenge"] = flow.Challenge,
             ["scope"] = "streaming user-modify-playback-state"
         };
         return "https://accounts.spotify.com/authorize?" +
