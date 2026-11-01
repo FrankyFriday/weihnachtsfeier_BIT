@@ -60,6 +60,11 @@ public sealed class EditableSlide
     public int BuzzerPoints { get; set; } = 100;
     public int? BuzzerTimeLimitSeconds { get; set; }
 
+    // Hitster
+    public string HitsterTitle { get; set; } = "Hitster";
+    public string HitsterInstructions { get; set; } = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+    public int HitsterCardsToWin { get; set; } = 10;
+
     // Text (Freitext)
     public string TextQuestion { get; set; } = string.Empty;
     public string TextPlaceholder { get; set; } = "Dein Text...";
@@ -143,6 +148,13 @@ public sealed class EditableSlide
                 BuzzerPoints = ReadNullableInt(parameters, "points") ?? 100;
                 BuzzerTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
                 break;
+            case "hitster":
+                HitsterTitle = ReadString(parameters, "title") is { Length: > 0 } title ? title : "Hitster";
+                HitsterInstructions = ReadString(parameters, "instructions") is { Length: > 0 } instructions
+                    ? instructions
+                    : "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+                HitsterCardsToWin = ReadNullableInt(parameters, "cardsToWin") ?? 10;
+                break;
             case "text":
                 TextQuestion = ReadString(parameters, "question");
                 TextPlaceholder = ReadString(parameters, "placeholder");
@@ -193,6 +205,7 @@ public sealed class EditableSlide
         "ranking" => "Rangliste",
         "estimation" => "Schätzfrage",
         "buzzer" => "Buzzer",
+        "hitster" => "Hitster",
         "text" => "Freitext",
         "word_cloud" => "Wortwolke",
         "slider" => "Schieberegler",
@@ -269,6 +282,7 @@ public sealed class EditableSlide
             "ranking" => !string.IsNullOrWhiteSpace(RankingTitle) ? RankingTitle : "Zwischenstand",
             "estimation" => !string.IsNullOrWhiteSpace(EstimationQuestion) ? EstimationQuestion : "Schätzfrage",
             "buzzer" => !string.IsNullOrWhiteSpace(BuzzerQuestion) ? BuzzerQuestion : "Buzzer",
+            "hitster" => !string.IsNullOrWhiteSpace(HitsterTitle) ? HitsterTitle : "Hitster",
             "text" => !string.IsNullOrWhiteSpace(TextQuestion) ? TextQuestion : "Freitext-Frage",
             "word_cloud" => !string.IsNullOrWhiteSpace(WordCloudQuestion) ? WordCloudQuestion : "Wortwolke",
             "slider" => !string.IsNullOrWhiteSpace(SliderQuestion) ? SliderQuestion : "Schieberegler",
@@ -288,6 +302,7 @@ public sealed class EditableSlide
         "ranking" => "Zwischenstand",
         "estimation" => "Neue Schätzfrage",
         "buzzer" => "Neuer Buzzer",
+        "hitster" => "Hitster",
         "text" => "Neue Freitext-Frage",
         "word_cloud" => "Neue Wortwolke",
         "slider" => "Neuer Schieberegler",
@@ -419,6 +434,28 @@ public sealed class EditableSlide
                     question = BuzzerQuestion.Trim(),
                     points = BuzzerPoints,
                     timeLimitSeconds = BuzzerTimeLimitSeconds
+                };
+                break;
+
+            case "hitster":
+                if (string.IsNullOrWhiteSpace(HitsterTitle) || HitsterTitle.Length > 120)
+                {
+                    ErrorMessage = "Bitte einen Hitster-Titel mit maximal 120 Zeichen eingeben.";
+                    return (default, ErrorMessage);
+                }
+                if (HitsterInstructions.Length > 1000 || HitsterCardsToWin is < 3 or > 20)
+                {
+                    ErrorMessage = "Die Anleitung darf maximal 1000 Zeichen lang sein und die Siegbedingung muss zwischen 3 und 20 Karten liegen.";
+                    return (default, ErrorMessage);
+                }
+                payload = new
+                {
+                    internalName = InternalName.Trim(),
+                    adminNotes = AdminNotes.Trim(),
+                    isDisabled = IsDisabled,
+                    title = HitsterTitle.Trim(),
+                    instructions = HitsterInstructions.Trim(),
+                    cardsToWin = HitsterCardsToWin
                 };
                 break;
 

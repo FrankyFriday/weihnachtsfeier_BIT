@@ -831,6 +831,13 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("estimation");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.HitsterSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("hitster");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.OrderingSlide", b =>
                 {
                     b.HasBaseType("WeihnachtsfeierBit.Data.Slide");

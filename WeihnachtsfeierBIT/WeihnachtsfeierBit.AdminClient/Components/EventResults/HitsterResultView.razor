@@ -1,0 +1,283 @@
+@using System.Text.Json
+@using Microsoft.JSInterop
+@using WeihnachtsfeierBit.Framework
+@inherits AuthenticatedComponentBase
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<section style="margin-top:16px;padding:20px;border-radius:14px;background:#0a0719;color:#fff;">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <h3 style="margin:0;">@ReadString(CurrentSlide.Parameters, "title", "Hitster")</h3>
+            <p style="margin:6px 0 0;color:#c6c4d0;">@ReadString(CurrentSlide.Parameters, "instructions", "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.")</p>
+        </div>
+        @if (GameStarted && !Finished)
+        {
+            <span>Runde @ReadInt(Game, "round") · @ReadString(Game, "currentTeamName", "") ist dran</span>
+        }
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0;">
+        @if (!_spotifyConnected)
+        {
+            <button @ref="_connectButton" class="framework-button framework-button-secondary" @onclick="ConnectSpotifyAsync" disabled="@_busy">Spotify verbinden</button>
+        }
+        @if (!GameStarted)
+        {
+            <button class="framework-button framework-button-primary" @onclick="StartAsync" disabled="@_busy">Hitster starten</button>
+        }
+        else if (!Finished)
+        {
+            <button class="framework-button framework-button-secondary" @onclick="PlayCurrentAsync" disabled="@(_busy || !_spotifyConnected)">▶ Song abspielen</button>
+            <button class="framework-button framework-button-secondary" @onclick="RevealAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "playing" || !HasGuess)">Jahr aufdecken</button>
+            <button class="framework-button framework-button-primary" @onclick="NextAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "revealed")">Nächster Song</button>
+        }
+    </div>
+
+    @if (ReadString(Game, "phase", "") == "revealed")
+    {
+        var song = ReadObject(Game, "currentSong");
+        <div style="padding:14px;border-radius:10px;background:#211d35;">
+            @(ReadBool(Game, "lastGuessCorrect") ? "Richtig platziert" : "Falsch platziert")
+            — @ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))
+        </div>
+    }
+    @if (Finished)
+    {
+        <p style="font-size:20px;font-weight:700;">
+            @if (ReadStringArray(Game, "winnerNames").Length > 0)
+            {
+                var winners = ReadStringArray(Game, "winnerNames");
+                <span>Spielende · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
+            }
+            else
+            {
+                <span>Spiel beendet.</span>
+            }
+        </p>
+    }
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:18px;">
+        @foreach (var team in ReadTeams())
+        {
+            <article style="padding:14px;border-radius:10px;background:#211d35;">
+                <strong>@team.Name (@team.Timeline.Length/@ReadInt(Game, "cardsToWin", 10))</strong>
+                <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+                    @foreach (var card in team.Timeline)
+                    {
+                        <span style="padding:5px 8px;border-radius:6px;background:#342e4c;">@card.Title · @card.Year</span>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p role="alert" style="margin-top:14px;color:#ffb4ab;">@_error</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private IJSObjectReference? _spotify;
+    private ElementReference _connectButton;
+    private string? _accessToken;
+    private string? _refreshToken;
+    private DateTimeOffset _tokenExpiresAtUtc;
+    private string? _deviceId;
+    private string? _error;
+    private bool _busy;
+    private bool _spotifyConnected;
+
+    private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
+    private bool GameStarted => ReadBool(Game, "started");
+    private bool Finished => ReadBool(Game, "finished");
+    private bool HasGuess => Game.ValueKind == JsonValueKind.Object &&
+        Game.TryGetProperty("guessPosition", out var guess) && guess.ValueKind == JsonValueKind.Number;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _spotify = await JS.InvokeAsync<IJSObjectReference>("import", "./js/hitsterSpotify.js");
+        }
+
+        if (_spotify is not null && !_spotifyConnected)
+        {
+            await _spotify.InvokeVoidAsync("prepareAuthButton", _connectButton);
+        }
+    }
+
+    private async Task ConnectSpotifyAsync() => await RunBusyAsync(async () =>
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            var flow = await ProjectApiClient.BeginHitsterSpotifyAuthAsync(token, ProjectId);
+            var authorizationUrl = BuildAuthorizationUrl(flow);
+            var callback = await _spotify!.InvokeAsync<SpotifyAuthorizationResult>("authorize", authorizationUrl);
+            if (!string.IsNullOrEmpty(callback.Error))
+            {
+                throw new InvalidOperationException($"Spotify-Anmeldung fehlgeschlagen: {callback.Error}");
+            }
+            if (string.IsNullOrWhiteSpace(callback.Code) || callback.State != flow.State)
+            {
+                throw new InvalidOperationException("Die Spotify-Anmeldung ist ungültig oder abgelaufen. Bitte erneut versuchen.");
+            }
+
+            var spotifyToken = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
+                token, ProjectId, "authorization_code", callback.Code, callback.State);
+            SetSpotifyToken(spotifyToken);
+            _deviceId = await _spotify!.InvokeAsync<string>("connect", _accessToken);
+            _spotifyConnected = true;
+        });
+    });
+
+    private async Task StartAsync() => await RunAuthenticatedAsync(token => RunBusyAsync(
+        () => ProjectApiClient.HitsterAdminActionAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, "start")));
+
+    private async Task PlayCurrentAsync() => await RunAuthenticatedAsync(token => RunBusyAsync(async () =>
+    {
+        var accessToken = await GetValidSpotifyTokenAsync(token);
+        var trackId = await ProjectApiClient.GetHitsterTrackIdAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId);
+        await _spotify!.InvokeVoidAsync("play", accessToken, trackId);
+    }));
+
+    private async Task RevealAsync() => await RunAuthenticatedAsync(token => RunBusyAsync(async () =>
+    {
+        await ProjectApiClient.HitsterAdminActionAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, "reveal");
+        if (_spotify is not null)
+        {
+            await _spotify.InvokeVoidAsync("pause");
+        }
+    }));
+
+    private async Task NextAsync() => await RunAuthenticatedAsync(token => RunBusyAsync(
+        () => ProjectApiClient.HitsterAdminActionAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, "next")));
+
+    private async Task<string> GetValidSpotifyTokenAsync(string accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(_accessToken))
+        {
+            throw new InvalidOperationException("Bitte zuerst Spotify verbinden.");
+        }
+        if (_tokenExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1))
+        {
+            return _accessToken;
+        }
+        if (string.IsNullOrWhiteSpace(_refreshToken))
+        {
+            throw new InvalidOperationException("Die Spotify-Sitzung ist abgelaufen. Bitte erneut verbinden.");
+        }
+
+        var refreshed = await ProjectApiClient.ExchangeHitsterSpotifyTokenAsync(
+            accessToken, ProjectId, "refresh_token", refreshToken: _refreshToken);
+        SetSpotifyToken(refreshed);
+        await _spotify!.InvokeVoidAsync("setToken", _accessToken);
+        return _accessToken!;
+    }
+
+    private void SetSpotifyToken(SpotifyTokenResult token)
+    {
+        _accessToken = token.AccessToken;
+        _refreshToken = token.RefreshToken ?? _refreshToken;
+        _tokenExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn);
+    }
+
+    private async Task RunBusyAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string BuildAuthorizationUrl(SpotifyAuthStartResponse flow)
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["client_id"] = flow.ClientId,
+            ["response_type"] = "code",
+            ["redirect_uri"] = flow.RedirectUri,
+            ["code_challenge_method"] = "S256",
+            ["code_challenge"] = flow.CodeChallenge,
+            ["state"] = flow.State,
+            ["scope"] = "streaming user-modify-playback-state"
+        };
+        return "https://accounts.spotify.com/authorize?" +
+            string.Join("&", query.Select(item => $"{Uri.EscapeDataString(item.Key)}={Uri.EscapeDataString(item.Value)}"));
+    }
+
+    private TeamTimeline[] ReadTeams()
+    {
+        if (Game.ValueKind != JsonValueKind.Object ||
+            !Game.TryGetProperty("teams", out var teams) ||
+            teams.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return teams.EnumerateArray().Select(team => new TeamTimeline(
+            ReadString(team, "name", "Team"),
+            ReadCards(team))).ToArray();
+    }
+
+    private static TimelineCard[] ReadCards(JsonElement team) =>
+        team.TryGetProperty("timeline", out var cards) && cards.ValueKind == JsonValueKind.Array
+            ? cards.EnumerateArray().Select(card => new TimelineCard(
+                ReadString(card, "title", "Song"),
+                ReadInt(card, "year"))).ToArray()
+            : [];
+
+    private static string[] ReadStringArray(JsonElement value, string property) =>
+        value.ValueKind == JsonValueKind.Object &&
+        value.TryGetProperty(property, out var item) &&
+        item.ValueKind == JsonValueKind.Array
+            ? item.EnumerateArray().Where(entry => entry.ValueKind == JsonValueKind.String)
+                .Select(entry => entry.GetString() ?? string.Empty).ToArray()
+            : [];
+
+    private static JsonElement ReadObject(JsonElement value, string property) =>
+        value.ValueKind == JsonValueKind.Object &&
+        value.TryGetProperty(property, out var item) &&
+        item.ValueKind == JsonValueKind.Object ? item : default;
+
+    private static string ReadString(JsonElement value, string property, string fallback = "") =>
+        value.ValueKind == JsonValueKind.Object &&
+        value.TryGetProperty(property, out var item) &&
+        item.ValueKind == JsonValueKind.String ? item.GetString() ?? fallback : fallback;
+
+    private static int ReadInt(JsonElement value, string property, int fallback = 0) =>
+        value.ValueKind == JsonValueKind.Object &&
+        value.TryGetProperty(property, out var item) &&
+        item.TryGetInt32(out var result) ? result : fallback;
+
+    private static bool ReadBool(JsonElement value, string property) =>
+        value.ValueKind == JsonValueKind.Object &&
+        value.TryGetProperty(property, out var item) &&
+        item.ValueKind == JsonValueKind.True;
+
+    private sealed record TimelineCard(string Title, int Year);
+    private sealed record TeamTimeline(string Name, TimelineCard[] Timeline);
+    private sealed record SpotifyAuthorizationResult(string? Code, string? State, string? Error);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_spotify is not null)
+        {
+            await _spotify.InvokeVoidAsync("disconnect");
+            await _spotify.DisposeAsync();
+        }
+    }
+}

@@ -65,12 +65,17 @@ Auf dem Server werden Docker Engine, Docker Compose v2, Git und das vorhandene e
 Für den initialen Start im Repository-Verzeichnis:
 
 ```bash
-printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 32)" > .env
+printf 'POSTGRES_PASSWORD=%s\nSPOTIFY_CLIENT_ID=%s\nSPOTIFY_REDIRECT_URI=%s\n' \
+  "$(openssl rand -hex 32)" \
+  '<Spotify-Client-ID>' \
+  'https://<app-host>/admin/spotify-callback.html' > .env
 chmod 600 .env
 docker compose -f WeihnachtsfeierBIT/docker-compose.production.yml -p weihnachtsfeierbit up -d --build
 ```
 
 Das `.env` mit dem zufälligen Datenbankpasswort muss im Server-Checkout bleiben und darf nicht committet werden. Das PostgreSQL-Volume wird beim normalen Deployment beibehalten; `down --volumes` löscht die Produktionsdatenbank und ist zu vermeiden. Der API-Start wendet vorhandene EF-Migrationen automatisch an. Admin-Data-Protection-Keys sind derzeit nicht persistent; ein Container-Neubau kann daher Admin-Cookies ungültig machen.
+
+Für die Hitster-Slide `SPOTIFY_CLIENT_ID` und `SPOTIFY_REDIRECT_URI` in derselben `.env` setzen. Die Redirect-URI muss außerdem exakt im Spotify Developer Dashboard eingetragen sein und auf `/admin/spotify-callback.html` zeigen. Die Spielleitung benötigt Spotify Premium; die Verbindung und Wiedergabe laufen im Browser des Admin-Geräts.
 
 ### Automatisches Deployment
 

@@ -1,0 +1,16 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div class="callout callout-info" role="note">Die Playlist aus dem Hitster-Vorlagenordner wird in der Show gespielt. Spotify wird auf dem Gerät der Spielleitung verbunden.</div>
+<FrameworkFormGroup Label="Titel" ForId="hitster-title">
+    <FrameworkInputText Id="hitster-title" @bind-Value="Slide.HitsterTitle" MaxLength="120" Placeholder="Hitster" />
+</FrameworkFormGroup>
+<FrameworkFormGroup Label="Anleitung für die Teilnehmenden" ForId="hitster-instructions">
+    <FrameworkTextArea Id="hitster-instructions" @bind-Value="Slide.HitsterInstructions" Rows="3" MaxLength="1000" />
+</FrameworkFormGroup>
+<FrameworkFormGroup Label="Karten zum Sieg" HelpText="Richtig eingeordnete Songs für den Sieg (3–20)." ForId="hitster-cards-to-win">
+    <FrameworkInputNumber Id="hitster-cards-to-win" @bind-Value="Slide.HitsterCardsToWin" Min="3" Max="20" />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

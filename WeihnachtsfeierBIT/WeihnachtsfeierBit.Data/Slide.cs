@@ -114,6 +114,20 @@ public sealed class BuzzerSlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class HitsterSlide : Slide
+{
+    private HitsterSlideParameters? _parameters;
+
+    [NotMapped]
+    public HitsterSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<HitsterSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public sealed class TextSlide : Slide
 {
     private TextSlideParameters? _parameters;
@@ -289,6 +303,15 @@ public sealed class BuzzerSlideParameters : SlideParameters
     public int Points { get; set; } = 100;
 
     public int? TimeLimitSeconds { get; set; }
+}
+
+public sealed class HitsterSlideParameters : SlideParameters
+{
+    public string Title { get; set; } = "Hitster";
+
+    public string Instructions { get; set; } = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+
+    public int CardsToWin { get; set; } = 10;
 }
 
 public sealed class TextSlideParameters : SlideParameters

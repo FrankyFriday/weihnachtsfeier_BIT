@@ -74,6 +74,59 @@
                             <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_pointLogs" />
                         </div>
                     }
+                    else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var game = ReadObject(activeEvent.Parameters, "game");
+                        @if (ReadBool(game, "started"))
+                        {
+                            @if (ReadBool(game, "finished"))
+                            {
+                                <p class="canvas-message-text">
+                                    @if (ReadStringList(game, "winnerNames") is { Length: > 0 } winners)
+                                    {
+                                        <span>Spiel beendet · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Spiel beendet.</span>
+                                    }
+                                </p>
+                            }
+                            else
+                            {
+                                <p class="canvas-message-text">Runde @ReadInt(game, "round") · @ReadString(game, "currentTeamName") ist dran</p>
+                            }
+                            @if (ReadString(game, "phase") == "revealed")
+                            {
+                                var song = ReadObject(game, "currentSong");
+                                <h3>@ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))</h3>
+                            }
+                            <div class="canvas-hitster-teams">
+                                @if (game.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
+                                {
+                                    @foreach (var team in teams.EnumerateArray())
+                                    {
+                                        <div>
+                                            <strong>@ReadString(team, "name")</strong>
+                                            <ol class="canvas-options">
+                                                @if (team.TryGetProperty("timeline", out var timeline) && timeline.ValueKind == JsonValueKind.Array)
+                                                {
+                                                    @foreach (var card in timeline.EnumerateArray())
+                                                    {
+                                                        <li>@ReadString(card, "title") · @ReadInt(card, "year")</li>
+                                                    }
+                                                }
+                                            </ol>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="canvas-message-text">Die Spielleitung bereitet Hitster vor.</p>
+                        }
+                    }
                 }
                 else
                 {
@@ -239,6 +292,7 @@
         "estimation" => "SCHÄTZFRAGE",
         "buzzer" => "BUZZER",
         "ranking" => "PUNKTSTAND",
+        "hitster" => "HITSTER · SPOTIFY",
         _ => "LIVE-EVENT"
     };
 
@@ -267,6 +321,21 @@
         value.ValueKind == JsonValueKind.String
             ? value.GetString() ?? string.Empty
             : string.Empty;
+
+    private static JsonElement ReadObject(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind == JsonValueKind.Object ? value : default;
+
+    private static int ReadInt(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.TryGetInt32(out var result) ? result : 0;
+
+    private static bool ReadBool(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind == JsonValueKind.True;
 
     private static string[] ReadStringList(JsonElement parameters, string propertyName)
     {

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
 
@@ -110,8 +111,14 @@ public static class CanvasStateBuilder
             "quiz" => new[] { "question", "answers" },
             "estimation" => new[] { "question", "unit" },
             "buzzer" => new[] { "question" },
+            "hitster" => new[] { "title", "instructions", "cardsToWin", "game" },
             _ => Array.Empty<string>()
         };
+
+        if (slideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+        {
+            return HitsterGameService.PublicParameters(parameters);
+        }
 
         var publicParameters = new Dictionary<string, JsonElement>();
         if (parameters.ValueKind == JsonValueKind.Object)

@@ -57,6 +57,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasValue<RankingSlide>("ranking")
             .HasValue<EstimationSlide>("estimation")
             .HasValue<BuzzerSlide>("buzzer")
+            .HasValue<HitsterSlide>("hitster")
             .HasValue<TextSlide>("text")
             .HasValue<WordCloudSlide>("word_cloud")
             .HasValue<SliderSlide>("slider")

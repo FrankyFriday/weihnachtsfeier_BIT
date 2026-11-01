@@ -12,6 +12,7 @@ public static class SessionControlEndpoints
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
         reader.MapGet("/session/state", GetSessionStateAsync).WithName("GetSessionState");
+        HitsterEndpoints.Map(reader, admin);
         reader.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
 
         admin.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
@@ -503,6 +504,7 @@ public static class SessionControlEndpoints
         QuizSlide => "quiz",
         EstimationSlide => "estimation",
         BuzzerSlide => "buzzer",
+        HitsterSlide => "hitster",
         RankingSlide => "ranking",
         TextSlide => "text",
         WordCloudSlide => "word_cloud",
