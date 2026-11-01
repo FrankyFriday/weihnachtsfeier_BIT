@@ -22,5 +22,7 @@ public sealed class CanvasHub(WeihnachtsfeierDbContext dbContext) : Hub
     public Task LeaveCanvas(string accessCode) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, GetGroupName(accessCode.Trim()));
 
+    public Task Ping() => Task.CompletedTask;
+
     public static string GetGroupName(string accessCode) => $"canvas_{accessCode}";
 }
