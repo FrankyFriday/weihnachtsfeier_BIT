@@ -636,17 +636,13 @@
         new("self_paced", "Selbstständig (Teilnehmer blättern selbst)")
     ];
 
-    protected override async Task OnInitializedAsync()
-    {
-        await ConnectSignalRAsync();
-    }
-
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
     {
+        await ConnectSignalRAsync(token);
         await LoadDataAsync();
     });
 
-    private async Task ConnectSignalRAsync()
+    private async Task ConnectSignalRAsync(string accessToken)
     {
         if (_hubConnection is not null) return;
         try
@@ -655,7 +651,8 @@
             var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
 
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
+                .WithUrl(hubUrl, options =>
+                    options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken))
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -672,6 +669,12 @@
                     });
                 }
             });
+
+            _hubConnection.Reconnected += async _ =>
+            {
+                await _hubConnection.SendAsync("JoinProject", ProjectId);
+                await InvokeAsync(StateHasChanged);
+            };
 
             await _hubConnection.StartAsync();
             await _hubConnection.SendAsync("JoinProject", ProjectId);

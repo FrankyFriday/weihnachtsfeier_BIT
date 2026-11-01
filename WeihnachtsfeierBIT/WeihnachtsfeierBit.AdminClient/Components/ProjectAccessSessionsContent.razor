@@ -47,9 +47,9 @@
                                     <span class="access-session-user-agent">@session.UserAgent</span>
                                 }
                             </div>
-                            @if (_currentAdminSessionId == session.Id)
+                            @if (session.IsCurrent)
                             {
-                                <span class="access-session-current">Diese Sitzung</span>
+                                <span class="access-session-current">Diese Sitzung · aktuell</span>
                             }
                             else
                             {
@@ -154,7 +154,6 @@
     private AdminAccessSessionSummary[] _adminSessions = [];
     private ParticipantSummary[] _participants = [];
     private readonly Dictionary<Guid, SessionSummary[]> _participantSessions = [];
-    private Guid? _currentAdminSessionId;
     private Guid? _expandedParticipantId;
     private Guid? _loadingParticipantId;
     private SessionRevokeTarget? _pendingRevoke;
@@ -170,11 +169,6 @@
     {
         await LoadAuthenticatedAsync(async token =>
         {
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            _currentAdminSessionId = Guid.TryParse(authState.User.FindFirst("api_session_id")?.Value, out var sessionId)
-                ? sessionId
-                : null;
-
             var adminSessionsTask = ProjectApiClient.GetAdminSessionsAsync(token, ProjectId);
             var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
             await Task.WhenAll(adminSessionsTask, participantsTask);
@@ -224,7 +218,7 @@
 
     private void RequestAdminRevoke(AdminAccessSessionSummary session)
     {
-        if (_currentAdminSessionId == session.Id)
+        if (session.IsCurrent)
         {
             return;
         }

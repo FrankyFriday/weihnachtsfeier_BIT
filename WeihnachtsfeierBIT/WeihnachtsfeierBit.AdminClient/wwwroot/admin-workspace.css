@@ -140,7 +140,7 @@
 .access-session-details { display: grid; min-width: 0; gap: 4px; color: #64748b; font-size: 12px; }
 .access-session-details strong { color: #1d2528; font-size: 14px; }
 .access-session-user-agent { overflow-wrap: anywhere; }
-.access-session-current { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e8f3f0; color: #105c4d; font-size: 12px; font-weight: 700; }
+.access-session-current { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #197b67; border-radius: 999px; background: #e8f3f0; color: #105c4d; font-size: 12px; font-weight: 800; }
 .access-session-empty { margin: 12px 0 0; color: #64748b; font-size: 13px; }
 .access-session-participant-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .access-session-participant-header > div { display: grid; gap: 3px; }

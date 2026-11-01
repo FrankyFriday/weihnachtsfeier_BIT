@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
@@ -119,6 +120,7 @@ public static class AuthenticationEndpoints
 
     private static async Task<IResult> LogoutParticipantAsync(
         ProjectAccessService accessService,
+        ProjectHubConnectionManager connectionManager,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -128,18 +130,29 @@ public static class AuthenticationEndpoints
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        await accessService.RevokeParticipantSessionAsync(
+        var revokedSession = await accessService.RevokeParticipantSessionAsync(
             ProjectAccessService.GetBearerToken(httpContext.Request), cancellationToken);
+        if (revokedSession is { } session)
+        {
+            await connectionManager.RevokeSessionAsync(session.SessionId, session.ExpiresAtUtc);
+        }
+
         return Results.NoContent();
     }
 
     private static async Task<IResult> LogoutAdminAsync(
         ProjectAccessService accessService,
+        ProjectHubConnectionManager connectionManager,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        await accessService.RevokeAdminSessionAsync(
+        var revokedSession = await accessService.RevokeAdminSessionAsync(
             ProjectAccessService.GetBearerToken(httpContext.Request), cancellationToken);
+        if (revokedSession is { } session)
+        {
+            await connectionManager.RevokeSessionAsync(session.SessionId, session.ExpiresAtUtc);
+        }
+
         return Results.NoContent();
     }
 
@@ -208,10 +221,12 @@ public static class AuthenticationEndpoints
 
     private static async Task<IResult> GetAdminSessionsAsync(
         Guid projectId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
+        var currentSessionId = GetAccess(httpContext).SessionId;
         var sessions = await dbContext.ProjektAdminSitzungen.AsNoTracking()
             .Where(session => session.ProjektAdmin.Projekte.Any(membership => membership.ProjektId == projectId) &&
                 session.WiderrufenAmUtc == null && session.LaeuftAbAmUtc > now)
@@ -224,7 +239,8 @@ public static class AuthenticationEndpoints
                 session.ErstelltAmUtc,
                 session.LetzteAktivitaetAmUtc,
                 session.LaeuftAbAmUtc,
-                session.UserAgent
+                session.UserAgent,
+                IsCurrent = session.Id == currentSessionId
             })
             .ToListAsync(cancellationToken);
         return Results.Ok(sessions);
@@ -234,6 +250,7 @@ public static class AuthenticationEndpoints
         Guid projectId,
         Guid sessionId,
         WeihnachtsfeierDbContext dbContext,
+        ProjectHubConnectionManager connectionManager,
         CancellationToken cancellationToken)
     {
         var session = await dbContext.ProjektAdminSitzungen.FirstOrDefaultAsync(item =>
@@ -247,6 +264,7 @@ public static class AuthenticationEndpoints
 
         session.WiderrufenAmUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await connectionManager.RevokeSessionAsync(session.Id, session.LaeuftAbAmUtc);
         return Results.NoContent();
     }
 
@@ -273,6 +291,7 @@ public static class AuthenticationEndpoints
         Guid participantId,
         Guid sessionId,
         WeihnachtsfeierDbContext dbContext,
+        ProjectHubConnectionManager connectionManager,
         CancellationToken cancellationToken)
     {
         var session = await dbContext.Sitzungen.FirstOrDefaultAsync(item =>
@@ -285,6 +304,7 @@ public static class AuthenticationEndpoints
 
         session.WiderrufenAmUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await connectionManager.RevokeSessionAsync(session.Id, session.LaeuftAbAmUtc);
         return Results.NoContent();
     }
 
@@ -312,6 +332,7 @@ public static class AuthenticationEndpoints
         HttpContext httpContext,
         Guid sessionId,
         WeihnachtsfeierDbContext dbContext,
+        ProjectHubConnectionManager connectionManager,
         CancellationToken cancellationToken)
     {
         var access = GetAccess(httpContext);
@@ -329,6 +350,7 @@ public static class AuthenticationEndpoints
 
         session.WiderrufenAmUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await connectionManager.RevokeSessionAsync(session.Id, session.LaeuftAbAmUtc);
         return Results.NoContent();
     }
 

@@ -814,7 +814,8 @@ public sealed record AdminAccessSessionSummary(
     DateTime ErstelltAmUtc,
     DateTime LetzteAktivitaetAmUtc,
     DateTime LaeuftAbAmUtc,
-    string? UserAgent);
+    string? UserAgent,
+    bool IsCurrent);
 public sealed record SessionSummary(
     Guid Id,
     Guid UserId,
