@@ -1002,7 +1002,8 @@ public sealed record CanvasGameState(
     string ProjectName,
     CanvasTeamState[] Teams,
     CanvasEventState? Event,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    TeamPointLogDto[] PointLogs);
 
 public sealed record ChatGroupSummary(
     Guid Id,

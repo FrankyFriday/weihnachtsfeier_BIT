@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
+using CanvasPointLogDto = WeihnachtsfeierBit.Framework.TeamPointLogDto;
 
 namespace WeihnachtsfeierBit.ApiService.Services;
 
@@ -76,12 +77,35 @@ public static class CanvasStateBuilder
             }
         }
 
+        var pointLogs = Array.Empty<CanvasPointLogDto>();
+        if (activeEvent is not null &&
+            activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase) &&
+            activeEvent.Parameters.TryGetProperty("chartType", out var chartType) &&
+            chartType.ValueKind == JsonValueKind.String &&
+            chartType.GetString() == "line_graph")
+        {
+            pointLogs = await dbContext.TeamPointLogs.AsNoTracking()
+                .Where(log => log.ProjektId == instance.ProjektId)
+                .OrderByDescending(log => log.CreatedAtUtc)
+                .Select(log => new CanvasPointLogDto(
+                    log.Id,
+                    log.TeamId,
+                    log.Team.DisplayName,
+                    log.Team.Color,
+                    log.DeltaPoints,
+                    log.NewTotalPoints,
+                    log.Reason,
+                    log.CreatedAtUtc))
+                .ToArrayAsync(cancellationToken);
+        }
+
         return new CanvasGameState(
             instance.ProjektId,
             instance.Projekt.Name,
             teams,
             activeEvent,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            pointLogs);
     }
 
     private static (string Type, JsonElement Parameters)? GetCurrentSlide(GameInstanceEvent gameEvent)
@@ -121,6 +145,7 @@ public static class CanvasStateBuilder
             "quiz" => new[] { "question", "answers" },
             "estimation" => new[] { "question", "unit" },
             "buzzer" => new[] { "question" },
+            "ranking" => new[] { "chartType" },
             "hitster" => new[] { "title", "instructions", "cardsToWin", "game" },
             _ => Array.Empty<string>()
         };

@@ -1,3 +1,4 @@
+@page "/beamer/{Code}"
 @page "/canvas/{Code}"
 @layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
 @using System.Text.Json
@@ -71,7 +72,7 @@
                     else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
                     {
                         <div style="margin-top: 16px; width: 100%;">
-                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_pointLogs" />
+                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
                         </div>
                     }
                     else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
@@ -164,7 +165,6 @@
     [Parameter] public string Code { get; set; } = string.Empty;
 
     private CanvasGameState? _state;
-    private TeamPointLogDto[] _pointLogs = [];
     private HubConnection? _hubConnection;
     private bool _isLoading = true;
     private bool _isConnected;
@@ -177,8 +177,17 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
+        }
+
         _isLoading = true;
         _errorMessage = null;
+        _state = null;
+        _sessionEnded = false;
+        _isConnected = false;
 
         if (Code.Length != 6 || !Code.All(char.IsAsciiDigit))
         {
@@ -189,8 +198,6 @@
 
         try
         {
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
             await ConnectAsync();
         }
         catch (HttpRequestException ex)
@@ -207,66 +214,61 @@
         }
     }
 
-    private async Task LoadPointLogsAsync()
-    {
-        if (_state is null) return;
-        try
-        {
-            _pointLogs = await ProjectApiClient.GetPointLogsAsync(string.Empty, _state.ProjectId);
-        }
-        catch
-        {
-        }
-    }
-
     private async Task ConnectAsync()
     {
         var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
         var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/canvas";
 
-        _hubConnection = new HubConnectionBuilder()
+        var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
             .WithAutomaticReconnect()
             .Build();
+        _hubConnection = connection;
 
-        _hubConnection.On<CanvasGameState>("CanvasStateUpdated", state =>
+        connection.On<CanvasGameState>("CanvasStateUpdated", state =>
             InvokeAsync(async () =>
             {
                 _state = state;
-                await LoadPointLogsAsync();
                 StateHasChanged();
             }));
 
-        _hubConnection.On("CanvasSessionEnded", () => InvokeAsync(() =>
+        connection.On("CanvasSessionEnded", () => InvokeAsync(() =>
         {
             _sessionEnded = true;
             _connectionStatus = "Session beendet";
             StateHasChanged();
         }));
 
-        _hubConnection.Reconnecting += _ => InvokeAsync(() =>
+        connection.Reconnecting += _ => InvokeAsync(() =>
         {
             _isConnected = false;
             _connectionStatus = "Verbindung unterbrochen";
             StateHasChanged();
         });
 
-        _hubConnection.Reconnected += async _ =>
+        connection.Reconnected += async _ =>
         {
-            await _hubConnection.SendAsync("JoinCanvas", Code);
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
-            _isConnected = true;
-            _connectionStatus = "Live aktualisiert";
+            try
+            {
+                await connection.SendAsync("JoinCanvas", Code);
+                _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+                _isConnected = true;
+                _connectionStatus = "Live aktualisiert";
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Die Beameransicht konnte nach dem Verbindungsaufbau nicht synchronisiert werden.");
+                _isConnected = false;
+                _connectionStatus = "Live-Verbindung nicht verfügbar";
+            }
+
             await InvokeAsync(StateHasChanged);
         };
 
         try
         {
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync("JoinCanvas", Code);
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
+            await connection.StartAsync();
+            await connection.SendAsync("JoinCanvas", Code);
             _isConnected = true;
             _connectionStatus = "Live aktualisiert";
         }
@@ -276,6 +278,8 @@
             _isConnected = false;
             _connectionStatus = "Live-Verbindung nicht verfügbar";
         }
+
+        _state = await ProjectApiClient.GetCanvasStateAsync(Code);
     }
 
     private static string GetChartType(CanvasEventState activeEvent)
