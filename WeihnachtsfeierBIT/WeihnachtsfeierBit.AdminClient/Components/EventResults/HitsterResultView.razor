@@ -29,10 +29,23 @@
         else if (!Finished)
         {
             <button class="framework-button framework-button-secondary" @onclick="PlayCurrentAsync" disabled="@(_busy || !_spotifyConnected)">▶ Song abspielen</button>
-            <button class="framework-button framework-button-secondary" @onclick="RevealAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "playing" || !HasGuess)">Jahr aufdecken</button>
+            <button class="framework-button framework-button-secondary" @onclick="RevealAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "playing" || !HasVotes)">Abstimmung beenden & Jahr aufdecken</button>
             <button class="framework-button framework-button-primary" @onclick="NextAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "revealed")">Nächster Song</button>
         }
     </div>
+
+    @if (GameStarted && ReadString(Game, "phase", "") == "playing")
+    {
+        <div style="padding:12px 14px;border-radius:10px;background:#211d35;">
+            @ReadInt(VoteSummary, "submittedVotes") von @ReadInt(VoteSummary, "eligibleVoters") Teammitgliedern haben abgestimmt.
+            Noch offen: @ReadInt(VoteSummary, "remainingVotes").
+            @if (HasVotes)
+            {
+                <span> Die Spielleitung kann die Abstimmung jederzeit beenden.</span>
+            }
+            <div style="margin-top:4px;color:#c6c4d0;">Bei Gleichstand zählt die früheste Position in der Zeitleiste.</div>
+        </div>
+    }
 
     @if (ReadString(Game, "phase", "") == "revealed")
     {
@@ -40,6 +53,10 @@
         <div style="padding:14px;border-radius:10px;background:#211d35;">
             @(ReadBool(Game, "lastGuessCorrect") ? "Richtig platziert" : "Falsch platziert")
             — @ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))
+            @if (ReadBool(VoteSummary, "tied"))
+            {
+                <div style="margin-top:4px;color:#c6c4d0;">Bei Gleichstand wurde die früheste Position gewählt.</div>
+            }
         </div>
     }
     @if (Finished)
@@ -96,8 +113,8 @@
     private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
     private bool GameStarted => ReadBool(Game, "started");
     private bool Finished => ReadBool(Game, "finished");
-    private bool HasGuess => Game.ValueKind == JsonValueKind.Object &&
-        Game.TryGetProperty("guessPosition", out var guess) && guess.ValueKind == JsonValueKind.Number;
+    private JsonElement VoteSummary => ReadObject(Game, "voteSummary");
+    private bool HasVotes => ReadInt(VoteSummary, "submittedVotes") > 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

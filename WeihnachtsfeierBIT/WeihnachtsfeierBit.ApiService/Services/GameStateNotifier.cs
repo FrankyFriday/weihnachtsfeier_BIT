@@ -67,6 +67,9 @@ public sealed class GameStateNotifier(
             .Where(t => t.ProjektId == projectId)
             .Include(t => t.Teilnehmer)
             .ToListAsync(cancellationToken);
+        var teamParticipantIds = teams.ToDictionary(
+            team => team.Id,
+            team => team.Teilnehmer.Select(participant => participant.Id).ToHashSet());
 
         var orderedTeams = teams
             .OrderByDescending(t => t.Punkte)
@@ -113,17 +116,17 @@ public sealed class GameStateNotifier(
             var activeGie = liveEvents.FirstOrDefault(e => e.Mode == "active");
             if (activeGie is not null)
             {
-                activeEvent = ToEventState(activeGie);
+                activeEvent = ToEventState(activeGie, teamParticipantIds);
             }
 
             foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
             {
-                passiveEvents.Add(ToEventState(passiveGie));
+                passiveEvents.Add(ToEventState(passiveGie, teamParticipantIds));
             }
 
             foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled").OrderBy(e => e.ScheduledStartUtc))
             {
-                scheduledEvents.Add(ToEventState(schedGie));
+                scheduledEvents.Add(ToEventState(schedGie, teamParticipantIds));
             }
         }
 
@@ -142,7 +145,9 @@ public sealed class GameStateNotifier(
             IsEnded: isEnded);
     }
 
-    private static EventState ToEventState(GameInstanceEvent gie)
+    private static EventState ToEventState(
+        GameInstanceEvent gie,
+        IReadOnlyDictionary<Guid, HashSet<Guid>> teamParticipantIds)
     {
         var slideStates = new List<EventSlideState>();
         try
@@ -158,7 +163,7 @@ public sealed class GameStateNotifier(
                     JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
                     if (type.Equals("hitster", StringComparison.OrdinalIgnoreCase))
                     {
-                        paramsElem = HitsterGameService.PublicParameters(paramsElem);
+                        paramsElem = HitsterGameService.PublicParameters(paramsElem, teamParticipantIds);
                     }
 
                     slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));

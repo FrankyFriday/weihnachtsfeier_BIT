@@ -5,6 +5,9 @@
     <span class="mobile-eyebrow">HITSTER</span>
     <h1 style="margin:8px 0 4px;font-size:28px;">@ReadString(CurrentSlide.Parameters, "title", "Hitster")</h1>
     <p style="max-width:520px;color:#52615d;">@ReadString(CurrentSlide.Parameters, "instructions", "Ordnet den Song in die Zeitleiste ein.")</p>
+    <button class="mobile-button secondary" style="margin-bottom:12px;" @onclick="() => _showTeamChat = true">
+        Team-Chat öffnen
+    </button>
 
     @if (GameStarted)
     {
@@ -31,9 +34,14 @@
             @if (IsMyTurn)
             {
                 <p>Wo gehört der Song in die Zeitleiste?</p>
+                <div class="mobile-alert">
+                    @ReadInt(VoteSummary, "submittedVotes") von @ReadInt(VoteSummary, "eligibleVoters") Teammitgliedern haben abgestimmt.
+                    Noch offen: @ReadInt(VoteSummary, "remainingVotes").
+                    Stimmen können bis zum Aufdecken geändert werden; bei Gleichstand zählt die früheste Position.
+                </div>
                 @if (HasGuess)
                 {
-                    <div class="mobile-alert">Dein Team hat seine Position gewählt. Die Spielleitung deckt den Song gleich auf.</div>
+                    <div class="mobile-alert">Die Abstimmung ist beendet. Die Spielleitung deckt den Song gleich auf.</div>
                 }
                 else
                 {
@@ -41,8 +49,8 @@
                         @for (var index = 0; index <= MyTimeline.Length; index++)
                         {
                             var position = index;
-                            <button class="mobile-button primary" disabled="@_busy" @onclick="() => GuessAsync(position)">
-                                @GetPositionLabel(position)
+                            <button class="mobile-button primary" aria-pressed="@(_myVotePosition == position)" style="@(_myVotePosition == position ? "outline:3px solid #17211f;" : null)" disabled="@_busy" @onclick="() => VoteAsync(position)">
+                                @GetPositionLabel(position) (@GetPositionVoteCount(position))
                             </button>
                         }
                     </div>
@@ -60,6 +68,10 @@
                 @(ReadBool(Game, "lastGuessCorrect") ? "Richtig!" : "Leider falsch.")
                 @ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))
             </div>
+            @if (ReadBool(VoteSummary, "tied"))
+            {
+                <div class="mobile-alert">Bei Gleichstand wurde die früheste Position gewählt.</div>
+            }
         }
 
         <div style="display:grid;gap:16px;width:100%;max-width:720px;margin-top:20px;">
@@ -89,6 +101,19 @@
     {
         <div class="mobile-alert error" role="alert">@_error</div>
     }
+
+    @if (_showTeamChat)
+    {
+        <div style="position:fixed;inset:0;z-index:10001;display:flex;flex-direction:column;padding:12px;background:#fff;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 12px;">
+                <strong>Team-Chat</strong>
+                <button type="button" class="mobile-button secondary" @onclick="() => _showTeamChat = false">Zurück zu Hitster</button>
+            </div>
+            <div style="flex:1;min-height:0;">
+                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" ParticipantId="@ParticipantId" IsAdmin="false" />
+            </div>
+        </div>
+    }
 </section>
 
 @code {
@@ -96,10 +121,12 @@
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public Guid? TeamId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _busy;
+    private bool _showTeamChat;
     private string? _error;
     private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
     private bool GameStarted => ReadBool(Game, "started");
@@ -107,12 +134,25 @@
     private string[] WinnerNames => ReadStringArray(Game, "winnerNames");
     private Guid CurrentTeamId => GuidValue(Game, "currentTeamId");
     private bool IsMyTurn => TeamId is Guid teamId && teamId == CurrentTeamId;
+    private JsonElement VoteSummary => ReadObject(Game, "voteSummary");
     private bool HasGuess => Game.ValueKind == JsonValueKind.Object &&
         Game.TryGetProperty("guessPosition", out var guess) && guess.ValueKind == JsonValueKind.Number;
     private TeamTimeline[] Teams => ReadTeams();
     private TimelineCard[] MyTimeline => Teams.FirstOrDefault(team => team.Id == TeamId)?.Timeline ?? [];
+    private int? _myVotePosition;
+    private int _voteRound;
 
-    private async Task GuessAsync(int position)
+    protected override void OnParametersSet()
+    {
+        var round = ReadInt(Game, "round");
+        if (round != _voteRound)
+        {
+            _voteRound = round;
+            _myVotePosition = null;
+        }
+    }
+
+    private async Task VoteAsync(int position)
     {
         if (_busy || string.IsNullOrWhiteSpace(AccessToken))
         {
@@ -123,8 +163,9 @@
         _error = null;
         try
         {
-            await ProjectApiClient.SubmitHitsterGuessAsync(
+            var result = await ProjectApiClient.SubmitHitsterVoteAsync(
                 AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, position);
+            _myVotePosition = result.MyVotePosition;
         }
         catch (Exception exception)
         {
@@ -140,6 +181,26 @@
         position == 0 ? "Ganz vorne" :
         position == MyTimeline.Length ? "Ganz hinten" :
         $"Zwischen {MyTimeline[position - 1].Year} und {MyTimeline[position].Year}";
+
+    private int GetPositionVoteCount(int position)
+    {
+        if (VoteSummary.ValueKind != JsonValueKind.Object ||
+            !VoteSummary.TryGetProperty("positions", out var positions) ||
+            positions.ValueKind != JsonValueKind.Array)
+        {
+            return 0;
+        }
+
+        foreach (var vote in positions.EnumerateArray())
+        {
+            if (ReadInt(vote, "position", -1) == position)
+            {
+                return ReadInt(vote, "votes");
+            }
+        }
+
+        return 0;
+    }
 
     private TeamTimeline[] ReadTeams()
     {
