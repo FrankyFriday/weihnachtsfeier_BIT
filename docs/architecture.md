@@ -44,7 +44,7 @@ flowchart LR
 - Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
 - Testclient und Proxy: `WeihnachtsfeierBit.Web/`
 
-Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt freigegebene Eventinhalte, Team-Punktestände und bei einer Linienrangliste den Team-Punkteverlauf.
+Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. SignalR-Verbindungen werden nach fehlgeschlagenem Start oder Abbruch mit wachsendem Abstand automatisch neu aufgebaut; beim erneuten Beitritt werden Gruppe und aktueller Zustand synchronisiert. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt freigegebene Eventinhalte, Team-Punktestände und bei einer Linienrangliste den Team-Punkteverlauf.
 
 ## Produktgrenzen
 
