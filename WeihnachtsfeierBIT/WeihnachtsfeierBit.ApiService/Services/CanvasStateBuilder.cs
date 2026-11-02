@@ -42,6 +42,13 @@ public static class CanvasStateBuilder
                 team.Punkte
             })
             .ToListAsync(cancellationToken);
+        var teamParticipantRows = await dbContext.Teilnehmer.AsNoTracking()
+            .Where(participant => participant.ProjektId == instance.ProjektId && participant.TeamId != null)
+            .Select(participant => new { participant.Id, participant.TeamId })
+            .ToListAsync(cancellationToken);
+        var teamParticipantIds = teamParticipantRows
+            .GroupBy(participant => participant.TeamId!.Value)
+            .ToDictionary(group => group.Key, group => group.Select(participant => participant.Id).ToHashSet());
 
         var teams = orderedTeams
             .Select((team, index) => new CanvasTeamState(
@@ -64,7 +71,7 @@ public static class CanvasStateBuilder
                         gameEvent.Id,
                         currentSlide.Value.Type,
                         gameEvent.Title,
-                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters));
+                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters, teamParticipantIds));
                 }
             }
         }
@@ -102,7 +109,10 @@ public static class CanvasStateBuilder
         return null;
     }
 
-    private static JsonElement BuildPublicParameters(string slideType, JsonElement parameters)
+    private static JsonElement BuildPublicParameters(
+        string slideType,
+        JsonElement parameters,
+        IReadOnlyDictionary<Guid, HashSet<Guid>> teamParticipantIds)
     {
         var allowedProperties = slideType.ToLowerInvariant() switch
         {
@@ -117,7 +127,7 @@ public static class CanvasStateBuilder
 
         if (slideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
         {
-            return HitsterGameService.PublicParameters(parameters);
+            return HitsterGameService.PublicParameters(parameters, teamParticipantIds);
         }
 
         var publicParameters = new Dictionary<string, JsonElement>();

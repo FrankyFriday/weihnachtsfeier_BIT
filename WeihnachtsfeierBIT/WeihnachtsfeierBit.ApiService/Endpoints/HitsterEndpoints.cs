@@ -18,10 +18,11 @@ public static class HitsterEndpoints
     private static readonly Lazy<HitsterSong[]> Playlist = new(LoadPlaylist);
     private static readonly SemaphoreSlim SpotifyCodeExchangeLock = new(1, 1);
     private static readonly ConcurrentDictionary<string, CachedSpotifyToken> SpotifyCodeExchangeResults = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<(Guid EventId, Guid SlideId), SemaphoreSlim> VoteLocks = new();
 
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
-        reader.MapPost("/session/events/{eventId:guid}/hitster/{slideId:guid}/guess", GuessAsync);
+        reader.MapPost("/session/events/{eventId:guid}/hitster/{slideId:guid}/vote", VoteAsync);
         admin.MapPost("/session/events/{eventId:guid}/hitster/{slideId:guid}/start", StartAsync);
         admin.MapGet("/session/events/{eventId:guid}/hitster/{slideId:guid}/track", GetCurrentTrackAsync);
         admin.MapPost("/session/events/{eventId:guid}/hitster/{slideId:guid}/reveal", RevealAsync);
@@ -207,7 +208,13 @@ public static class HitsterEndpoints
             .Where(team => team.ProjektId == projectId &&
                 db.Teilnehmer.Any(participant => participant.ProjektId == projectId && participant.TeamId == team.Id))
             .OrderBy(team => team.DisplayName)
-            .Select(team => new HitsterTeamState { Id = team.Id, Name = team.DisplayName })
+            .Select(team => new HitsterTeamState
+            {
+                Id = team.Id,
+                Name = team.DisplayName,
+                ParticipantCount = db.Teilnehmer.Count(participant =>
+                    participant.ProjektId == projectId && participant.TeamId == team.Id)
+            })
             .ToListAsync(cancellationToken);
         if (teams.Count < 2)
         {
@@ -244,7 +251,8 @@ public static class HitsterEndpoints
             TeamOrder = teamOrder.Select(team => team.Id).ToList(),
             Teams = teamOrder,
             Deck = deck,
-            CurrentSongIndex = teamOrder.Count
+            CurrentSongIndex = teamOrder.Count,
+            EligibleVoters = teamOrder[0].ParticipantCount
         };
         parameters["game"] = JsonSerializer.SerializeToNode(state, JsonOptions);
         gameEvent.SlidesJson = root.ToJsonString(JsonOptions);
@@ -274,60 +282,77 @@ public static class HitsterEndpoints
         return Results.Ok(new HitsterTrackResponse(state.Deck[state.CurrentSongIndex].Id));
     }
 
-    private static async Task<IResult> GuessAsync(
+    private static async Task<IResult> VoteAsync(
         Guid projectId,
         Guid eventId,
         Guid slideId,
-        HitsterGuessRequest request,
+        HitsterVoteRequest request,
         HttpContext httpContext,
         WeihnachtsfeierDbContext db,
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
     {
-        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
-        if (access.ParticipantId is not Guid participantId)
+        var voteLock = VoteLocks.GetOrAdd((eventId, slideId), _ => new SemaphoreSlim(1, 1));
+        await voteLock.WaitAsync(cancellationToken);
+        try
         {
-            return Results.Forbid();
-        }
+            var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+            if (access.ParticipantId is not Guid participantId)
+            {
+                return Results.Forbid();
+            }
 
-        var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
-        if (gameEvent is null)
-        {
-            return Results.NotFound();
-        }
-        if (!TryReadGame(gameEvent, slideId, out var state) || !state.Started ||
-            state.Phase != "playing" || state.Finished)
-        {
-            return Results.Conflict(new ApiError("Hitster wartet aktuell nicht auf eine Einordnung."));
-        }
+            var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
+            if (gameEvent is null)
+            {
+                return Results.NotFound();
+            }
+            if (!TryReadGame(gameEvent, slideId, out var state) || !state.Started ||
+                state.Phase != "playing" || state.Finished)
+            {
+                return Results.Conflict(new ApiError("Hitster wartet aktuell nicht auf eine Einordnung."));
+            }
 
-        var teamId = await db.Teilnehmer
-            .Where(participant => participant.Id == participantId && participant.ProjektId == projectId)
-            .Select(participant => participant.TeamId)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (teamId is null || teamId != state.CurrentTeamId)
-        {
-            return Results.Forbid();
-        }
+            var teamId = await db.Teilnehmer
+                .Where(participant => participant.Id == participantId && participant.ProjektId == projectId)
+                .Select(participant => participant.TeamId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (teamId is null || teamId != state.CurrentTeamId)
+            {
+                return Results.Forbid();
+            }
 
-        var team = state.Teams.FirstOrDefault(item => item.Id == teamId.Value);
-        if (team is null)
-        {
-            return Results.Forbid();
-        }
-        if (request.Position < 0 || request.Position > team.Timeline.Count)
-        {
-            return Results.BadRequest(new ApiError("Die gewählte Position ist ungültig."));
-        }
-        if (state.GuessPosition.HasValue)
-        {
-            return Results.Conflict(new ApiError("Für diesen Zug wurde bereits eine Position gewählt."));
-        }
+            var team = state.Teams.FirstOrDefault(item => item.Id == teamId.Value);
+            if (team is null)
+            {
+                return Results.Forbid();
+            }
+            if (request.Position < 0 || request.Position > team.Timeline.Count)
+            {
+                return Results.BadRequest(new ApiError("Die gewählte Position ist ungültig."));
+            }
+            if (state.GuessPosition.HasValue)
+            {
+                return Results.Conflict(new ApiError("Die Abstimmung für diesen Zug ist bereits beendet."));
+            }
 
-        state.GuessPosition = request.Position;
-        await SaveStateAsync(gameEvent, slideId, state, db, cancellationToken);
-        await notifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-        return Results.Ok(HitsterGameService.PublicState(state));
+            var eligibleParticipantIds = await db.Teilnehmer.AsNoTracking()
+                .Where(participant => participant.ProjektId == projectId && participant.TeamId == teamId)
+                .Select(participant => participant.Id)
+                .ToListAsync(cancellationToken);
+            state.TeamVotes = state.TeamVotes
+                .Where(vote => eligibleParticipantIds.Contains(vote.Key))
+                .ToDictionary(vote => vote.Key, vote => vote.Value);
+            state.TeamVotes[participantId] = request.Position;
+            state.EligibleVoters = eligibleParticipantIds.Count;
+            await SaveStateAsync(gameEvent, slideId, state, db, cancellationToken);
+            await notifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+            return Results.Ok(new HitsterVoteResponse(request.Position));
+        }
+        finally
+        {
+            voteLock.Release();
+        }
     }
 
     private static async Task<IResult> RevealAsync(
@@ -338,38 +363,77 @@ public static class HitsterEndpoints
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
     {
-        var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
-        if (gameEvent is null)
+        var voteLock = VoteLocks.GetOrAdd((eventId, slideId), _ => new SemaphoreSlim(1, 1));
+        await voteLock.WaitAsync(cancellationToken);
+        try
         {
-            return Results.NotFound();
-        }
-        if (!TryReadGame(gameEvent, slideId, out var state) || state.Phase != "playing" ||
-            !state.GuessPosition.HasValue || state.CurrentSongIndex >= state.Deck.Count)
-        {
-            return Results.Conflict(new ApiError("Es gibt noch keinen gültigen Tipp zum Aufdecken."));
-        }
+            var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
+            if (gameEvent is null)
+            {
+                return Results.NotFound();
+            }
+            if (!TryReadGame(gameEvent, slideId, out var state) || state.Phase != "playing" ||
+                state.GuessPosition.HasValue || state.CurrentSongIndex >= state.Deck.Count)
+            {
+                return Results.Conflict(new ApiError("Die aktuelle Abstimmung kann nicht beendet werden."));
+            }
 
-        var song = state.Deck[state.CurrentSongIndex];
-        var team = state.Teams.FirstOrDefault(item => item.Id == state.CurrentTeamId);
-        if (team is null || state.GuessPosition.Value > team.Timeline.Count)
-        {
-            return Results.Conflict(new ApiError("Der gespeicherte Hitster-Zug ist ungültig."));
-        }
+            var song = state.Deck[state.CurrentSongIndex];
+            var team = state.Teams.FirstOrDefault(item => item.Id == state.CurrentTeamId);
+            if (team is null)
+            {
+                return Results.Conflict(new ApiError("Das aktuelle Hitster-Team ist ungültig."));
+            }
 
-        var position = state.GuessPosition.Value;
-        var before = position == 0 || team.Timeline[position - 1].Year <= song.Year;
-        var after = position == team.Timeline.Count || song.Year <= team.Timeline[position].Year;
-        state.LastGuessCorrect = before && after;
-        if (state.LastGuessCorrect.Value)
-        {
-            team.Timeline.Insert(position, song);
-        }
+            var eligibleParticipantIds = await db.Teilnehmer.AsNoTracking()
+                .Where(participant => participant.ProjektId == projectId && participant.TeamId == team.Id)
+                .Select(participant => participant.Id)
+                .ToListAsync(cancellationToken);
+            state.TeamVotes = state.TeamVotes
+                .Where(vote => eligibleParticipantIds.Contains(vote.Key))
+                .ToDictionary(vote => vote.Key, vote => vote.Value);
+            state.EligibleVoters = eligibleParticipantIds.Count;
+            if (state.TeamVotes.Count == 0)
+            {
+                return Results.Conflict(new ApiError("Mindestens ein Teammitglied muss abstimmen, bevor der Song aufgedeckt werden kann."));
+            }
 
-        state.Revealed = true;
-        state.Phase = "revealed";
-        await SaveStateAsync(gameEvent, slideId, state, db, cancellationToken);
-        await notifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-        return Results.Ok(HitsterGameService.PublicState(state));
+            var voteCounts = state.TeamVotes.Values
+                .GroupBy(position => position)
+                .Select(group => new { Position = group.Key, Votes = group.Count() })
+                .ToArray();
+            var highestVoteCount = voteCounts.Max(result => result.Votes);
+            var winningPositions = voteCounts
+                .Where(result => result.Votes == highestVoteCount)
+                .Select(result => result.Position)
+                .Order()
+                .ToArray();
+            var position = winningPositions[0];
+            if (position < 0 || position > team.Timeline.Count)
+            {
+                return Results.Conflict(new ApiError("Die gespeicherte Hitster-Abstimmung ist ungültig."));
+            }
+
+            state.VoteTied = winningPositions.Length > 1;
+            state.GuessPosition = position;
+            var before = position == 0 || team.Timeline[position - 1].Year <= song.Year;
+            var after = position == team.Timeline.Count || song.Year <= team.Timeline[position].Year;
+            state.LastGuessCorrect = before && after;
+            if (state.LastGuessCorrect.Value)
+            {
+                team.Timeline.Insert(position, song);
+            }
+
+            state.Revealed = true;
+            state.Phase = "revealed";
+            await SaveStateAsync(gameEvent, slideId, state, db, cancellationToken);
+            await notifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+            return Results.Ok(HitsterGameService.PublicState(state));
+        }
+        finally
+        {
+            voteLock.Release();
+        }
     }
 
     private static async Task<IResult> NextAsync(
@@ -414,6 +478,12 @@ public static class HitsterEndpoints
             state.GuessPosition = null;
             state.LastGuessCorrect = null;
             state.Revealed = false;
+            state.TeamVotes.Clear();
+            state.VoteTied = false;
+            var nextTeamId = state.CurrentTeamId;
+            state.EligibleVoters = await db.Teilnehmer.CountAsync(
+                participant => participant.ProjektId == projectId && participant.TeamId == nextTeamId,
+                cancellationToken);
             state.Phase = "playing";
         }
 
@@ -567,7 +637,8 @@ public sealed record SpotifyTokenResponse(
 public sealed record SpotifyTokenError(
     [property: JsonPropertyName("error")] string? Error,
     [property: JsonPropertyName("error_description")] string? ErrorDescription);
-public sealed record HitsterGuessRequest(int Position);
+public sealed record HitsterVoteRequest(int Position);
+public sealed record HitsterVoteResponse(int MyVotePosition);
 public sealed record HitsterTrackResponse(string TrackId);
 public sealed record HitsterSong(string Id, string Title, string Artist, int Year);
 
@@ -575,6 +646,7 @@ public sealed class HitsterTeamState
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public int ParticipantCount { get; set; }
     public List<HitsterSong> Timeline { get; set; } = [];
 }
 
@@ -590,6 +662,9 @@ public sealed class HitsterGameState
     public List<HitsterSong> Deck { get; set; } = [];
     public int CurrentSongIndex { get; set; }
     public int? GuessPosition { get; set; }
+    public Dictionary<Guid, int> TeamVotes { get; set; } = [];
+    public int EligibleVoters { get; set; }
+    public bool VoteTied { get; set; }
     public bool? LastGuessCorrect { get; set; }
     public bool Revealed { get; set; }
     public bool Finished { get; set; }
@@ -600,11 +675,23 @@ public static class HitsterGameService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static JsonElement PublicState(HitsterGameState state)
+    public static JsonElement PublicState(
+        HitsterGameState state,
+        IReadOnlySet<Guid>? currentTeamMemberIds = null)
     {
         var currentSong = state.Revealed && state.CurrentSongIndex < state.Deck.Count
             ? PublicSong(state.Deck[state.CurrentSongIndex])
             : null;
+        var currentVotes = currentTeamMemberIds is null
+            ? state.TeamVotes.Values
+            : state.TeamVotes.Where(vote => currentTeamMemberIds.Contains(vote.Key)).Select(vote => vote.Value);
+        var votePositions = currentVotes
+            .GroupBy(position => position)
+            .Select(group => new { position = group.Key, votes = group.Count() })
+            .OrderBy(vote => vote.position)
+            .ToArray();
+        var submittedVotes = votePositions.Sum(vote => vote.votes);
+        var eligibleVoters = currentTeamMemberIds?.Count ?? state.EligibleVoters;
         return JsonSerializer.SerializeToElement(new
         {
             started = state.Started,
@@ -615,6 +702,14 @@ public static class HitsterGameService
             round = state.CurrentSongIndex + 1,
             remainingSongs = Math.Max(0, state.Deck.Count - state.CurrentSongIndex),
             guessPosition = state.GuessPosition,
+            voteSummary = new
+            {
+                eligibleVoters,
+                submittedVotes,
+                remainingVotes = Math.Max(0, eligibleVoters - submittedVotes),
+                tied = state.VoteTied,
+                positions = votePositions
+            },
             lastGuessCorrect = state.LastGuessCorrect,
             finished = state.Finished,
             winnerTeamIds = state.WinnerTeamIds,
@@ -629,7 +724,9 @@ public static class HitsterGameService
         }, JsonOptions);
     }
 
-    public static JsonElement PublicParameters(JsonElement parameters)
+    public static JsonElement PublicParameters(
+        JsonElement parameters,
+        IReadOnlyDictionary<Guid, HashSet<Guid>>? teamParticipantIds = null)
     {
         var result = new Dictionary<string, JsonElement>();
         if (parameters.ValueKind == JsonValueKind.Object)
@@ -649,7 +746,11 @@ public static class HitsterGameService
                     var state = game.Deserialize<HitsterGameState>(JsonOptions);
                     if (state is not null)
                     {
-                        result["game"] = PublicState(state);
+                        var currentTeamMembers = teamParticipantIds is not null &&
+                            teamParticipantIds.TryGetValue(state.CurrentTeamId, out var participantIds)
+                                ? participantIds
+                                : null;
+                        result["game"] = PublicState(state, currentTeamMembers);
                     }
                 }
                 catch (JsonException)

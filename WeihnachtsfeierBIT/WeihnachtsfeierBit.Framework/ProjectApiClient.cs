@@ -841,7 +841,7 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return result.TrackId;
     }
 
-    public async Task SubmitHitsterGuessAsync(
+    public async Task<HitsterVoteResponse> SubmitHitsterVoteAsync(
         string accessToken,
         Guid projectId,
         Guid eventId,
@@ -851,11 +851,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
     {
         using var request = CreateRequest(
             HttpMethod.Post,
-            $"/api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/guess",
+            $"/api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/vote",
             accessToken,
             new { position });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<HitsterVoteResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die Hitster-Abstimmung wurde nicht bestätigt.");
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
@@ -1032,3 +1034,4 @@ public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, stri
 public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge, string Verifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record HitsterTrackResponse(string TrackId);
+public sealed record HitsterVoteResponse(int MyVotePosition);
