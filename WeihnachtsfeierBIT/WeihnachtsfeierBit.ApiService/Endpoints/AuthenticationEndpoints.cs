@@ -27,11 +27,11 @@ public static class AuthenticationEndpoints
         endpoints.MapAdminShowEndpoints();
 
         projects.MapPost("/{projectId:guid}/participant-sessions", LoginParticipantAsync)
-            .RequireRateLimiting("authentication")
+            .RequireRateLimiting("participant-authentication")
             .WithName("LoginParticipant");
 
         endpoints.MapPost("/api/participant-sessions/by-code", LoginParticipantByCodeAsync)
-            .RequireRateLimiting("authentication")
+            .RequireRateLimiting("participant-authentication")
             .WithName("LoginParticipantByCode");
 
         var reader = projects.MapGroup("/{projectId:guid}")

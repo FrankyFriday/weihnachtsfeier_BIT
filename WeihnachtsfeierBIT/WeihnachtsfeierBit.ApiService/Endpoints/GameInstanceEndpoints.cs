@@ -17,7 +17,7 @@ public static class GameInstanceEndpoints
     public static void MapPublic(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/game-instances/by-code/{code}", ResolveCodeAsync)
-            .RequireRateLimiting("authentication");
+            .RequireRateLimiting("public-session-read");
     }
 
     private static async Task<IResult> ResolveCodeAsync(

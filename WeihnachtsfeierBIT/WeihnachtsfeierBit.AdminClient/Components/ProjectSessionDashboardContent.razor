@@ -1067,7 +1067,7 @@
         }
     }
 
-    private string GetCanvasUrl() => Navigation.ToAbsoluteUri($"/play/canvas/{_instance!.AccessCode}").ToString();
+    private string GetCanvasUrl() => Navigation.ToAbsoluteUri($"/play/beamer/{_instance!.AccessCode}").ToString();
 
     private void OpenLinkShowModal() => _isLinkShowModalOpen = true;
     private void CloseLinkShowModal() => _isLinkShowModalOpen = false;

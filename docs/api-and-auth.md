@@ -45,11 +45,13 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | --- | --- | --- |
 | `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`; verknüpft die Sitzung mit der aktiven `GameInstance`. |
 | `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
-| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; Teilnehmerantworten und Profile werden nicht ausgegeben. |
+| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; bei einer Linienrangliste zusätzlich den Team-Punkteverlauf. Teilnehmerantworten und Profile werden nicht ausgegeben. |
 | `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`; Teilnehmernummer ist alleiniger Kennzeichner. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
 | `GET /api/projects/{projectId}/me/sessions` | Teilnehmer | Eigene Sessions anzeigen. |
 | `DELETE /api/projects/{projectId}/me/sessions/{sessionId}` | Teilnehmer | Eigene Session widerrufen. |
+
+Admin-Authentifizierungsrouten erlauben 10 Anfragen pro Minute und Client-IP. Teilnehmer-Login und öffentliche Session-Leseendpunkte erlauben je 120 Anfragen pro Minute und Client-IP; die Limits werden pro Route getrennt gezählt, damit Teilnehmer hinter derselben serverseitigen Client-IP nicht ein gemeinsames 10-Anfragen-Limit teilen.
 
 ## Projektadmins verwalten
 
@@ -76,7 +78,7 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
 
-Die Beameransicht unter `/play/canvas/{sessionCode}` verbindet sich über `/hubs/canvas`. Sie tritt mit einem gültigen Session-Code ihrer Canvas-Gruppe bei und erhält ausschließlich den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus.
+Die Beameransicht unter `/play/beamer/{sessionCode}` verbindet sich über `/hubs/canvas`; der bisherige Pfad `/play/canvas/{sessionCode}` bleibt kompatibel. Sie tritt mit einem gültigen Session-Code ihrer Gruppe bei und erhält den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Für eine Linienrangliste werden außerdem die Team-Punktelog-Daten geladen. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus.
 
 ## Fachliche Endpunkte
 
