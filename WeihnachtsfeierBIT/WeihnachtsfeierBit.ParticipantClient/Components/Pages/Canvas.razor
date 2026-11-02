@@ -166,6 +166,8 @@
 
     private CanvasGameState? _state;
     private HubConnection? _hubConnection;
+    private CancellationTokenSource? _connectionCancellation;
+    private Task? _connectionRecoveryTask;
     private bool _isLoading = true;
     private bool _isConnected;
     private bool _sessionEnded;
@@ -177,11 +179,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_hubConnection is not null)
-        {
-            await _hubConnection.DisposeAsync();
-            _hubConnection = null;
-        }
+        await StopConnectionAsync();
 
         _isLoading = true;
         _errorMessage = null;
@@ -221,7 +219,6 @@
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
-            .WithAutomaticReconnect()
             .Build();
         _hubConnection = connection;
 
@@ -239,47 +236,55 @@
             StateHasChanged();
         }));
 
-        connection.Reconnecting += _ => InvokeAsync(() =>
-        {
-            _isConnected = false;
-            _connectionStatus = "Verbindung unterbrochen";
-            StateHasChanged();
-        });
-
-        connection.Reconnected += async _ =>
-        {
-            try
-            {
-                await connection.SendAsync("JoinCanvas", Code);
-                _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-                _isConnected = true;
-                _connectionStatus = "Live aktualisiert";
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Die Beameransicht konnte nach dem Verbindungsaufbau nicht synchronisiert werden.");
-                _isConnected = false;
-                _connectionStatus = "Live-Verbindung nicht verfügbar";
-            }
-
-            await InvokeAsync(StateHasChanged);
-        };
-
-        try
-        {
-            await connection.StartAsync();
-            await connection.SendAsync("JoinCanvas", Code);
-            _isConnected = true;
-            _connectionStatus = "Live aktualisiert";
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Die Live-Verbindung für die Beameransicht konnte nicht hergestellt werden.");
-            _isConnected = false;
-            _connectionStatus = "Live-Verbindung nicht verfügbar";
-        }
+        _connectionCancellation = new CancellationTokenSource();
+        _connectionRecoveryTask = RecoverConnectionAsync(connection, Code, _connectionCancellation.Token);
 
         _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+    }
+
+    private async Task RecoverConnectionAsync(HubConnection connection, string code, CancellationToken cancellationToken)
+    {
+        await HubConnectionRecovery.RunAsync(
+            connection,
+            async token =>
+            {
+                await connection.SendAsync("JoinCanvas", code, token);
+                var state = await ProjectApiClient.GetCanvasStateAsync(code, token);
+                await InvokeAsync(() =>
+                {
+                    _state = state;
+                    _sessionEnded = false;
+                    StateHasChanged();
+                });
+            },
+            exception => Logger.LogWarning(exception, "Die Live-Verbindung der Beameransicht wird erneut aufgebaut."),
+            isConnected => InvokeAsync(() =>
+            {
+                _isConnected = isConnected;
+                _connectionStatus = isConnected
+                    ? "Live aktualisiert"
+                    : "Verbindung wird automatisch wiederhergestellt";
+                StateHasChanged();
+            }),
+            cancellationToken);
+    }
+
+    private async Task StopConnectionAsync()
+    {
+        _connectionCancellation?.Cancel();
+        if (_connectionRecoveryTask is not null)
+        {
+            await _connectionRecoveryTask;
+            _connectionRecoveryTask = null;
+        }
+
+        _connectionCancellation?.Dispose();
+        _connectionCancellation = null;
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
+        }
     }
 
     private static string GetChartType(CanvasEventState activeEvent)
@@ -358,9 +363,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_hubConnection is not null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
+        await StopConnectionAsync();
     }
 }

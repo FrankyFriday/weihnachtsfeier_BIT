@@ -8,6 +8,7 @@
 @implements IAsyncDisposable
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
+@inject ILogger<ProjectSessionDashboardContent> Logger
 
 <FrameworkPage>
     @if (IsLoading)
@@ -643,6 +644,8 @@
     private bool _processing;
 
     private HubConnection? _hubConnection;
+    private CancellationTokenSource? _connectionCancellation;
+    private Task? _connectionRecoveryTask;
 
     private TabItem? _selectedTabItem => _tabs.FirstOrDefault(t => t.Id == _selectedTabId);
 
@@ -699,43 +702,51 @@
     private async Task ConnectSignalRAsync(string accessToken)
     {
         if (_hubConnection is not null) return;
-        try
+        var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+        var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl, options =>
+                options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken))
+            .Build();
+
+        _hubConnection.On<ProjectGameState>("GameStateUpdated", async state =>
         {
-            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
-            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
-
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl, options =>
-                    options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken))
-                .WithAutomaticReconnect()
-                .Build();
-
-            _hubConnection.On<ProjectGameState>("GameStateUpdated", async (state) =>
+            if (state.ProjectId == ProjectId)
             {
-                if (state.ProjectId == ProjectId)
+                await InvokeAsync(async () =>
                 {
                     _sessionState = state;
                     _activeCanvasEventId = state.ActiveCanvasEventId;
-                    await InvokeAsync(async () =>
-                    {
-                        await BuildTabsAsync();
-                        StateHasChanged();
-                    });
-                }
-            });
+                    await BuildTabsAsync();
+                    StateHasChanged();
+                });
+            }
+        });
 
-            _hubConnection.Reconnected += async _ =>
+        _connectionCancellation = new CancellationTokenSource();
+        _connectionRecoveryTask = RecoverConnectionAsync(_hubConnection, accessToken, _connectionCancellation.Token);
+    }
+
+    private async Task RecoverConnectionAsync(HubConnection connection, string accessToken, CancellationToken cancellationToken)
+    {
+        await HubConnectionRecovery.RunAsync(
+            connection,
+            async token =>
             {
-                await _hubConnection.SendAsync("JoinProject", ProjectId);
-                await InvokeAsync(StateHasChanged);
-            };
-
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync("JoinProject", ProjectId);
-        }
-        catch
-        {
-        }
+                await connection.SendAsync("JoinProject", ProjectId, token);
+                var state = await ProjectApiClient.GetSessionStateAsync(accessToken, ProjectId, token);
+                await InvokeAsync(async () =>
+                {
+                    _sessionState = state;
+                    _activeCanvasEventId = state.ActiveCanvasEventId;
+                    await BuildTabsAsync();
+                    StateHasChanged();
+                });
+            },
+            exception => Logger.LogWarning(exception, "Die Live-Verbindung des Session-Dashboards wird erneut aufgebaut."),
+            _ => InvokeAsync(StateHasChanged),
+            cancellationToken);
     }
 
     private async Task LoadDataAsync()
@@ -1226,6 +1237,13 @@
 
     public async ValueTask DisposeAsync()
     {
+        _connectionCancellation?.Cancel();
+        if (_connectionRecoveryTask is not null)
+        {
+            await _connectionRecoveryTask;
+        }
+
+        _connectionCancellation?.Dispose();
         if (_hubConnection is not null)
         {
             try

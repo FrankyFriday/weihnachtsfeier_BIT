@@ -78,7 +78,7 @@ Admin-Authentifizierungsrouten erlauben 10 Anfragen pro Minute und Client-IP. Te
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
 
-Die Beameransicht unter `/play/beamer/{sessionCode}` verbindet sich über `/hubs/canvas`; der bisherige Pfad `/play/canvas/{sessionCode}` bleibt kompatibel. Sie tritt mit einem gültigen Session-Code ihrer Gruppe bei und erhält den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Für eine Linienrangliste werden außerdem die Team-Punktelog-Daten geladen. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus.
+Die Beameransicht unter `/play/beamer/{sessionCode}` verbindet sich über `/hubs/canvas`; der bisherige Pfad `/play/canvas/{sessionCode}` bleibt kompatibel. Sie tritt mit einem gültigen Session-Code ihrer Gruppe bei und erhält den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Für eine Linienrangliste werden außerdem die Team-Punktelog-Daten geladen. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus. Beamer, Teilnehmer-Session, Dashboard und Chat bauen SignalR-Verbindungen nach fehlgeschlagenem Start oder Abbruch automatisch mit wachsendem Retry-Abstand wieder auf; nach Wiederverbindung synchronisieren sie ihren Gruppenbeitritt und den aktuellen Serverzustand.
 
 ## Fachliche Endpunkte
 
