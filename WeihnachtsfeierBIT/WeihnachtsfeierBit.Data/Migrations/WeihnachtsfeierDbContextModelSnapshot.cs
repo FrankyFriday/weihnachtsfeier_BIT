@@ -422,6 +422,18 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<Guid>("ProjektId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("CanControlSession")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEditProjectSettings")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageParticipants")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageShows")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("HinzugefuegtAmUtc")
                         .HasColumnType("timestamp with time zone");
 

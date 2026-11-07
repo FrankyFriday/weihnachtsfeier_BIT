@@ -35,6 +35,12 @@
             </FooterContent>
         </Card>
 
+        <!-- 2. ADMINS & BERECHTIGUNGEN (SHOW TEILEN) -->
+        @if (!string.IsNullOrEmpty(AccessToken))
+        {
+            <AdminShareSection TargetId="ShowId" IsProject="false" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
+        }
+
         <!-- 2. SHOW DUPLIZIEREN & EXPORT/IMPORT -->
         <Card Class="settings-card" Style="margin-top: 24px;">
             <ChildContent>

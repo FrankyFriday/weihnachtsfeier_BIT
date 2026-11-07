@@ -46,6 +46,11 @@
             </ChildContent>
             <FooterContent><FrameworkLink Href="@ProjectUrl("settings")" Label="Einstellungen öffnen" /></FooterContent>
         </Card>
+
+        @if (!string.IsNullOrEmpty(AccessToken))
+        {
+            <AdminShareSection TargetId="ProjectId" IsProject="true" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
+        }
     }
 </FrameworkPage>
 

@@ -765,6 +765,27 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task UpdateProjectAdminPermissionsAsync(
+        string accessToken,
+        Guid projectId,
+        Guid adminId,
+        bool canControlSession,
+        bool canManageParticipants,
+        bool canEditProjectSettings,
+        bool canManageShows,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/projects/{projectId}/admins/{adminId}/permissions", accessToken, new
+        {
+            CanControlSession = canControlSession,
+            CanManageParticipants = canManageParticipants,
+            CanEditProjectSettings = canEditProjectSettings,
+            CanManageShows = canManageShows
+        });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<AdminShareListResponse> GetShowAdminsAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/admin/shows/{showId}/admins", accessToken);
@@ -944,5 +965,13 @@ public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, strin
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
 public sealed record AdminDto(Guid Id, string Username);
 public sealed record InviteAdminRequest(string Username);
-public sealed record AdminShareItemDto(Guid AdminId, string Username, bool IsCreator, DateTime AddedAtUtc);
+public sealed record AdminShareItemDto(
+    Guid AdminId,
+    string Username,
+    bool IsCreator,
+    DateTime AddedAtUtc,
+    bool CanControlSession = true,
+    bool CanManageParticipants = true,
+    bool CanEditProjectSettings = false,
+    bool CanManageShows = false);
 public sealed record AdminShareListResponse(bool CanManage, List<AdminShareItemDto> Admins);

@@ -18,16 +18,17 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-end; position: relative;">
                         <div style="flex: 1; position: relative;">
                             <FrameworkFormGroup Label="Admin einladen (Benutzername)">
-                                <FrameworkInputText Value="@_searchQuery" ValueChanged="OnSearchInput" Placeholder="Benutzername eingeben..." />
+                                <FrameworkInputText Value="@_searchQuery" ValueChanged="OnSearchInput" Placeholder="Benutzername eintippen..." />
                             </FrameworkFormGroup>
 
                             @if (_suggestions.Length > 0)
                             {
-                                <div style="position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1.5px solid #dce5e2; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; max-height: 180px; overflow-y: auto;">
+                                <div style="position: absolute; top: 100%; left: 0; right: 0; background: #ffffff; border: 1.5px solid #105c4d; border-radius: 8px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); z-index: 2000; max-height: 200px; overflow-y: auto; margin-top: 4px;">
                                     @foreach (var admin in _suggestions)
                                     {
-                                        <div @onclick="() => SelectAdmin(admin.Username)" style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #e7ecea; font-size: 13px; font-weight: 600;" onmouseover="this.style.background='#f0f8f4'" onmouseout="this.style.background='#fff'">
-                                            @admin.Username
+                                        <div @onclick="() => SelectAdmin(admin.Username)" style="padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #e7ecea; font-size: 13px; font-weight: 700; color: #1d2528; display: flex; align-items: center; gap: 8px;" onmouseover="this.style.background='#e8f3ef'" onmouseout="this.style.background='#ffffff'">
+                                            <span class="material-symbols-outlined" style="font-size: 18px; color: #105c4d;">person</span>
+                                            <span>@admin.Username</span>
                                         </div>
                                     }
                                 </div>
@@ -42,20 +43,48 @@
                     <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
                 }
 
-                <div style="display: grid; gap: 8px;">
+                <div style="display: grid; gap: 12px;">
                     @foreach (var admin in _shareList.Admins)
                     {
-                        <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 8px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong style="font-size: 14px; color: #1d2528;">@admin.Username</strong>
-                                @if (admin.IsCreator)
+                        <div style="padding: 12px 14px; border: 1px solid #dce5e2; border-radius: 8px; background: #fafcfb; display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="material-symbols-outlined" style="font-size: 20px; color: #105c4d;">person</span>
+                                    <strong style="font-size: 14px; color: #1d2528;">@admin.Username</strong>
+                                    @if (admin.IsCreator)
+                                    {
+                                        <span style="font-size: 11px; font-weight: 800; background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px;">Hauptnutzer (Ersteller)</span>
+                                    }
+                                </div>
+                                @if (_shareList.CanManage && !admin.IsCreator)
                                 {
-                                    <span style="font-size: 11px; font-weight: 800; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Ersteller</span>
+                                    <FrameworkButton Label="Entfernen" Variant="secondary" OnClick="() => RemoveAdminAsync(admin.AdminId)" />
                                 }
                             </div>
-                            @if (_shareList.CanManage && !admin.IsCreator)
+
+                            @if (IsProject && !admin.IsCreator)
                             {
-                                <FrameworkButton Label="Entfernen" Variant="secondary" OnClick="() => RemoveAdminAsync(admin.AdminId)" />
+                                <div style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 4px;">
+                                    <div style="font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px;">Berechtigungen für diesen Nutzer:</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                                            <input type="checkbox" checked="@admin.CanControlSession" disabled="@(!_shareList.CanManage)" @onchange="@(e => TogglePermissionAsync(admin, "CanControlSession", (bool)(e.Value ?? false)))" />
+                                            <span>Live-Session steuern</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                                            <input type="checkbox" checked="@admin.CanManageParticipants" disabled="@(!_shareList.CanManage)" @onchange="@(e => TogglePermissionAsync(admin, "CanManageParticipants", (bool)(e.Value ?? false)))" />
+                                            <span>Teilnehmer & Teams</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                                            <input type="checkbox" checked="@admin.CanEditProjectSettings" disabled="@(!_shareList.CanManage)" @onchange="@(e => TogglePermissionAsync(admin, "CanEditProjectSettings", (bool)(e.Value ?? false)))" />
+                                            <span>Einstellungen bearbeiten</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                                            <input type="checkbox" checked="@admin.CanManageShows" disabled="@(!_shareList.CanManage)" @onchange="@(e => TogglePermissionAsync(admin, "CanManageShows", (bool)(e.Value ?? false)))" />
+                                            <span>Shows verknüpfen</span>
+                                        </label>
+                                    </div>
+                                </div>
                             }
                         </div>
                     }
@@ -156,6 +185,26 @@
         finally
         {
             _isInviting = false;
+        }
+    }
+
+    private async Task TogglePermissionAsync(AdminShareItemDto admin, string permissionKey, bool newValue)
+    {
+        if (!_shareList?.CanManage ?? true) return;
+
+        bool ctrl = permissionKey == "CanControlSession" ? newValue : admin.CanControlSession;
+        bool part = permissionKey == "CanManageParticipants" ? newValue : admin.CanManageParticipants;
+        bool sett = permissionKey == "CanEditProjectSettings" ? newValue : admin.CanEditProjectSettings;
+        bool show = permissionKey == "CanManageShows" ? newValue : admin.CanManageShows;
+
+        try
+        {
+            await ProjectApiClient.UpdateProjectAdminPermissionsAsync(AccessToken, TargetId, admin.AdminId, ctrl, part, sett, show);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
         }
     }
 

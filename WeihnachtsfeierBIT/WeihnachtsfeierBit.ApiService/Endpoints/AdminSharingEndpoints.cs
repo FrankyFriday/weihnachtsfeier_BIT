@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
@@ -13,9 +14,10 @@ public static class AdminSharingEndpoints
 
         group.MapGet("/admins/search", SearchAdminsAsync).WithName("SearchAdmins");
 
-        // Project admins
+        // Project admins & permissions
         group.MapGet("/projects/{projectId:guid}/admins", GetProjectAdminsAsync).WithName("GetProjectShareAdmins");
         group.MapPost("/projects/{projectId:guid}/admins", InviteProjectAdminAsync).WithName("InviteProjectAdmin");
+        group.MapPut("/projects/{projectId:guid}/admins/{adminId:guid}/permissions", UpdateProjectAdminPermissionsAsync).WithName("UpdateProjectAdminPermissions");
         group.MapDelete("/projects/{projectId:guid}/admins/{adminId:guid}", RemoveProjectAdminAsync).WithName("RemoveProjectShareAdmin");
 
         // Show admins
@@ -31,14 +33,15 @@ public static class AdminSharingEndpoints
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var currentAdminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (currentAdminId is null)
         {
             return Results.Unauthorized();
         }
 
         var query = q?.Trim().ToLowerInvariant() ?? string.Empty;
         var admins = await dbContext.ProjektAdmins.AsNoTracking()
-            .Where(a => string.IsNullOrEmpty(query) || a.BenutzernameNormalisiert.Contains(query))
+            .Where(a => a.Id != currentAdminId && (string.IsNullOrEmpty(query) || a.BenutzernameNormalisiert.Contains(query)))
             .OrderBy(a => a.Benutzername)
             .Take(10)
             .Select(a => new AdminDto(a.Id, a.Benutzername))
@@ -57,28 +60,53 @@ public static class AdminSharingEndpoints
         var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
         if (adminId is null) return Results.Unauthorized();
 
-        var project = await dbContext.Projekte.AsNoTracking()
+        var project = await dbContext.Projekte
             .Include(p => p.Admins)
                 .ThenInclude(a => a.ProjektAdmin)
             .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
 
         if (project is null) return Results.NotFound();
 
+        // Auto-assign creator if unassigned
+        if (!project.ErstellerAdminId.HasValue)
+        {
+            project.ErstellerAdminId = adminId;
+            if (!project.Admins.Any(a => a.ProjektAdminId == adminId.Value))
+            {
+                dbContext.ProjektAdminProjekte.Add(new ProjektAdminProjekt
+                {
+                    ProjektAdminId = adminId.Value,
+                    ProjektId = projectId,
+                    CanControlSession = true,
+                    CanManageParticipants = true,
+                    CanEditProjectSettings = true,
+                    CanManageShows = true
+                });
+            }
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         bool isMember = project.ErstellerAdminId == adminId || project.Admins.Any(a => a.ProjektAdminId == adminId);
         if (!isMember) return Results.Forbid();
+
+        bool canManage = project.ErstellerAdminId == adminId;
 
         var list = project.Admins.Select(a => new AdminShareItemDto(
             a.ProjektAdminId,
             a.ProjektAdmin.Benutzername,
             project.ErstellerAdminId == a.ProjektAdminId,
-            a.HinzugefuegtAmUtc)).ToList();
+            a.HinzugefuegtAmUtc,
+            a.CanControlSession,
+            a.CanManageParticipants,
+            a.CanEditProjectSettings,
+            a.CanManageShows)).ToList();
 
-        return Results.Ok(new AdminShareListResponse(project.ErstellerAdminId == adminId, list));
+        return Results.Ok(new AdminShareListResponse(canManage, list));
     }
 
     private static async Task<IResult> InviteProjectAdminAsync(
         Guid projectId,
-        InviteAdminRequest request,
+        [FromBody] InviteAdminRequest request,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
@@ -93,7 +121,13 @@ public static class AdminSharingEndpoints
 
         if (project is null) return Results.NotFound();
 
-        if (project.ErstellerAdminId.HasValue && project.ErstellerAdminId != adminId)
+        if (!project.ErstellerAdminId.HasValue)
+        {
+            project.ErstellerAdminId = adminId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (project.ErstellerAdminId != adminId)
         {
             return Results.BadRequest(new ApiError("Nur der Ersteller des Projekts kann andere Admins einladen."));
         }
@@ -121,23 +155,28 @@ public static class AdminSharingEndpoints
         {
             ProjektAdminId = targetAdmin.Id,
             ProjektId = projectId,
-            HinzugefuegtAmUtc = DateTime.UtcNow
+            HinzugefuegtAmUtc = DateTime.UtcNow,
+            CanControlSession = true,
+            CanManageParticipants = true,
+            CanEditProjectSettings = false,
+            CanManageShows = false
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok();
     }
 
-    private static async Task<IResult> RemoveProjectAdminAsync(
+    private static async Task<IResult> UpdateProjectAdminPermissionsAsync(
         Guid projectId,
-        Guid adminIdToRemove,
+        Guid adminId,
+        [FromBody] UpdateProjectAdminPermissionsRequest request,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
-        if (adminId is null) return Results.Unauthorized();
+        var currentAdminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (currentAdminId is null) return Results.Unauthorized();
 
         var project = await dbContext.Projekte
             .Include(p => p.Admins)
@@ -145,17 +184,61 @@ public static class AdminSharingEndpoints
 
         if (project is null) return Results.NotFound();
 
-        if (project.ErstellerAdminId != adminId)
+        if (project.ErstellerAdminId != currentAdminId)
+        {
+            return Results.BadRequest(new ApiError("Nur der Ersteller des Projekts kann Berechtigungen anpassen."));
+        }
+
+        var membership = await dbContext.ProjektAdminProjekte
+            .FirstOrDefaultAsync(a => a.ProjektId == projectId && a.ProjektAdminId == adminId, cancellationToken);
+
+        if (membership is null)
+        {
+            return Results.NotFound(new ApiError("Mitgliedschaft nicht gefunden."));
+        }
+
+        membership.CanControlSession = request.CanControlSession;
+        membership.CanManageParticipants = request.CanManageParticipants;
+        membership.CanEditProjectSettings = request.CanEditProjectSettings;
+        membership.CanManageShows = request.CanManageShows;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> RemoveProjectAdminAsync(
+        Guid projectId,
+        Guid adminId,
+        HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var currentAdminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (currentAdminId is null) return Results.Unauthorized();
+
+        var project = await dbContext.Projekte.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
+        if (project is null) return Results.NotFound();
+
+        if (!project.ErstellerAdminId.HasValue)
+        {
+            project.ErstellerAdminId = currentAdminId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (project.ErstellerAdminId != currentAdminId)
         {
             return Results.BadRequest(new ApiError("Nur der Ersteller des Projekts kann Einladungen entfernen."));
         }
 
-        if (project.ErstellerAdminId == adminIdToRemove)
+        if (project.ErstellerAdminId == adminId)
         {
             return Results.BadRequest(new ApiError("Der Ersteller kann nicht entfernt werden."));
         }
 
-        var membership = project.Admins.FirstOrDefault(a => a.ProjektAdminId == adminIdToRemove);
+        var membership = await dbContext.ProjektAdminProjekte
+            .FirstOrDefaultAsync(m => m.ProjektId == projectId && m.ProjektAdminId == adminId, cancellationToken);
+
         if (membership is not null)
         {
             dbContext.ProjektAdminProjekte.Remove(membership);
@@ -175,28 +258,49 @@ public static class AdminSharingEndpoints
         var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
         if (adminId is null) return Results.Unauthorized();
 
-        var show = await dbContext.Shows.AsNoTracking()
+        var show = await dbContext.Shows
             .Include(s => s.Admins)
                 .ThenInclude(a => a.ProjektAdmin)
             .FirstOrDefaultAsync(s => s.Id == showId, cancellationToken);
 
         if (show is null) return Results.NotFound();
 
+        // Auto-assign creator & grant access to ALL current admins if unassigned (legacy migration)
+        if (!show.ErstellerAdminId.HasValue)
+        {
+            show.ErstellerAdminId = adminId;
+            var allAdmins = await dbContext.ProjektAdmins.ToListAsync(cancellationToken);
+            foreach (var a in allAdmins)
+            {
+                if (!show.Admins.Any(sa => sa.ProjektAdminId == a.Id))
+                {
+                    dbContext.ProjektAdminShows.Add(new ProjektAdminShow { ProjektAdminId = a.Id, ShowId = showId });
+                }
+            }
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         bool isMember = show.ErstellerAdminId == adminId || show.Admins.Any(a => a.ProjektAdminId == adminId);
         if (!isMember) return Results.Forbid();
+
+        bool canManage = show.ErstellerAdminId == adminId;
 
         var list = show.Admins.Select(a => new AdminShareItemDto(
             a.ProjektAdminId,
             a.ProjektAdmin.Benutzername,
             show.ErstellerAdminId == a.ProjektAdminId,
-            a.HinzugefuegtAmUtc)).ToList();
+            a.HinzugefuegtAmUtc,
+            CanControlSession: true,
+            CanManageParticipants: true,
+            CanEditProjectSettings: true,
+            CanManageShows: true)).ToList();
 
-        return Results.Ok(new AdminShareListResponse(show.ErstellerAdminId == adminId, list));
+        return Results.Ok(new AdminShareListResponse(canManage, list));
     }
 
     private static async Task<IResult> InviteShowAdminAsync(
         Guid showId,
-        InviteAdminRequest request,
+        [FromBody] InviteAdminRequest request,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
@@ -211,7 +315,13 @@ public static class AdminSharingEndpoints
 
         if (show is null) return Results.NotFound();
 
-        if (show.ErstellerAdminId.HasValue && show.ErstellerAdminId != adminId)
+        if (!show.ErstellerAdminId.HasValue)
+        {
+            show.ErstellerAdminId = adminId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (show.ErstellerAdminId != adminId)
         {
             return Results.BadRequest(new ApiError("Nur der Ersteller der Show kann andere Admins einladen."));
         }
@@ -248,32 +358,37 @@ public static class AdminSharingEndpoints
 
     private static async Task<IResult> RemoveShowAdminAsync(
         Guid showId,
-        Guid adminIdToRemove,
+        Guid adminId,
         HttpContext httpContext,
         AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
-        if (adminId is null) return Results.Unauthorized();
+        var currentAdminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (currentAdminId is null) return Results.Unauthorized();
 
-        var show = await dbContext.Shows
-            .Include(s => s.Admins)
-            .FirstOrDefaultAsync(s => s.Id == showId, cancellationToken);
-
+        var show = await dbContext.Shows.FirstOrDefaultAsync(s => s.Id == showId, cancellationToken);
         if (show is null) return Results.NotFound();
 
-        if (show.ErstellerAdminId != adminId)
+        if (!show.ErstellerAdminId.HasValue)
+        {
+            show.ErstellerAdminId = currentAdminId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (show.ErstellerAdminId != currentAdminId)
         {
             return Results.BadRequest(new ApiError("Nur der Ersteller der Show kann Einladungen entfernen."));
         }
 
-        if (show.ErstellerAdminId == adminIdToRemove)
+        if (show.ErstellerAdminId == adminId)
         {
             return Results.BadRequest(new ApiError("Der Ersteller kann nicht entfernt werden."));
         }
 
-        var membership = show.Admins.FirstOrDefault(a => a.ProjektAdminId == adminIdToRemove);
+        var membership = await dbContext.ProjektAdminShows
+            .FirstOrDefaultAsync(m => m.ShowId == showId && m.ProjektAdminId == adminId, cancellationToken);
+
         if (membership is not null)
         {
             dbContext.ProjektAdminShows.Remove(membership);
@@ -286,5 +401,18 @@ public static class AdminSharingEndpoints
 
 public sealed record AdminDto(Guid Id, string Username);
 public sealed record InviteAdminRequest(string Username);
-public sealed record AdminShareItemDto(Guid AdminId, string Username, bool IsCreator, DateTime AddedAtUtc);
+public sealed record UpdateProjectAdminPermissionsRequest(
+    bool CanControlSession,
+    bool CanManageParticipants,
+    bool CanEditProjectSettings,
+    bool CanManageShows);
+public sealed record AdminShareItemDto(
+    Guid AdminId,
+    string Username,
+    bool IsCreator,
+    DateTime AddedAtUtc,
+    bool CanControlSession = true,
+    bool CanManageParticipants = true,
+    bool CanEditProjectSettings = false,
+    bool CanManageShows = false);
 public sealed record AdminShareListResponse(bool CanManage, List<AdminShareItemDto> Admins);
