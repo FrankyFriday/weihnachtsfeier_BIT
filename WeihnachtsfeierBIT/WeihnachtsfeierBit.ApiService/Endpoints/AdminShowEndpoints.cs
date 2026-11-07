@@ -36,8 +36,7 @@ public static class AdminShowEndpoints
         var shows = await dbContext.Shows.AsNoTracking()
             .Where(show => !show.ErstellerAdminId.HasValue
                         || show.ErstellerAdminId == adminId
-                        || show.Admins.Any(a => a.ProjektAdminId == adminId)
-                        || show.ShowProjektZuo.Any(link => link.Projekt.Admins.Any(pa => pa.ProjektAdminId == adminId) || link.Projekt.ErstellerAdminId == adminId))
+                        || show.Admins.Any(a => a.ProjektAdminId == adminId))
             .OrderBy(show => show.Name)
             .Select(show => new AdminShowResponse(
                 show.Id,

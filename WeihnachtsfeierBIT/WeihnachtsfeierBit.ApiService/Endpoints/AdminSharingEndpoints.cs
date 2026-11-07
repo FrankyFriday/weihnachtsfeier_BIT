@@ -39,7 +39,7 @@ public static class AdminSharingEndpoints
             return Results.Unauthorized();
         }
 
-        var query = q?.Trim().ToLowerInvariant() ?? string.Empty;
+        var query = q?.Trim().ToUpperInvariant() ?? string.Empty;
         var admins = await dbContext.ProjektAdmins.AsNoTracking()
             .Where(a => a.Id != currentAdminId && (string.IsNullOrEmpty(query) || a.BenutzernameNormalisiert.Contains(query)))
             .OrderBy(a => a.Benutzername)
@@ -265,17 +265,13 @@ public static class AdminSharingEndpoints
 
         if (show is null) return Results.NotFound();
 
-        // Auto-assign creator & grant access to ALL current admins if unassigned (legacy migration)
+        // Auto-assign creator for legacy unassigned show
         if (!show.ErstellerAdminId.HasValue)
         {
             show.ErstellerAdminId = adminId;
-            var allAdmins = await dbContext.ProjektAdmins.ToListAsync(cancellationToken);
-            foreach (var a in allAdmins)
+            if (!show.Admins.Any(sa => sa.ProjektAdminId == adminId.Value))
             {
-                if (!show.Admins.Any(sa => sa.ProjektAdminId == a.Id))
-                {
-                    dbContext.ProjektAdminShows.Add(new ProjektAdminShow { ProjektAdminId = a.Id, ShowId = showId });
-                }
+                dbContext.ProjektAdminShows.Add(new ProjektAdminShow { ProjektAdminId = adminId.Value, ShowId = showId });
             }
             await dbContext.SaveChangesAsync(cancellationToken);
         }
