@@ -150,6 +150,11 @@ public static class CanvasStateBuilder
             _ => Array.Empty<string>()
         };
 
+        if (slideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
+        {
+            return HostGamePublicParameters.Jeopardy(parameters);
+        }
+
         if (slideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
         {
             return HitsterGameService.PublicParameters(parameters, teamParticipantIds);

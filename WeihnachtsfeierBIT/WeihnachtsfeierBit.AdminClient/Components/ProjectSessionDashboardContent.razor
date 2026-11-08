@@ -247,6 +247,9 @@
                                 case "point_award":
                                     <PointAwardResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
+                                case "jeopardy":
+                                    <JeopardyResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                                    break;
                                 default:
                                     <FallbackResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
@@ -561,6 +564,9 @@
                 case "point_award":
                     <PointAwardSlideEditor Slide="_spontaneousSlide" />
                     break;
+                case "jeopardy":
+                    <JeopardySlideEditor Slide="_spontaneousSlide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(_modalError))
@@ -678,7 +684,8 @@
         new("rating", "Sterne-Bewertung"),
         new("ordering", "Reihenfolge sortieren"),
         new("countdown", "Timer / Countdown"),
-        new("point_award", "Punktevergabe")
+        new("point_award", "Punktevergabe"),
+        new("jeopardy", "Jeopardy")
     ];
 
     private static readonly FrameworkSelectOption[] _modeOptions =
