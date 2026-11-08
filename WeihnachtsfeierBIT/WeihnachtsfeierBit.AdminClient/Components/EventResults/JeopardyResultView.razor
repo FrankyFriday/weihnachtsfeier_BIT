@@ -222,16 +222,23 @@
             return;
         }
 
-        var firstSlide = Event.Slides.FirstOrDefault(s => s.SlideId == targetIds[0]);
-        var lastSlide = Event.Slides.FirstOrDefault(s => s.SlideId == targetIds[^1]);
-        if (firstSlide is null || lastSlide is null)
+        var targetIndices = new List<int>();
+        foreach (var tid in targetIds)
+        {
+            var match = Event.Slides.FirstOrDefault(s => s.SlideId == tid);
+            if (match is not null)
+            {
+                var idx = Array.IndexOf(Event.Slides, match);
+                if (idx >= 0) targetIndices.Add(idx);
+            }
+        }
+
+        if (targetIndices.Count == 0)
         {
             _error = "Die zugeordneten Slides wurden in dieser Show nicht gefunden.";
             return;
         }
 
-        var startIndex = Array.IndexOf(Event.Slides, firstSlide);
-        var endIndex = Array.IndexOf(Event.Slides, lastSlide);
         var originIndex = Array.IndexOf(Event.Slides, CurrentSlide);
         var key = $"{col}-{row}";
 
@@ -247,13 +254,14 @@
                 navigationContext = new
                 {
                     originSlideIndex = originIndex >= 0 ? originIndex : 0,
-                    sequenceEndSlideIndex = endIndex >= 0 ? endIndex : startIndex,
-                    activeCellKey = key
+                    sequenceSlideIndices = targetIndices.ToArray(),
+                    activeCellKey = key,
+                    contextTitle = $"{_categories[col].Name} ({clue.Value} Pkt)"
                 }
             };
 
             await ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, stateObj);
-            await ProjectApiClient.UpdateEventAsync(token, ProjectId, Event.EventId, currentSlideIndex: startIndex);
+            await ProjectApiClient.UpdateEventAsync(token, ProjectId, Event.EventId, currentSlideIndex: targetIndices[0]);
         });
     }
 

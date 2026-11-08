@@ -200,18 +200,32 @@
 
                         @if (ev.NavigationContext is { } navContext)
                         {
-                            <div style="padding: 12px 16px; margin-top: 16px; margin-bottom: 8px; border-radius: 8px; background: #e0f2fe; border: 1.5px solid #0284c7; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                            var hasNextInSeq = navContext.SequenceSlideIndices is not null && navContext.CurrentSequenceIndex < navContext.SequenceSlideIndices.Length - 1;
+                            var seqLabel = navContext.SequenceSlideIndices is not null && navContext.SequenceSlideIndices.Length > 0
+                                ? $"Sequenz-Folie {navContext.CurrentSequenceIndex + 1} von {navContext.SequenceSlideIndices.Length}"
+                                : "Unter-Sequenz aktiv";
+
+                            <div style="padding: 12px 16px; margin-top: 16px; margin-bottom: 8px; border-radius: 8px; background: #f0fdf4; border: 1.5px solid #16a34a; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <span style="font-size: 18px;">🎮</span>
                                     <div>
-                                        <strong style="color: #0369a1; font-size: 14px;">Jeopardy-Modus aktiv</strong>
+                                        <strong style="color: #15803d; font-size: 14px;">@(string.IsNullOrEmpty(navContext.ContextTitle) ? "Aktive Unter-Sequenz" : navContext.ContextTitle)</strong>
+                                        <span style="font-size: 13px; color: #16a34a; margin-left: 6px;">• @seqLabel</span>
                                         @if (!string.IsNullOrEmpty(navContext.ActiveTeamName))
                                         {
-                                            <span style="font-size: 13px; color: #0284c7; margin-left: 6px;">• Am Zug: <strong>@navContext.ActiveTeamName</strong></span>
+                                            <span style="font-size: 13px; color: #16a34a; margin-left: 6px;">• Am Zug: <strong>@navContext.ActiveTeamName</strong></span>
                                         }
                                     </div>
                                 </div>
-                                <FrameworkButton Label="↩ Zurück zum Jeopardy-Board" Variant="primary" OnClick="() => ReturnToJeopardyBoard(ev)" />
+                                <div style="display: flex; gap: 8px;">
+                                    @if (hasNextInSeq)
+                                    {
+                                        <FrameworkButton Label="Nächste Sequenz-Folie ►" Variant="primary" OnClick="() => StepSequenceNext(ev, navContext)" />
+                                    }
+                                    else
+                                    {
+                                        <FrameworkButton Label="Sequenz abschließen & Zurück ►" Variant="primary" OnClick="() => ReturnToJeopardyBoard(ev)" />
+                                    }
+                                </div>
                             </div>
                         }
 
@@ -1201,6 +1215,20 @@
         {
             _actionError = ex.Message;
         }
+    }
+
+    private async Task StepSequenceNext(EventState ev, EventNavigationContext navContext)
+    {
+        if (navContext.SequenceSlideIndices is null) return;
+        var nextSeqIdx = navContext.CurrentSequenceIndex + 1;
+        if (nextSeqIdx >= navContext.SequenceSlideIndices.Length)
+        {
+            await ReturnToJeopardyBoard(ev);
+            return;
+        }
+
+        var targetSlideIndex = navContext.SequenceSlideIndices[nextSeqIdx];
+        await StepEventSlideTo(ev, targetSlideIndex);
     }
 
     private async Task ReturnToJeopardyBoard(EventState ev)

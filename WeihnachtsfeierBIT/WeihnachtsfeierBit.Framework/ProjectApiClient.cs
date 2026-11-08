@@ -1057,10 +1057,12 @@ public sealed record EventResponseState(
 
 public sealed record EventNavigationContext(
     int OriginSlideIndex,
-    int SequenceEndSlideIndex,
-    string? ActiveCellKey,
+    int[] SequenceSlideIndices,
+    int CurrentSequenceIndex,
+    string? ContextTitle,
     Guid? ActiveTeamId,
-    string? ActiveTeamName);
+    string? ActiveTeamName,
+    string? ActiveCellKey);
 
 public sealed record EventState(
     Guid EventId,
