@@ -368,11 +368,16 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ErstellerAdminId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ErstellerAdminId");
 
                     b.ToTable("Projekte");
                 });
@@ -417,6 +422,18 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<Guid>("ProjektId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("CanControlSession")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEditProjectSettings")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageParticipants")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageShows")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("HinzugefuegtAmUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -425,6 +442,24 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasIndex("ProjektId");
 
                     b.ToTable("ProjektAdminProjekte");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminShow", b =>
+                {
+                    b.Property<Guid>("ProjektAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("HinzugefuegtAmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ProjektAdminId", "ShowId");
+
+                    b.HasIndex("ShowId");
+
+                    b.ToTable("ProjektAdminShows");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
@@ -473,6 +508,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ErstellerAdminId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -481,6 +519,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasDefaultValue("Neue Show");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ErstellerAdminId");
 
                     b.ToTable("Shows");
                 });
@@ -1058,6 +1098,16 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Projekt");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Projekt", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ErstellerAdmin")
+                        .WithMany()
+                        .HasForeignKey("ErstellerAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ErstellerAdmin");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminProjekt", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
@@ -1077,6 +1127,25 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("ProjektAdmin");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminShow", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
+                        .WithMany()
+                        .HasForeignKey("ProjektAdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeihnachtsfeierBit.Data.Show", "Show")
+                        .WithMany("Admins")
+                        .HasForeignKey("ShowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProjektAdmin");
+
+                    b.Navigation("Show");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ProjektAdminSitzung", b =>
                 {
                     b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ProjektAdmin")
@@ -1086,6 +1155,16 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ProjektAdmin");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.ProjektAdmin", "ErstellerAdmin")
+                        .WithMany()
+                        .HasForeignKey("ErstellerAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ErstellerAdmin");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ShowProjektZuo", b =>
@@ -1294,6 +1373,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Show", b =>
                 {
+                    b.Navigation("Admins");
+
                     b.Navigation("ShowProjektZuo");
 
                     b.Navigation("Slides");

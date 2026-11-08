@@ -52,9 +52,11 @@ public static class ProjectEndpoints
 
     private static async Task<IResult> GetProjectOverviewAsync(
         Guid projectId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
         var overview = await dbContext.Projekte.AsNoTracking()
             .Where(project => project.Id == projectId)
             .Select(project => new WeihnachtsfeierBit.ApiService.Contracts.ProjectOverviewResponse(
@@ -62,7 +64,13 @@ public static class ProjectEndpoints
                 project.Name,
                 dbContext.ShowProjektZuos.Count(link => link.ProjektId == project.Id),
                 dbContext.Teilnehmer.Count(participant => participant.ProjektId == project.Id),
-                dbContext.Teams.Count(team => team.ProjektId == project.Id)))
+                dbContext.Teams.Count(team => team.ProjektId == project.Id),
+                new WeihnachtsfeierBit.ApiService.Contracts.ProjectPermissionsDto(
+                    access.IsCreator,
+                    access.CanControlSession,
+                    access.CanManageParticipants,
+                    access.CanEditProjectSettings,
+                    access.CanManageShows)))
             .FirstOrDefaultAsync(cancellationToken);
         return overview is null ? Results.NotFound() : Results.Ok(overview);
     }
@@ -70,9 +78,16 @@ public static class ProjectEndpoints
     private static async Task<IResult> UpdateProjectAsync(
         Guid projectId,
         WeihnachtsfeierBit.ApiService.Contracts.RenameProjectRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanEditProjectSettings)
+        {
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Du hast keine Berechtigung, die Einstellungen dieses Projekts zu bearbeiten."));
+        }
+
         var name = request.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
         {
@@ -92,9 +107,16 @@ public static class ProjectEndpoints
 
     private static async Task<IResult> DeleteProjectAsync(
         Guid projectId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.IsCreator)
+        {
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Nur der Ersteller kann das Projekt löschen."));
+        }
+
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
         if (project is null)
         {

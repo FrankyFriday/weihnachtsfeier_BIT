@@ -90,6 +90,7 @@ GameInstanceEndpoints.MapPublic(app);
 CanvasEndpoints.MapPublic(app);
 app.MapAuthenticationEndpoints();
 app.MapProjectEndpoints();
+AdminSharingEndpoints.Map(app);
 if (app.Environment.IsDevelopment())
 {
     app.MapTestEntryEndpoints();

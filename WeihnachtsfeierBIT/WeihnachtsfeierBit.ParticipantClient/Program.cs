@@ -6,6 +6,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+var keysFolder = Path.Combine(Path.GetTempPath(), "weihnachtsfeier-keys");
+Directory.CreateDirectory(keysFolder);
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysFolder));
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddDataProtection()

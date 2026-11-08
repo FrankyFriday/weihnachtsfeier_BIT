@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
@@ -47,10 +48,17 @@ public static class TeamEndpoints
         Guid projectId,
         Guid teamId,
         AwardTeamPointsRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession && !access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Punkte zu vergeben."));
+        }
+
         var team = await dbContext.Teams.FirstOrDefaultAsync(
             item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
         if (team is null)
@@ -155,10 +163,17 @@ public static class TeamEndpoints
     private static async Task<IResult> CreateTeamAsync(
         Guid projectId,
         CreateTeamRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teams zu verwalten."));
+        }
+
         var displayName = request.DisplayName?.Trim();
         var color = request.Color?.Trim();
         if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > 80 ||

@@ -27,12 +27,16 @@ public static class AdminShowEndpoints
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (adminId is null)
         {
             return Results.Unauthorized();
         }
 
         var shows = await dbContext.Shows.AsNoTracking()
+            .Where(show => !show.ErstellerAdminId.HasValue
+                        || show.ErstellerAdminId == adminId
+                        || show.Admins.Any(a => a.ProjektAdminId == adminId))
             .OrderBy(show => show.Name)
             .Select(show => new AdminShowResponse(
                 show.Id,
@@ -49,7 +53,8 @@ public static class AdminShowEndpoints
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var adminId = await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken);
+        if (adminId is null)
         {
             return Results.Unauthorized();
         }
@@ -60,8 +65,13 @@ public static class AdminShowEndpoints
             return Results.BadRequest(new ApiError("Der Showname muss zwischen 1 und 120 Zeichen lang sein."));
         }
 
-        var show = new Show { Name = name };
+        var show = new Show { Name = name, ErstellerAdminId = adminId.Value };
         dbContext.Shows.Add(show);
+        dbContext.ProjektAdminShows.Add(new ProjektAdminShow
+        {
+            ProjektAdminId = adminId.Value,
+            Show = show
+        });
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/admin/shows/{show.Id}", new AdminShowResponse(show.Id, show.Name, 0));
     }

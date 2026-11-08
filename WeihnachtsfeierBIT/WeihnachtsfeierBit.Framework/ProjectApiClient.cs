@@ -867,6 +867,80 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Die Hitster-Abstimmung wurde nicht bestätigt.");
     }
 
+    // ADMIN SHARING
+    public async Task<AdminDto[]> SearchAdminsAsync(string accessToken, string query, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/admins/search?q={Uri.EscapeDataString(query)}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminDto[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<AdminShareListResponse> GetProjectAdminsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/projects/{projectId}/admins", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShareListResponse>(cancellationToken) ?? new AdminShareListResponse(false, []);
+    }
+
+    public async Task InviteProjectAdminAsync(string accessToken, Guid projectId, string username, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/admin/projects/{projectId}/admins", accessToken, new { username });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task RemoveProjectAdminAsync(string accessToken, Guid projectId, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/admin/projects/{projectId}/admins/{adminId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task UpdateProjectAdminPermissionsAsync(
+        string accessToken,
+        Guid projectId,
+        Guid adminId,
+        bool canControlSession,
+        bool canManageParticipants,
+        bool canEditProjectSettings,
+        bool canManageShows,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/admin/projects/{projectId}/admins/{adminId}/permissions", accessToken, new
+        {
+            CanControlSession = canControlSession,
+            CanManageParticipants = canManageParticipants,
+            CanEditProjectSettings = canEditProjectSettings,
+            CanManageShows = canManageShows
+        });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<AdminShareListResponse> GetShowAdminsAsync(string accessToken, Guid showId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/admin/shows/{showId}/admins", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AdminShareListResponse>(cancellationToken) ?? new AdminShareListResponse(false, []);
+    }
+
+    public async Task InviteShowAdminAsync(string accessToken, Guid showId, string username, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/admin/shows/{showId}/admins", accessToken, new { username });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task RemoveShowAdminAsync(string accessToken, Guid showId, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/admin/shows/{showId}/admins/{adminId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -903,7 +977,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
 
 public sealed record ProjectSummary(Guid Id, string Name);
 public sealed record ProjectResponse(Guid Id, string Name);
-public sealed record ProjectOverviewResponse(Guid Id, string Name, int ShowCount, int ParticipantCount, int TeamCount);
+public sealed record ProjectOverviewResponse(
+    Guid Id,
+    string Name,
+    int ShowCount,
+    int ParticipantCount,
+    int TeamCount,
+    ProjectPermissionsDto? Permissions = null);
 public sealed record CreateProjectRequest(string Name);
 public sealed record RenameProjectRequest(string Name);
 public sealed record ApiError(string Message);
@@ -1039,6 +1119,24 @@ public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, s
 public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
+public sealed record ProjectPermissionsDto(
+    bool IsCreator = true,
+    bool CanControlSession = true,
+    bool CanManageParticipants = true,
+    bool CanEditProjectSettings = true,
+    bool CanManageShows = true);
+public sealed record AdminDto(Guid Id, string Username);
+public sealed record InviteAdminRequest(string Username);
+public sealed record AdminShareItemDto(
+    Guid AdminId,
+    string Username,
+    bool IsCreator,
+    DateTime AddedAtUtc,
+    bool CanControlSession = true,
+    bool CanManageParticipants = true,
+    bool CanEditProjectSettings = false,
+    bool CanManageShows = false);
+public sealed record AdminShareListResponse(bool CanManage, List<AdminShareItemDto> Admins);
 public sealed record SpotifyAuthStartResponse(string ClientId, string RedirectUri, string State, string Challenge, string Verifier);
 public sealed record SpotifyTokenResult(string AccessToken, string? RefreshToken, int ExpiresIn);
 public sealed record HitsterTrackResponse(string TrackId);

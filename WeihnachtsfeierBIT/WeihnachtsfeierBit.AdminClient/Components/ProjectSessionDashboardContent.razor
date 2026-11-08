@@ -582,6 +582,14 @@
     </div>
 </FrameworkModal>
 
+<!-- SHARE PROJECT MODAL -->
+<FrameworkModal IsOpen="@_isShareProjectModalOpen" Title="Projekt teilen & Admins verwalten" OnClose="() => _isShareProjectModalOpen = false">
+    @if (!string.IsNullOrEmpty(AccessToken))
+    {
+        <AdminShareSection TargetId="ProjectId" IsProject="true" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
+    }
+</FrameworkModal>
+
 @code {
     [Parameter] public Guid ProjectId { get; set; }
 
@@ -660,6 +668,7 @@
 
     private FrameworkDropdownOption[] _sessionOptions =>
     [
+        new("share_project", "Projekt teilen / Admins", "person_add"),
         new("pause_session", _sessionState?.IsPaused == true ? "Session fortsetzen" : "Session pausieren", _sessionState?.IsPaused == true ? "play_arrow" : "pause"),
         new("end_session", "Session beenden", "power_settings_new")
     ];
@@ -835,6 +844,8 @@
         }
     }
 
+    private bool _isShareProjectModalOpen;
+
     private async Task HandleSessionOptionSelect(string optionValue)
     {
         if (optionValue == "end_session")
@@ -844,6 +855,10 @@
         else if (optionValue == "pause_session")
         {
             await ToggleSessionPauseAsync();
+        }
+        else if (optionValue == "share_project")
+        {
+            _isShareProjectModalOpen = true;
         }
     }
 
