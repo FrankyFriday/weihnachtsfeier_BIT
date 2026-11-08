@@ -1,14 +1,14 @@
 @using System.Text.Json
 
-<div style="display: grid; gap: 14px; width: 100%;">
+<div class="jp-board" style="display: grid; gap: 14px; width: 100%;">
     @if (_active is { } active)
     {
-        <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: 16px; border: 2px solid var(--primary); border-radius: 14px; background: var(--primary-soft); text-align: center;">
-            <div style="font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--primary-strong);">@active.Category.ToUpperInvariant() · @active.Value</div>
-            <div style="font-size: @(Large ? "40px" : "20px"); font-weight: 800; margin: 8px 0; color: var(--ink);">@active.Question</div>
+        <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: 16px; border-radius: 14px; text-align: center;">
+            <div class="jp-clue-meta" style="font-size: 12px; font-weight: 800; letter-spacing: .08em;">@active.Category.ToUpperInvariant() · @active.Value</div>
+            <div class="jp-clue-question" style="font-size: @(Large ? "40px" : "20px"); font-weight: 800; margin: 8px 0;">@active.Question</div>
             @if (!string.IsNullOrEmpty(active.Answer))
             {
-                <div class="jp-answer" style="font-size: @(Large ? "30px" : "17px"); font-weight: 700; color: var(--primary-strong);">Antwort: @active.Answer</div>
+                <div class="jp-answer" style="font-size: @(Large ? "30px" : "17px"); font-weight: 700;">Antwort: @active.Answer</div>
             }
         </div>
     }
@@ -20,7 +20,7 @@
                     @for (int h = 0; h < _categories.Count; h++)
                     {
                         var category = _categories[h];
-                        <th class="jp-head" style="animation-delay: @(h * 60)ms; padding: @(Large ? "clamp(6px, 1.2vh, 14px) 8px" : "8px 4px"); background: var(--primary-strong); color: #fff; border-radius: 8px; font-size: @(Large ? "clamp(10px, 1vw, 18px)" : "11px"); overflow-wrap: break-word; hyphens: auto; line-height: 1.15;">@category.Name</th>
+                        <th class="jp-head" style="animation-delay: @(h * 60)ms; padding: @(Large ? "clamp(6px, 1.2vh, 14px) 8px" : "8px 4px"); border-radius: 8px; font-size: @(Large ? "clamp(10px, 1vw, 18px)" : "11px"); overflow-wrap: break-word; hyphens: auto; line-height: 1.15;">@category.Name</th>
                     }
                 </tr>
             </thead>
@@ -35,7 +35,7 @@
                             @if (row < category.Values.Count)
                             {
                                 var (value, used) = category.Values[row];
-                                <td class="jp-cell" style="animation-delay: @(300 + (row * _categories.Count + column) * 25)ms; text-align: center; padding: @(Large ? "clamp(5px, 1.6vh, 18px) 6px" : "10px 4px"); border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 800; font-size: @(Large ? "clamp(14px, 1.8vw, 28px)" : "15px"); color: var(--ink); opacity: @(used ? ".3" : "1");">
+                                <td class="jp-cell @(used ? "is-used" : null)" style="animation-delay: @(300 + (row * _categories.Count + column) * 25)ms; text-align: center; padding: @(Large ? "clamp(5px, 1.6vh, 18px) 6px" : "10px 4px"); border-radius: 8px; font-weight: 800; font-size: @(Large ? "clamp(14px, 1.8vw, 28px)" : "15px");">
                                     @(used ? "" : value.ToString())
                                 </td>
                             }
