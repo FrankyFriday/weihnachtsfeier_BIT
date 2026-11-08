@@ -29,6 +29,10 @@
                 <FrameworkTextArea Id="slide-admin-notes" @bind-Value="Slide.AdminNotes" Rows="2" Placeholder="Regieanweisung oder Notizen für den Moderator..." />
             </FrameworkFormGroup>
 
+            <FrameworkFormGroup Label="Team-Modus" HelpText="steuert welche Teams auf ihren Smartphones antworten dürfen" ForId="slide-team-mode" Style="margin-top: 12px;">
+                <FrameworkSelect Id="slide-team-mode" @bind-Value="Slide.TeamMode" Options="_teamModeOptions" />
+            </FrameworkFormGroup>
+
             <FrameworkDivider />
 
             @switch (Slide.Type)
@@ -76,7 +80,7 @@
                     <PointAwardSlideEditor Slide="Slide" />
                     break;
                 case "jeopardy":
-                    <JeopardySlideEditor Slide="Slide" />
+                    <JeopardySlideEditor Slide="Slide" AvailableSlides="AvailableSlides" />
                     break;
             }
 
@@ -96,7 +100,14 @@
 
 @code {
     [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+    [Parameter] public EditableSlide[] AvailableSlides { get; set; } = [];
     [Parameter] public bool IsBusy { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
+
+    private static readonly FrameworkSelectOption[] _teamModeOptions =
+    [
+        new("open_competition", "Offener Wettkampf (Alle Teams dürfen antworten)"),
+        new("team_exclusive", "Team-Exklusiv (Nur am Zug befindliches Team darf antworten)")
+    ];
 }

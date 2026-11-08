@@ -11,8 +11,7 @@ public sealed class RankingEntryModel
 public sealed class JeopardyClueModel
 {
     public int Value { get; set; } = 100;
-    public string Question { get; set; } = string.Empty;
-    public string Answer { get; set; } = string.Empty;
+    public List<Guid> TargetSlideIds { get; set; } = [];
 }
 
 public sealed class JeopardyCategoryModel
@@ -112,7 +111,9 @@ public sealed class EditableSlide
     public string PointAwardReason { get; set; } = string.Empty;
     public int PointAwardDefaultPoints { get; set; } = 10;
 
-    public string JeopardyTitle { get; set; } = "Bünting Jeopardy";
+    public string TeamMode { get; set; } = "open_competition";
+
+    public string JeopardyTitle { get; set; } = "Jeopardy Board";
     public List<JeopardyCategoryModel> JeopardyCategories { get; set; } = [];
 
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
@@ -123,6 +124,7 @@ public sealed class EditableSlide
         InternalName = ReadString(parameters, "internalName");
         AdminNotes = ReadString(parameters, "adminNotes");
         IsDisabled = ReadBool(parameters, "isDisabled");
+        TeamMode = ReadString(parameters, "teamMode") is { Length: > 0 } teamMode ? teamMode : "open_competition";
 
         switch (type)
         {
@@ -339,7 +341,13 @@ public sealed class EditableSlide
     public (JsonElement Parameters, string? Error) BuildParameters()
     {
         ErrorMessage = null;
-        object payload;
+        Dictionary<string, object?> dict = new()
+        {
+            ["internalName"] = InternalName.Trim(),
+            ["adminNotes"] = AdminNotes.Trim(),
+            ["isDisabled"] = IsDisabled,
+            ["teamMode"] = TeamMode
+        };
 
         switch (Type)
         {
@@ -349,14 +357,8 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte einen Titel eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = AnnouncementTitle.Trim(),
-                    message = AnnouncementMessage.Trim()
-                };
+                dict["title"] = AnnouncementTitle.Trim();
+                dict["message"] = AnnouncementMessage.Trim();
                 break;
 
             case "poll":
@@ -371,18 +373,12 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte mindestens 2 Antworten eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = PollQuestion.Trim(),
-                    options = cleanOptions,
-                    allowMultipleAnswers = PollAllowMultiple,
-                    hideResultsUntilRevealed = PollHideResultsUntilRevealed,
-                    showPercentage = PollShowPercentage,
-                    allowChangeVote = PollAllowChangeVote
-                };
+                dict["question"] = PollQuestion.Trim();
+                dict["options"] = cleanOptions;
+                dict["allowMultipleAnswers"] = PollAllowMultiple;
+                dict["hideResultsUntilRevealed"] = PollHideResultsUntilRevealed;
+                dict["showPercentage"] = PollShowPercentage;
+                dict["allowChangeVote"] = PollAllowChangeVote;
                 break;
 
             case "quiz":
@@ -402,32 +398,20 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte mindestens eine korrekte Antwort markieren.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = QuizQuestion.Trim(),
-                    answers = cleanAnswers,
-                    correctAnswerIndices = QuizCorrectAnswerIndices,
-                    timeLimitSeconds = QuizTimeLimitSeconds,
-                    points = QuizPoints,
-                    enableSpeedBonus = QuizEnableSpeedBonus,
-                    explanation = QuizExplanation.Trim()
-                };
+                dict["question"] = QuizQuestion.Trim();
+                dict["answers"] = cleanAnswers;
+                dict["correctAnswerIndices"] = QuizCorrectAnswerIndices;
+                dict["timeLimitSeconds"] = QuizTimeLimitSeconds;
+                dict["points"] = QuizPoints;
+                dict["enableSpeedBonus"] = QuizEnableSpeedBonus;
+                dict["explanation"] = QuizExplanation.Trim();
                 break;
 
             case "ranking":
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = string.IsNullOrWhiteSpace(RankingTitle) ? "Zwischenstand" : RankingTitle.Trim(),
-                    topCount = RankingTopCount,
-                    animatePodium = RankingAnimatePodium,
-                    chartType = string.IsNullOrWhiteSpace(RankingChartType) ? "bar_chart" : RankingChartType
-                };
+                dict["title"] = string.IsNullOrWhiteSpace(RankingTitle) ? "Zwischenstand" : RankingTitle.Trim();
+                dict["topCount"] = RankingTopCount;
+                dict["animatePodium"] = RankingAnimatePodium;
+                dict["chartType"] = string.IsNullOrWhiteSpace(RankingChartType) ? "bar_chart" : RankingChartType;
                 break;
 
             case "estimation":
@@ -436,28 +420,16 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte eine Schätzfrage eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = EstimationQuestion.Trim(),
-                    correctValue = EstimationCorrectValue,
-                    unit = EstimationUnit.Trim(),
-                    points = EstimationPoints
-                };
+                dict["question"] = EstimationQuestion.Trim();
+                dict["correctValue"] = EstimationCorrectValue;
+                dict["unit"] = EstimationUnit.Trim();
+                dict["points"] = EstimationPoints;
                 break;
 
             case "buzzer":
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = BuzzerQuestion.Trim(),
-                    points = BuzzerPoints,
-                    timeLimitSeconds = BuzzerTimeLimitSeconds
-                };
+                dict["question"] = BuzzerQuestion.Trim();
+                dict["points"] = BuzzerPoints;
+                dict["timeLimitSeconds"] = BuzzerTimeLimitSeconds;
                 break;
 
             case "hitster":
@@ -471,15 +443,9 @@ public sealed class EditableSlide
                     ErrorMessage = "Die Anleitung darf maximal 1000 Zeichen lang sein und die Siegbedingung muss zwischen 3 und 20 Karten liegen.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = HitsterTitle.Trim(),
-                    instructions = HitsterInstructions.Trim(),
-                    cardsToWin = HitsterCardsToWin
-                };
+                dict["title"] = HitsterTitle.Trim();
+                dict["instructions"] = HitsterInstructions.Trim();
+                dict["cardsToWin"] = HitsterCardsToWin;
                 break;
 
             case "text":
@@ -488,15 +454,9 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte eine Frage / Anweisung eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = TextQuestion.Trim(),
-                    placeholder = TextPlaceholder.Trim(),
-                    maxLength = TextMaxLength
-                };
+                dict["question"] = TextQuestion.Trim();
+                dict["placeholder"] = TextPlaceholder.Trim();
+                dict["maxLength"] = TextMaxLength;
                 break;
 
             case "word_cloud":
@@ -505,14 +465,8 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte eine Frage / Thema eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = WordCloudQuestion.Trim(),
-                    maxWordsPerUser = WordCloudMaxWordsPerUser
-                };
+                dict["question"] = WordCloudQuestion.Trim();
+                dict["maxWordsPerUser"] = WordCloudMaxWordsPerUser;
                 break;
 
             case "slider":
@@ -521,17 +475,11 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte eine Frage / Skalen-Thema eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = SliderQuestion.Trim(),
-                    min = SliderMin,
-                    max = SliderMax,
-                    step = SliderStep,
-                    unit = SliderUnit.Trim()
-                };
+                dict["question"] = SliderQuestion.Trim();
+                dict["min"] = SliderMin;
+                dict["max"] = SliderMax;
+                dict["step"] = SliderStep;
+                dict["unit"] = SliderUnit.Trim();
                 break;
 
             case "rating":
@@ -540,14 +488,8 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte eine Frage / Bewertungs-Thema eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = RatingQuestion.Trim(),
-                    maxStars = RatingMaxStars
-                };
+                dict["question"] = RatingQuestion.Trim();
+                dict["maxStars"] = RatingMaxStars;
                 break;
 
             case "ordering":
@@ -562,38 +504,20 @@ public sealed class EditableSlide
                     ErrorMessage = "Bitte mindestens 2 Elemente zum Sortieren eingeben.";
                     return (default, ErrorMessage);
                 }
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    question = OrderingQuestion.Trim(),
-                    items = cleanItems
-                };
+                dict["question"] = OrderingQuestion.Trim();
+                dict["items"] = cleanItems;
                 break;
 
             case "countdown":
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = string.IsNullOrWhiteSpace(CountdownTitle) ? "Timer" : CountdownTitle.Trim(),
-                    seconds = CountdownSeconds,
-                    message = CountdownMessage.Trim()
-                };
+                dict["title"] = string.IsNullOrWhiteSpace(CountdownTitle) ? "Timer" : CountdownTitle.Trim();
+                dict["seconds"] = CountdownSeconds;
+                dict["message"] = CountdownMessage.Trim();
                 break;
 
             case "point_award":
-                payload = new
-                {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = string.IsNullOrWhiteSpace(PointAwardTitle) ? "Punktevergabe" : PointAwardTitle.Trim(),
-                    defaultReason = PointAwardReason.Trim(),
-                    defaultDeltaPoints = PointAwardDefaultPoints
-                };
+                dict["title"] = string.IsNullOrWhiteSpace(PointAwardTitle) ? "Punktevergabe" : PointAwardTitle.Trim();
+                dict["defaultReason"] = PointAwardReason.Trim();
+                dict["defaultDeltaPoints"] = PointAwardDefaultPoints;
                 break;
 
             case "jeopardy":
@@ -602,34 +526,30 @@ public sealed class EditableSlide
                     {
                         Name = category.Name.Trim(),
                         Clues = category.Clues
-                            .Where(clue => !string.IsNullOrWhiteSpace(clue.Question))
                             .Select(clue => new JeopardyClueModel
                             {
                                 Value = clue.Value,
-                                Question = clue.Question.Trim(),
-                                Answer = clue.Answer.Trim()
+                                TargetSlideIds = clue.TargetSlideIds ?? []
                             })
                             .ToList()
                     })
                     .Where(category => category.Name.Length > 0 || category.Clues.Count > 0)
                     .ToList();
-                if (cleanCategories.Count == 0 || cleanCategories.Any(category => category.Name.Length == 0 || category.Clues.Count == 0))
+                if (cleanCategories.Count == 0 || cleanCategories.Any(category => category.Name.Length == 0))
                 {
-                    ErrorMessage = "Bitte mindestens eine Kategorie mit Namen und mindestens einer Frage anlegen.";
+                    ErrorMessage = "Bitte mindestens eine Kategorie mit Namen anlegen.";
                     return (default, ErrorMessage);
                 }
-                payload = new
+                dict["title"] = string.IsNullOrWhiteSpace(JeopardyTitle) ? "Jeopardy Board" : JeopardyTitle.Trim();
+                dict["categories"] = cleanCategories.Select(category => new
                 {
-                    internalName = InternalName.Trim(),
-                    adminNotes = AdminNotes.Trim(),
-                    isDisabled = IsDisabled,
-                    title = string.IsNullOrWhiteSpace(JeopardyTitle) ? "Bünting Jeopardy" : JeopardyTitle.Trim(),
-                    categories = cleanCategories.Select(category => new
+                    name = category.Name,
+                    clues = category.Clues.Select(clue => new
                     {
-                        name = category.Name,
-                        clues = category.Clues.Select(clue => new { value = clue.Value, question = clue.Question, answer = clue.Answer })
+                        value = clue.Value,
+                        targetSlideIds = clue.TargetSlideIds
                     })
-                };
+                });
                 break;
 
             default:
@@ -637,7 +557,7 @@ public sealed class EditableSlide
                 return (default, ErrorMessage);
         }
 
-        return (JsonSerializer.SerializeToElement(payload, JsonOptions), null);
+        return (JsonSerializer.SerializeToElement(dict, JsonOptions), null);
     }
 
     private static string ReadString(JsonElement element, string prop)
@@ -747,11 +667,15 @@ public sealed class EditableSlide
             {
                 foreach (var clue in clues.EnumerateArray())
                 {
+                    var targetIds = ReadGuidList(clue, "targetSlideIds");
+                    if (targetIds.Count == 0 && clue.TryGetProperty("targetSlideId", out var singleIdProp) && singleIdProp.ValueKind == JsonValueKind.String && Guid.TryParse(singleIdProp.GetString(), out var singleGuid))
+                    {
+                        targetIds.Add(singleGuid);
+                    }
                     model.Clues.Add(new JeopardyClueModel
                     {
                         Value = ReadNullableInt(clue, "value") ?? 100,
-                        Question = ReadString(clue, "question"),
-                        Answer = ReadString(clue, "answer")
+                        TargetSlideIds = targetIds
                     });
                 }
             }
@@ -760,5 +684,22 @@ public sealed class EditableSlide
         }
 
         return result;
+    }
+
+    private static List<Guid> ReadGuidList(JsonElement element, string prop)
+    {
+        if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.Array)
+        {
+            var list = new List<Guid>();
+            foreach (var item in val.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String && Guid.TryParse(item.GetString(), out var g))
+                {
+                    list.Add(g);
+                }
+            }
+            return list;
+        }
+        return [];
     }
 }

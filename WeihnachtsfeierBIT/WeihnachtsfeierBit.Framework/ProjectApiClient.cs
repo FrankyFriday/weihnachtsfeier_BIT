@@ -1055,6 +1055,13 @@ public sealed record EventResponseState(
     JsonElement ResponseData,
     DateTime SubmittedAtUtc);
 
+public sealed record EventNavigationContext(
+    int OriginSlideIndex,
+    int SequenceEndSlideIndex,
+    string? ActiveCellKey,
+    Guid? ActiveTeamId,
+    string? ActiveTeamName);
+
 public sealed record EventState(
     Guid EventId,
     Guid? SourceShowId,
@@ -1072,7 +1079,9 @@ public sealed record EventState(
     DateTime StartedAtUtc,
     int AccumulatedElapsedSeconds = 0,
     bool IsPaused = false,
-    DateTime? LastResumedAtUtc = null);
+    DateTime? LastResumedAtUtc = null,
+    Guid? ActiveTeamId = null,
+    EventNavigationContext? NavigationContext = null);
 
 public sealed record ProjectGameState(
     Guid ProjectId,
@@ -1084,7 +1093,8 @@ public sealed record ProjectGameState(
     Guid? ActiveCanvasEventId,
     DateTime UpdatedAtUtc,
     bool IsPaused = false,
-    bool IsEnded = false);
+    bool IsEnded = false,
+    Guid? ActiveTeamId = null);
 public sealed record CanvasTeamState(Guid Id, string DisplayName, int Points, int Rank);
 public sealed record CanvasEventState(Guid EventId, string SlideType, string Title, JsonElement Parameters);
 public sealed record CanvasGameState(

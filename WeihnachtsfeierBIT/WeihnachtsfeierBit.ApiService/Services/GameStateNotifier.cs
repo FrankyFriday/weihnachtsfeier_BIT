@@ -142,7 +142,8 @@ public sealed class GameStateNotifier(
             instance?.ActiveCanvasEventId,
             DateTime.UtcNow,
             IsPaused: instance?.IsPaused ?? false,
-            IsEnded: isEnded);
+            IsEnded: isEnded,
+            ActiveTeamId: activeEvent?.ActiveTeamId);
     }
 
     private static EventState ToEventState(
@@ -202,6 +203,35 @@ public sealed class GameStateNotifier(
             })
             .ToArray();
 
+        Guid? activeTeamId = null;
+        EventNavigationContext? navContext = null;
+
+        foreach (var slide in slideStates)
+        {
+            if (slide.Parameters.ValueKind == JsonValueKind.Object
+                && slide.Parameters.TryGetProperty("state", out var stateElem)
+                && stateElem.ValueKind == JsonValueKind.Object)
+            {
+                if (stateElem.TryGetProperty("selectedTeamId", out var teamProp)
+                    && teamProp.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(teamProp.GetString(), out var tid))
+                {
+                    activeTeamId ??= tid;
+                }
+
+                if (stateElem.TryGetProperty("navigationContext", out var navElem)
+                    && navElem.ValueKind == JsonValueKind.Object)
+                {
+                    int origin = navElem.TryGetProperty("originSlideIndex", out var oProp) && oProp.ValueKind == JsonValueKind.Number ? oProp.GetInt32() : 0;
+                    int end = navElem.TryGetProperty("sequenceEndSlideIndex", out var eProp) && eProp.ValueKind == JsonValueKind.Number ? eProp.GetInt32() : origin;
+                    string? key = navElem.TryGetProperty("activeCellKey", out var kProp) && kProp.ValueKind == JsonValueKind.String ? kProp.GetString() : null;
+                    string? teamName = stateElem.TryGetProperty("selectedTeamName", out var tnProp) && tnProp.ValueKind == JsonValueKind.String ? tnProp.GetString() : null;
+
+                    navContext ??= new EventNavigationContext(origin, end, key, activeTeamId, teamName);
+                }
+            }
+        }
+
         return new EventState(
             gie.Id,
             gie.SourceShowId,
@@ -219,6 +249,8 @@ public sealed class GameStateNotifier(
             gie.StartedAtUtc,
             gie.AccumulatedElapsedSeconds,
             gie.IsPaused,
-            gie.LastResumedAtUtc);
+            gie.LastResumedAtUtc,
+            ActiveTeamId: activeTeamId,
+            NavigationContext: navContext);
     }
 }

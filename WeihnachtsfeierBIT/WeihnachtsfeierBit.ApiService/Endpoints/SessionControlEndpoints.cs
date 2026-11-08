@@ -373,7 +373,7 @@ public static class SessionControlEndpoints
 
         var slide = slides.OfType<JsonObject>()
             .FirstOrDefault(s => string.Equals(s["slideId"]?.GetValue<string>(), slideId.ToString(), StringComparison.OrdinalIgnoreCase));
-        if (slide is null || !string.Equals(slide["type"]?.GetValue<string>(), "jeopardy", StringComparison.OrdinalIgnoreCase))
+        if (slide is null)
         {
             return Results.NotFound();
         }

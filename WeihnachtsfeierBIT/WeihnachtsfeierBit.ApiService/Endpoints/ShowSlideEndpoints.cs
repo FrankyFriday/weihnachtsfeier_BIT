@@ -259,10 +259,9 @@ public static class ShowSlideEndpoints
                     if (categories.Count == 0
                         || categories.Any(category => category is null
                             || string.IsNullOrWhiteSpace(category.Name)
-                            || category.Clues is null
-                            || !category.Clues.Any(clue => clue is not null && !string.IsNullOrWhiteSpace(clue.Question))))
+                            || category.Clues is null))
                     {
-                        return (false, "Jeopardy braucht mindestens eine Kategorie mit Namen und mindestens einer Frage.");
+                        return (false, "Jeopardy braucht mindestens eine Kategorie mit Namen.");
                     }
                     break;
                 default:

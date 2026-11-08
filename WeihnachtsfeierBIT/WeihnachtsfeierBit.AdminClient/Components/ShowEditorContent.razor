@@ -42,6 +42,10 @@
                                     <div class="slide-list-item-header">
                                         <span class="slide-position">#@(slide.Position + 1)</span>
                                         <FrameworkBadge Text="@EditableSlide.SlideTypeLabel(slide.Type)" Variant="@slide.Type" />
+                                        @if (GetJeopardyReferenceLabel(slide.Id) is string refLabel)
+                                        {
+                                            <FrameworkBadge Text="@($"🔗 Jeopardy: {refLabel}")" Variant="primary" />
+                                        }
                                         @if (slide.IsDisabled)
                                         {
                                             <FrameworkBadge Text="Entwurf" Variant="disabled" />
@@ -70,6 +74,7 @@
                 @if (_selectedSlide is not null)
                 {
                     <SlideConfigurator Slide="_selectedSlide"
+                                       AvailableSlides="_slides"
                                        IsBusy="@(_busySlideId == _selectedSlide.Id)"
                                        OnSave="() => SaveSlideAsync(_selectedSlide)"
                                        OnDelete="() => DeleteSlideAsync(_selectedSlide)"
@@ -209,7 +214,7 @@
                     "estimation" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, correctValue = 0.0, unit = string.Empty, points = 100 },
                     "buzzer" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, points = 100, timeLimitSeconds = (int?)null },
                     "hitster" => new { internalName = _newSlideInternalName.Trim(), title = "Hitster", instructions = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.", cardsToWin = 10 },
-                    "jeopardy" => new { internalName = _newSlideInternalName.Trim(), title = "Bünting Jeopardy", categories = JeopardyDefaults.Categories() },
+                    "jeopardy" => new { internalName = _newSlideInternalName.Trim(), title = "Jeopardy Board", categories = new[] { new { name = "Kategorie 1", clues = new[] { new { value = 100 }, new { value = 200 } } } } },
                     _ => new { internalName = _newSlideInternalName.Trim() }
                 };
 
@@ -336,5 +341,24 @@
         {
             _busySlideId = null;
         }
+    }
+
+    private string? GetJeopardyReferenceLabel(Guid slideId)
+    {
+        foreach (var s in _slides)
+        {
+            if (!s.Type.Equals("jeopardy", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (var cat in s.JeopardyCategories)
+            {
+                foreach (var clue in cat.Clues)
+                {
+                    if (clue.TargetSlideIds is not null && clue.TargetSlideIds.Contains(slideId))
+                    {
+                        return $"{cat.Name} ({clue.Value} Pkt)";
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

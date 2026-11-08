@@ -198,6 +198,23 @@
                             </div>
                         }
 
+                        @if (ev.NavigationContext is { } navContext)
+                        {
+                            <div style="padding: 12px 16px; margin-top: 16px; margin-bottom: 8px; border-radius: 8px; background: #e0f2fe; border: 1.5px solid #0284c7; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span style="font-size: 18px;">🎮</span>
+                                    <div>
+                                        <strong style="color: #0369a1; font-size: 14px;">Jeopardy-Modus aktiv</strong>
+                                        @if (!string.IsNullOrEmpty(navContext.ActiveTeamName))
+                                        {
+                                            <span style="font-size: 13px; color: #0284c7; margin-left: 6px;">• Am Zug: <strong>@navContext.ActiveTeamName</strong></span>
+                                        }
+                                    </div>
+                                </div>
+                                <FrameworkButton Label="↩ Zurück zum Jeopardy-Board" Variant="primary" OnClick="() => ReturnToJeopardyBoard(ev)" />
+                            </div>
+                        }
+
                         <!-- EMBEDDED RESULT VIEW FOR CURRENT SLIDE -->
                         @if (ev.Slides.Length > ev.CurrentSlideIndex)
                         {
@@ -1183,6 +1200,59 @@
         catch (HttpRequestException ex)
         {
             _actionError = ex.Message;
+        }
+    }
+
+    private async Task ReturnToJeopardyBoard(EventState ev)
+    {
+        if (ev.NavigationContext is not { } navContext) return;
+        var originIndex = navContext.OriginSlideIndex;
+        var activeCellKey = navContext.ActiveCellKey;
+
+        var jeopardySlide = ev.Slides.Length > originIndex ? ev.Slides[originIndex] : null;
+        if (jeopardySlide is not null)
+        {
+            var used = new HashSet<string>(StringComparer.Ordinal);
+            if (jeopardySlide.Parameters.ValueKind == JsonValueKind.Object
+                && jeopardySlide.Parameters.TryGetProperty("state", out var stateElem)
+                && stateElem.ValueKind == JsonValueKind.Object)
+            {
+                if (stateElem.TryGetProperty("used", out var usedElem) && usedElem.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var u in usedElem.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String))
+                    {
+                        used.Add(u.GetString()!);
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(activeCellKey))
+            {
+                used.Add(activeCellKey);
+            }
+
+            var newStateObj = new
+            {
+                used = used.ToArray(),
+                active = (string?)null,
+                selectedTeamId = (string?)null,
+                selectedTeamName = (string?)null,
+                navigationContext = (object?)null
+            };
+
+            try
+            {
+                await RunAuthenticatedAsync(async token =>
+                {
+                    await ProjectApiClient.SetSlideStateAsync(token, ProjectId, ev.EventId, jeopardySlide.SlideId, newStateObj);
+                    await ProjectApiClient.UpdateEventAsync(token, ProjectId, ev.EventId, currentSlideIndex: originIndex);
+                    await LoadDataAsync();
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                _actionError = ex.Message;
+            }
         }
     }
 

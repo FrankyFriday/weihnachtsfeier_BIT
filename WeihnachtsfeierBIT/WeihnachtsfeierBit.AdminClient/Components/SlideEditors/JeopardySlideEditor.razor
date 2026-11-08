@@ -3,19 +3,18 @@
 
 <div style="display: grid; gap: 12px; margin-top: 12px;">
     <FrameworkFormGroup Label="Titel des Spiels">
-        <FrameworkInputText @bind-Value="Slide.JeopardyTitle" Placeholder="z. B. Bünting Jeopardy" />
+        <FrameworkInputText @bind-Value="Slide.JeopardyTitle" Placeholder="z. B. Jeopardy Board" />
     </FrameworkFormGroup>
 
     <p style="margin: 0; color: var(--muted); font-size: 13px;">
-        Jede Kategorie bekommt fünf Fragen: 100 Punkte sind am leichtesten, 500 Punkte am schwersten. Ein Team wählt die Kategorie und den Punktewert.
-        Die Antwort sieht nur die Spielleitung, bis sie aufgedeckt wird.
+        Jede Kategorie stellt Spalten mit Punktwerten bereit. Jedem Feld können eine oder mehrere Slides (Sequenzen) zugeordnet werden.
     </p>
 
     @for (int c = 0; c < Slide.JeopardyCategories.Count; c++)
     {
         var ci = c;
         var category = Slide.JeopardyCategories[ci];
-        <div style="padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); display: grid; gap: 10px;">
+        <div style="padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); display: grid; gap: 12px;">
             <div style="display: flex; gap: 8px; align-items: center;">
                 <div style="flex: 1;">
                     <FrameworkInputText @bind-Value="category.Name" Placeholder="Kategorie, z. B. Rund um Bünting" />
@@ -27,16 +26,52 @@
             {
                 var ri = r;
                 var clue = category.Clues[ri];
-                <div style="display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 8px; align-items: center;">
-                    <FrameworkInputNumber @bind-Value="clue.Value" Min="100" Max="500" Step="100" />
-                    <FrameworkInputText @bind-Value="clue.Question" Placeholder="Frage / Hinweis" />
-                    <FrameworkInputText @bind-Value="clue.Answer" Placeholder="Antwort" />
-                    <FrameworkIconButton Icon="close" Title="Frage entfernen" OnClick="() => RemoveClue(ci, ri)" />
+                var cellKey = $"{ci}-{ri}";
+                <div style="padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); display: grid; gap: 8px;">
+                    <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; gap: 8px; align-items: center; width: 140px;">
+                            <span style="font-size: 13px; font-weight: 700;">Wert:</span>
+                            <FrameworkInputNumber @bind-Value="clue.Value" Min="100" Max="1000" Step="100" />
+                        </div>
+                        <FrameworkIconButton Icon="close" Title="Feld löschen" OnClick="() => RemoveClue(ci, ri)" />
+                    </div>
+
+                    <!-- Assigned Slide Sequence List -->
+                    <div style="display: grid; gap: 6px;">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--muted);">Zugeordnete Slide(s) in Reihenfolge:</span>
+                        @if (clue.TargetSlideIds.Count == 0)
+                        {
+                            <span style="font-size: 12px; color: var(--muted); font-style: italic;">Noch keine Slide zugeordnet.</span>
+                        }
+                        else
+                        {
+                            @for (int s = 0; s < clue.TargetSlideIds.Count; s++)
+                            {
+                                var si = s;
+                                var slideId = clue.TargetSlideIds[si];
+                                var matchedSlide = AvailableSlides.FirstOrDefault(x => x.Id == slideId);
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; border: 1px solid var(--line);">
+                                    <span style="font-size: 13px; font-weight: 600;">
+                                        #@(si + 1) — @(matchedSlide is not null ? $"#{matchedSlide.Position + 1} [{EditableSlide.SlideTypeLabel(matchedSlide.Type)}] {matchedSlide.DisplayName}" : "Unbekannte Slide")
+                                    </span>
+                                    <FrameworkIconButton Icon="close" Title="Slide aus Sequenz entfernen" OnClick="() => RemoveTargetSlide(clue, si)" />
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <!-- Add slide to sequence selector -->
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                        <div style="flex: 1;">
+                            <FrameworkSelect Value="@GetSelectedValue(cellKey)" ValueChanged="val => SetSelectedValue(cellKey, val)" Options="GetSlideOptions()" />
+                        </div>
+                        <FrameworkButton Label="+ Slide hinzufügen" Variant="secondary" OnClick="() => AddTargetSlide(clue, cellKey)" />
+                    </div>
                 </div>
             }
 
             <div>
-                <FrameworkButton Label="+ Frage hinzufügen" Variant="secondary" OnClick="() => AddClue(ci)" />
+                <FrameworkButton Label="+ Punktewert hinzufügen" Variant="secondary" OnClick="() => AddClue(ci)" />
             </div>
         </div>
     }
@@ -46,6 +81,44 @@
 
 @code {
     [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+    [Parameter] public EditableSlide[] AvailableSlides { get; set; } = [];
+
+    private readonly Dictionary<string, string> _selectedValues = [];
+
+    private string GetSelectedValue(string key) => _selectedValues.TryGetValue(key, out var val) ? val : string.Empty;
+    private void SetSelectedValue(string key, string? val) => _selectedValues[key] = val ?? string.Empty;
+
+    private FrameworkSelectOption[] GetSlideOptions()
+    {
+        var list = new List<FrameworkSelectOption>
+        {
+            new("", "– Slide auswählen –")
+        };
+
+        foreach (var s in AvailableSlides.Where(s => s.Id != Slide.Id).OrderBy(s => s.Position))
+        {
+            list.Add(new(s.Id.ToString(), $"#{s.Position + 1} [{EditableSlide.SlideTypeLabel(s.Type)}] {s.DisplayName}"));
+        }
+
+        return list.ToArray();
+    }
+
+    private void AddTargetSlide(JeopardyClueModel clue, string key)
+    {
+        if (_selectedValues.TryGetValue(key, out var val) && Guid.TryParse(val, out var slideId))
+        {
+            if (!clue.TargetSlideIds.Contains(slideId))
+            {
+                clue.TargetSlideIds.Add(slideId);
+                _selectedValues[key] = string.Empty;
+            }
+        }
+    }
+
+    private void RemoveTargetSlide(JeopardyClueModel clue, int index)
+    {
+        clue.TargetSlideIds.RemoveAt(index);
+    }
 
     private void AddCategory()
     {

@@ -249,6 +249,8 @@ public abstract class SlideParameters
     public string AdminNotes { get; set; } = string.Empty;
 
     public bool IsDisabled { get; set; }
+
+    public string TeamMode { get; set; } = "open_competition"; // "open_competition", or "team_exclusive"
 }
 
 public sealed class PollSlideParameters : SlideParameters
@@ -378,7 +380,7 @@ public sealed class PointAwardSlideParameters : SlideParameters
 
 public sealed class JeopardySlideParameters : SlideParameters
 {
-    public string Title { get; set; } = "Bünting Jeopardy";
+    public string Title { get; set; } = "Jeopardy Board";
     public List<JeopardyCategory> Categories { get; set; } = [];
 }
 
@@ -391,6 +393,5 @@ public sealed class JeopardyCategory
 public sealed class JeopardyClue
 {
     public int Value { get; set; } = 100;
-    public string Question { get; set; } = string.Empty;
-    public string Answer { get; set; } = string.Empty;
+    public List<Guid> TargetSlideIds { get; set; } = [];
 }
