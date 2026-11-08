@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
@@ -33,10 +34,17 @@ public static class ParticipantEndpoints
     private static async Task<IResult> CreateParticipantAsync(
         Guid projectId,
         CreateParticipantRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teilnehmer zu verwalten."));
+        }
+
         if (request.Number <= 0 || request.Name?.Length > 120)
         {
             return Results.BadRequest(new ApiError("Die Teilnehmernummer muss positiv und der Name höchstens 120 Zeichen lang sein."));
@@ -86,10 +94,17 @@ public static class ParticipantEndpoints
         Guid projectId,
         Guid participantId,
         UpdateParticipantRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teilnehmer zu verwalten."));
+        }
+
         if (request.Name?.Length > 120 || request.Number is <= 0)
         {
             return Results.BadRequest(new ApiError("Name oder Teilnehmernummer ist ungültig."));
@@ -136,10 +151,17 @@ public static class ParticipantEndpoints
     private static async Task<IResult> DeleteParticipantAsync(
         Guid projectId,
         Guid participantId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teilnehmer zu verwalten."));
+        }
+
         var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
             item => item.Id == participantId && item.ProjektId == projectId, cancellationToken);
         if (participant is null)
@@ -156,10 +178,17 @@ public static class ParticipantEndpoints
     private static async Task<IResult> GenerateParticipantsAsync(
         Guid projectId,
         GenerateParticipantsRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teilnehmer zu verwalten."));
+        }
+
         if (request.Count is <= 0 or > 500)
         {
             return Results.BadRequest(new ApiError("Die Anzahl der zu generierenden Teilnehmer muss zwischen 1 und 500 liegen."));
@@ -242,10 +271,17 @@ public static class ParticipantEndpoints
     private static async Task<IResult> RandomizeTeamsAsync(
         Guid projectId,
         RandomizeTeamsRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teams zu verwalten."));
+        }
+
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
         if (project is null)
         {
@@ -253,41 +289,37 @@ public static class ParticipantEndpoints
         }
 
         var teams = await dbContext.Teams
-            .Where(item => item.ProjektId == projectId)
-            .OrderBy(item => item.DisplayName)
+            .Where(t => t.ProjektId == projectId)
             .ToListAsync(cancellationToken);
 
         if (teams.Count == 0)
         {
-            return Results.BadRequest(new ApiError("In diesem Projekt existieren noch keine Teams. Lege zuerst Teams an."));
+            return Results.BadRequest(new ApiError("Es sind keine Teams in diesem Projekt vorhanden."));
         }
 
-        var query = dbContext.Teilnehmer.Where(item => item.ProjektId == projectId);
+        var participantsQuery = dbContext.Teilnehmer.Where(t => t.ProjektId == projectId);
         if (request.OnlyUnassigned)
         {
-            query = query.Where(item => item.TeamId == null);
+            participantsQuery = participantsQuery.Where(t => t.TeamId == null);
         }
 
-        var participants = await query.ToListAsync(cancellationToken);
+        var participants = await participantsQuery.ToListAsync(cancellationToken);
         if (participants.Count == 0)
         {
             return Results.Ok(new RandomizeTeamsResponse(0));
         }
 
         var rng = Random.Shared;
-        for (var i = participants.Count - 1; i > 0; i--)
+        int assignedCount = 0;
+        foreach (var p in participants)
         {
-            var k = rng.Next(i + 1);
-            (participants[i], participants[k]) = (participants[k], participants[i]);
-        }
-
-        for (var i = 0; i < participants.Count; i++)
-        {
-            participants[i].Team = teams[i % teams.Count];
+            p.Team = teams[rng.Next(teams.Count)];
+            assignedCount++;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-        return Results.Ok(new RandomizeTeamsResponse(participants.Count));
+
+        return Results.Ok(new RandomizeTeamsResponse(assignedCount));
     }
 }

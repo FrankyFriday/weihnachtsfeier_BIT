@@ -25,10 +25,17 @@ public static class SessionControlEndpoints
 
     private static async Task<IResult> ToggleSessionPauseAsync(
         Guid projectId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Session zu pausieren."));
+        }
+
         var instance = await dbContext.GameInstances
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
 
@@ -62,14 +69,14 @@ public static class SessionControlEndpoints
         Guid projectId,
         StartSessionShowRequest request,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Live-Session zu steuern."));
         }
 
         var instance = await dbContext.GameInstances
@@ -140,14 +147,14 @@ public static class SessionControlEndpoints
         Guid eventId,
         UpdateSessionEventRequest request,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Live-Session zu steuern."));
         }
 
         var ev = await dbContext.GameInstanceEvents
@@ -261,14 +268,14 @@ public static class SessionControlEndpoints
         Guid projectId,
         CreateSpontaneousEventRequest request,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, spontane Events zu erstellen."));
         }
 
         var instance = await dbContext.GameInstances
@@ -333,14 +340,14 @@ public static class SessionControlEndpoints
         Guid eventId,
         UpdateEventModeRequest request,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, den Event-Modus zu ändern."));
         }
 
         var ev = await dbContext.GameInstanceEvents
@@ -375,14 +382,14 @@ public static class SessionControlEndpoints
         Guid projectId,
         Guid eventId,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Events zu schließen."));
         }
 
         var ev = await dbContext.GameInstanceEvents
@@ -412,14 +419,14 @@ public static class SessionControlEndpoints
         Guid projectId,
         SetCanvasEventRequest request,
         HttpContext httpContext,
-        AdminSessionAccessService sessionAccess,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
-        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
         {
-            return Results.Unauthorized();
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, den Beamer-Inhalt festzulegen."));
         }
 
         var instance = await dbContext.GameInstances.FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
@@ -448,71 +455,48 @@ public static class SessionControlEndpoints
     {
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
-        if (access is null || access.ParticipantId is null)
+        if (access is null)
         {
             return Results.Unauthorized();
         }
 
         var ev = await dbContext.GameInstanceEvents
-            .FirstOrDefaultAsync(e => e.Id == eventId && e.GameInstance.ProjektId == projectId && e.Status == "active", cancellationToken);
+            .Include(e => e.GameInstance)
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.GameInstance.ProjektId == projectId, cancellationToken);
 
         if (ev is null)
         {
-            return Results.NotFound(new ApiError("Aktion ist nicht aktiv oder wurde beendet."));
+            return Results.NotFound();
         }
 
-        var existingResp = await dbContext.GameInstanceEventResponses
-            .FirstOrDefaultAsync(r => r.GameInstanceEventId == eventId && r.SlideId == slideId && r.ParticipantId == access.ParticipantId.Value, cancellationToken);
-
-        if (existingResp is not null)
+        var newResponse = new GameInstanceEventResponse
         {
-            existingResp.ResponseJson = JsonSerializer.Serialize(request.ResponseData);
-            existingResp.SubmittedAtUtc = DateTime.UtcNow;
-        }
-        else
-        {
-            var response = new GameInstanceEventResponse
-            {
-                GameInstanceEventId = eventId,
-                SlideId = slideId,
-                ParticipantId = access.ParticipantId.Value,
-                ResponseJson = JsonSerializer.Serialize(request.ResponseData),
-                SubmittedAtUtc = DateTime.UtcNow
-            };
-            dbContext.GameInstanceEventResponses.Add(response);
-        }
+            GameInstanceEventId = ev.Id,
+            SlideId = slideId,
+            ParticipantId = access.ParticipantId ?? Guid.Empty,
+            ResponseJson = JsonSerializer.Serialize(request.ResponseData),
+            SubmittedAtUtc = DateTime.UtcNow
+        };
 
+        dbContext.GameInstanceEventResponses.Add(newResponse);
         await dbContext.SaveChangesAsync(cancellationToken);
-        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
         return Results.Ok();
     }
 
     private static void MakeAllEventsPassive(GameInstance instance, Guid? excludeEventId = null)
     {
-        foreach (var ev in instance.Events.Where(e => e.Status == "active" && (excludeEventId == null || e.Id != excludeEventId)))
+        foreach (var ev in instance.Events)
         {
-            ev.Mode = "passive";
+            if (ev.Status == "active" && (excludeEventId == null || ev.Id != excludeEventId.Value))
+            {
+                ev.Mode = "passive";
+            }
         }
     }
 
-    private static string GetSlideType(Slide slide) => slide switch
-    {
-        AnnouncementSlide => "announcement",
-        PollSlide => "poll",
-        QuizSlide => "quiz",
-        EstimationSlide => "estimation",
-        BuzzerSlide => "buzzer",
-        RankingSlide => "ranking",
-        TextSlide => "text",
-        WordCloudSlide => "word_cloud",
-        SliderSlide => "slider",
-        RatingSlide => "rating",
-        OrderingSlide => "ordering",
-        CountdownSlide => "countdown",
-        PointAwardSlide => "point_award",
-        _ => "announcement"
-    };
+    private static string GetSlideType(Slide slide) => ShowSlideEndpoints.GetSlideType(slide);
 
     private static string ReadTitleFromParameters(JsonElement parameters, string slideType)
     {
@@ -520,25 +504,37 @@ public static class SessionControlEndpoints
         {
             if (parameters.TryGetProperty("title", out var titleProp) && titleProp.ValueKind == JsonValueKind.String)
             {
-                var val = titleProp.GetString();
-                if (!string.IsNullOrWhiteSpace(val)) return val;
+                var titleStr = titleProp.GetString();
+                if (!string.IsNullOrWhiteSpace(titleStr))
+                {
+                    return titleStr.Trim();
+                }
             }
-            if (parameters.TryGetProperty("question", out var questionProp) && questionProp.ValueKind == JsonValueKind.String)
+            if (parameters.TryGetProperty("question", out var qProp) && qProp.ValueKind == JsonValueKind.String)
             {
-                var val = questionProp.GetString();
-                if (!string.IsNullOrWhiteSpace(val)) return val;
+                var qStr = qProp.GetString();
+                if (!string.IsNullOrWhiteSpace(qStr))
+                {
+                    return qStr.Trim();
+                }
             }
         }
 
-        return slideType.ToLowerInvariant() switch
+        return slideType switch
         {
-            "announcement" => "Spontane Ankündigung",
-            "poll" => "Spontane Abstimmung",
-            "quiz" => "Spontanes Quiz",
-            "estimation" => "Spontane Schätzfrage",
-            "buzzer" => "Spontaner Buzzer",
-            "ranking" => "Spontane Rangliste",
-            _ => "Spontane Aktion"
+            "poll" => "Abstimmung",
+            "quiz" => "Quizfragen",
+            "ranking" => "Zwischenstand",
+            "estimation" => "Schätzfrage",
+            "buzzer" => "Buzzer-Runde",
+            "text" => "Freitext-Antworten",
+            "word_cloud" => "Wortwolke",
+            "slider" => "Schieberegler",
+            "rating" => "Sterne-Bewertung",
+            "ordering" => "Sortierung",
+            "countdown" => "Countdown-Timer",
+            "point_award" => "Punktevergabe",
+            _ => "Spontanes Event"
         };
     }
 }

@@ -18,19 +18,39 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
         var tokenHash = ApiToken.Hash(token);
         var adminSession = await dbContext.ProjektAdminSitzungen
             .FirstOrDefaultAsync(session => session.TokenHash == tokenHash &&
-            session.ProjektAdmin.Projekte.Any(membership => membership.ProjektId == projectId) &&
                 session.WiderrufenAmUtc == null &&
                 session.LaeuftAbAmUtc > now, cancellationToken);
 
         if (adminSession is not null)
         {
-            if (now - adminSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
-            {
-                adminSession.LetzteAktivitaetAmUtc = now;
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
+            var project = await dbContext.Projekte
+                .Include(p => p.Admins)
+                .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
 
-            return new ProjectAccess(projectId, null, adminSession.ProjektAdminId);
+            if (project is not null)
+            {
+                bool isCreator = !project.ErstellerAdminId.HasValue || project.ErstellerAdminId == adminSession.ProjektAdminId;
+                var membership = project.Admins.FirstOrDefault(a => a.ProjektAdminId == adminSession.ProjektAdminId);
+
+                if (isCreator || membership is not null)
+                {
+                    if (now - adminSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
+                    {
+                        adminSession.LetzteAktivitaetAmUtc = now;
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                    }
+
+                    return new ProjectAccess(
+                        projectId,
+                        null,
+                        adminSession.ProjektAdminId,
+                        IsCreator: isCreator,
+                        CanControlSession: isCreator || (membership?.CanControlSession ?? false),
+                        CanManageParticipants: isCreator || (membership?.CanManageParticipants ?? false),
+                        CanEditProjectSettings: isCreator || (membership?.CanEditProjectSettings ?? false),
+                        CanManageShows: isCreator || (membership?.CanManageShows ?? false));
+                }
+            }
         }
 
         var participantSession = await dbContext.Sitzungen

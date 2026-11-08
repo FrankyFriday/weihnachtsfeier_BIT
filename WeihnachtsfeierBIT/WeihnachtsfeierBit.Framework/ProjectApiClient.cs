@@ -844,7 +844,13 @@ public sealed class ProjectApiClient(HttpClient httpClient)
 
 public sealed record ProjectSummary(Guid Id, string Name);
 public sealed record ProjectResponse(Guid Id, string Name);
-public sealed record ProjectOverviewResponse(Guid Id, string Name, int ShowCount, int ParticipantCount, int TeamCount);
+public sealed record ProjectOverviewResponse(
+    Guid Id,
+    string Name,
+    int ShowCount,
+    int ParticipantCount,
+    int TeamCount,
+    ProjectPermissionsDto? Permissions = null);
 public sealed record CreateProjectRequest(string Name);
 public sealed record RenameProjectRequest(string Name);
 public sealed record ApiError(string Message);
@@ -963,6 +969,12 @@ public sealed record ProjectInfoPageDto(Guid Id, Guid ProjektId, string Title, s
 public sealed record TeamNameSuggestionDto(Guid Id, string SuggestedName, string SubmittedBy, int Votes, int RequiredVotes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record SongWishDto(Guid Id, string SongTitle, string Artist, string SubmittedBy, int Votes, bool HasVoted, DateTime CreatedAtUtc);
 public sealed record TeamPointLogDto(Guid Id, Guid TeamId, string TeamName, string TeamColor, int DeltaPoints, int NewTotalPoints, string Reason, DateTime CreatedAtUtc);
+public sealed record ProjectPermissionsDto(
+    bool IsCreator = true,
+    bool CanControlSession = true,
+    bool CanManageParticipants = true,
+    bool CanEditProjectSettings = true,
+    bool CanManageShows = true);
 public sealed record AdminDto(Guid Id, string Username);
 public sealed record InviteAdminRequest(string Username);
 public sealed record AdminShareItemDto(

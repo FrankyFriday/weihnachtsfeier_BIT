@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.Data;
 
@@ -29,9 +30,16 @@ public static class ProjectShowEndpoints
     private static async Task<IResult> LinkShowAsync(
         Guid projectId,
         LinkShowRequest request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageShows)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Shows in diesem Projekt zu verknüpfen."));
+        }
+
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
         if (project is null)
         {
@@ -65,9 +73,16 @@ public static class ProjectShowEndpoints
     private static async Task<IResult> UnlinkShowAsync(
         Guid projectId,
         Guid showId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageShows)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Shows aus diesem Projekt zu entfernen."));
+        }
+
         var link = await dbContext.ShowProjektZuos.FirstOrDefaultAsync(
             item => item.ProjektId == projectId && item.ShowId == showId,
             cancellationToken);

@@ -14,7 +14,7 @@
     else if (_project is not null && !string.IsNullOrEmpty(AccessToken))
     {
         <PageHeading Eyebrow="PROJEKT" Title="Einstellungen" Description="@($"Allgemeine Angaben für {_project.Name}.")" />
-        <ProjectSettingsForm Project="_project" AccessToken="@AccessToken" OnSaved="UpdateProject" OnDeleted="ProjectDeleted" />
+        <ProjectSettingsForm Project="_project" AccessToken="@AccessToken" Permissions="_overview?.Permissions" OnSaved="UpdateProject" OnDeleted="ProjectDeleted" />
         <AdminShareSection TargetId="ProjectId" IsProject="true" AccessToken="@AccessToken" ProjectApiClient="ProjectApiClient" />
     }
 </FrameworkPage>
@@ -23,9 +23,20 @@
     [Parameter] public Guid ProjectId { get; set; }
 
     private ProjectResponse? _project;
+    private ProjectOverviewResponse? _overview;
 
     protected override async Task OnParametersSetAsync() =>
-        await LoadAuthenticatedAsync(async token => _project = await ProjectApiClient.GetProjectAsync(token, ProjectId));
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _project = await ProjectApiClient.GetProjectAsync(token, ProjectId);
+            try
+            {
+                _overview = await ProjectApiClient.GetProjectOverviewAsync(token, ProjectId);
+            }
+            catch
+            {
+            }
+        });
 
     private void UpdateProject(ProjectResponse project) => _project = project;
 

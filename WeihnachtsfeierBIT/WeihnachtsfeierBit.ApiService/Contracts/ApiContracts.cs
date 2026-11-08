@@ -6,7 +6,19 @@ public sealed record AdminLoginRequest(string Username, string Password);
 public sealed record CreateAdminAccountRequest(string Username, string Password);
 public sealed record AttachAdminToProjectRequest(string Username);
 public sealed record ProjectResponse(Guid Id, string Name);
-public sealed record ProjectOverviewResponse(Guid Id, string Name, int ShowCount, int ParticipantCount, int TeamCount);
+public sealed record ProjectPermissionsDto(
+    bool IsCreator,
+    bool CanControlSession,
+    bool CanManageParticipants,
+    bool CanEditProjectSettings,
+    bool CanManageShows);
+public sealed record ProjectOverviewResponse(
+    Guid Id,
+    string Name,
+    int ShowCount,
+    int ParticipantCount,
+    int TeamCount,
+    ProjectPermissionsDto Permissions);
 public sealed record CreateProjectRequest(string Name);
 public sealed record RenameProjectRequest(string Name);
 public sealed record ParticipantResponse(Guid Id, int Number, string? Name, Guid? TeamId);

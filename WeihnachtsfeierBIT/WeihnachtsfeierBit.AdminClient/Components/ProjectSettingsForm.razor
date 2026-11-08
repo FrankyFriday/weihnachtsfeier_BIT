@@ -1,41 +1,53 @@
+@using WeihnachtsfeierBit.Framework
 @inject ProjectApiClient ProjectApiClient
 
 <Card Class="settings-card">
     <ChildContent>
         <h2>Allgemeine Einstellungen</h2>
+        @if (Permissions?.CanEditProjectSettings == false)
+        {
+            <FrameworkNotice Message="Du hast keine Berechtigung, die Einstellungen dieses Projekts zu ändern." Severity="warning" Style="margin-bottom: 12px;" />
+        }
         <form class="settings-form" @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
-                <FrameworkNotice Message="@_errorMessage" />
+                <FrameworkNotice Message="@_errorMessage" Severity="error" />
             }
             <label for="project-name">Projektname</label>
-            <input id="project-name" @bind="_name" required maxlength="120" />
+            <input id="project-name" @bind="_name" required maxlength="120" disabled="@(Permissions?.CanEditProjectSettings == false)" />
             <p class="framework-help-text">Der Name wird in der Projektübersicht angezeigt.</p>
-            <FrameworkButton Label="Änderungen speichern" BusyLabel="Speichern ..." Type="submit" Busy="@_saving" Disabled="@_saving" />
+            @if (Permissions?.CanEditProjectSettings != false)
+            {
+                <FrameworkButton Label="Änderungen speichern" BusyLabel="Speichern ..." Type="submit" Busy="@_saving" Disabled="@_saving" />
+            }
         </form>
     </ChildContent>
     <FooterContent>
-        <div class="framework-danger-zone">
-            <h3>Projekt löschen</h3>
-            @if (_confirmDelete)
-            {
-                <p role="alert">Das Projekt und alle zugehörigen Daten werden dauerhaft gelöscht.</p>
-                <div class="framework-button-row">
-                    <FrameworkButton Label="Endgültig löschen" BusyLabel="Wird gelöscht ..." Variant="danger" Busy="@_deleting" Disabled="@_deleting" OnClick="DeleteAsync" />
-                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelDelete" />
-                </div>
-            }
-            else
-            {
-                <FrameworkButton Label="Projekt löschen" Variant="danger" OnClick="ConfirmDelete" />
-            }
-        </div>
+        @if (Permissions?.IsCreator != false)
+        {
+            <div class="framework-danger-zone">
+                <h3>Projekt löschen</h3>
+                @if (_confirmDelete)
+                {
+                    <p role="alert">Das Projekt und alle zugehörigen Daten werden dauerhaft gelöscht.</p>
+                    <div class="framework-button-row">
+                        <FrameworkButton Label="Endgültig löschen" BusyLabel="Wird gelöscht ..." Variant="danger" Busy="@_deleting" Disabled="@_deleting" OnClick="DeleteAsync" />
+                        <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelDelete" />
+                    </div>
+                }
+                else
+                {
+                    <FrameworkButton Label="Projekt löschen" Variant="danger" OnClick="ConfirmDelete" />
+                }
+            </div>
+        }
     </FooterContent>
 </Card>
 
 @code {
     [Parameter, EditorRequired] public ProjectResponse Project { get; set; } = new(Guid.Empty, string.Empty);
     [Parameter, EditorRequired] public string AccessToken { get; set; } = string.Empty;
+    [Parameter] public ProjectPermissionsDto? Permissions { get; set; }
     [Parameter] public EventCallback<ProjectResponse> OnSaved { get; set; }
     [Parameter] public EventCallback OnDeleted { get; set; }
 
@@ -49,6 +61,8 @@
 
     private async Task SaveAsync()
     {
+        if (Permissions?.CanEditProjectSettings == false) return;
+
         var name = _name.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 120)
         {
@@ -77,6 +91,8 @@
 
     private async Task DeleteAsync()
     {
+        if (Permissions?.IsCreator == false) return;
+
         _deleting = true;
         try
         {
