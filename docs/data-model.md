@@ -6,19 +6,21 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 
 | Entity | Bedeutung |
 | --- | --- |
-| `Projekt` | Event-Kontext mit Adminmitgliedschaften und Show-Zuordnungen. |
+| `Projekt` | Event-Kontext mit Adminmitgliedschaften (`Admins`), Ersteller-Zuordnung (`ErstellerAdminId`) und Show-Zuordnungen. |
 | `ProjektAdmin` | Globales Konto mit eindeutigem normalisiertem Benutzernamen und Passwort-Hash. |
-| `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive Zuordnungszeitpunkt. |
+| `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive granularen Berechtigungen (`CanControlSession`, `CanManageParticipants`, `CanEditProjectSettings`, `CanManageShows`). |
+| `ProjektAdminShow` | Join-Entity für die n:m-Beziehung Konto ↔ Show für das Teilen von Shows. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige und `IsPaused` für Session-Pausierung. |
 | `GameInstanceEvent` | Vereinheitlichtes Live-Event (Multi-Slide Show oder Spontanevent). Speichert `Title`, `Mode` (`active`/`passive`), `NavigationMode` (`host_controlled`/`self_paced`), `CurrentSlideIndex`, `IsHidden`, `ScheduledStartUtc`, `AutoStartOnSchedule` und `SlidesJson` (`jsonb` Array aller Folien). |
 | `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für eine konkrete Folie eines Events. Unique Index auf `(GameInstanceEventId, SlideId, ParticipantId)` erzwingt eindeutige Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
-| `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides. |
-| `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. Eine Show kann null, einem oder mehreren Projekten zugeordnet sein. |
-| `Slide` | Show-ID, Position und konkrete Untertypen Poll, Announcement, Quiz, Ranking, Estimation, Buzzer oder Jeopardy. |
+| `TeamPointLog` | Chronologisches Punkte-Logbuch für Buchungen, Bonifikationen und Abzüge mit Zeitstempel und Begründung. |
+| `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides und Ersteller-Zuordnung (`ErstellerAdminId`). |
+| `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. |
+| `Slide` | Show-ID, Position und konkrete Untertypen (Poll, Announcement, Quiz, Ranking, Estimation, Buzzer, Jeopardy, Hitster, PointAward, Text, WordCloud, Slider, Rating, Ordering, Countdown). |
 
 Passwörter werden mit PBKDF2 gehasht. API-Tokens werden zufällig generiert; persistiert wird ausschließlich ihr SHA-256-Hash.
 
@@ -28,39 +30,27 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 
 | Typ | Parameterbeispiele |
 | --- | --- |
-| Poll | Interner Name, Regie-Notizen, Deaktivieren, Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
-| Announcement | Interner Name, Regie-Notizen, Deaktivieren, Titel, Nachricht |
-| Quiz | Interner Name, Regie-Notizen, Deaktivieren, Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
-| Ranking | Interner Name, Regie-Notizen, Deaktivieren, Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
-| Estimation | Interner Name, Regie-Notizen, Deaktivieren, Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
-| Buzzer | Interner Name, Regie-Notizen, Deaktivieren, Buzzer-Frage, Punkte, Zeitlimit |
-| Jeopardy | Interner Name, Regie-Notizen, Deaktivieren, Titel, Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. Standardwerte von 100 bis 500 ordnen die Fragen von leicht nach schwer. |
+| Poll | Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
+| Announcement | Titel, Nachricht |
+| Quiz | Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
+| Ranking | Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
+| PointAward | Punktevergabe-Slide mit echtem vertikalem Säulendiagramm, automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges |
+| Hitster | Spotify-Integration, Song-Titel, Interpret, Veröffentlichungsjahr, Musikplayer-Steuerung |
+| Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
+| Buzzer | Buzzer-Frage, Punkte, Zeitlimit |
+| Jeopardy | Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. |
+| Text / WordCloud | Freitext-Fragen & dynamische Wortwolken-Auswertung |
+| Slider / Rating | Schieberegler & Sterne-Bewertungen |
+| Ordering / Countdown | Reihenfolge-Sortierung & visuelle Timer |
 
-`SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration. Ein neuer Untertyp muss in `Slide.cs` und im EF-Discriminator in `OnModelCreating` ergänzt werden. `SchemaVersion` ist für spätere JSON-Formatmigrationen vorgesehen.
-
-Der Show-Editor bietet ein grafisches Master-Detail-Formular inklusive internem Namen, Sortierpfeilen und PopUp-Dialog zum Hinzufügen neuer Slides. Jeopardy unterstützt Kategorien mit editierbaren Fragen, Antworten und Punktwerten.
+`SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration.
 
 ## Admin- und Teilnehmerzugriff
 
-Ein Admin-Konto ist projektunabhängig. Berechtigungen entstehen ausschließlich durch einen Datensatz in `ProjektAdminProjekt`; ein Admin kann damit mehrere Projekte verwalten. Entfernen einer Membership löscht nicht das globale Konto.
+Ein Admin-Konto ist projektunabhängig. Berechtigungen für Projekte entstehen durch Datensätze in `ProjektAdminProjekt`. Der **Ersteller (`ErstellerAdminId`)** besitzt uneingeschränkte Rechte und kann für eingeladene Co-Admins folgende Berechtigungen festlegen:
+- `CanControlSession` (Live-Session steuern / schalten)
+- `CanManageParticipants` (Teilnehmer & Teams verwalten)
+- `CanEditProjectSettings` (Projektdetails bearbeiten)
+- `CanManageShows` (Shows verknüpfen / entfernen)
 
-Teilnehmer und Teilnehmernummern gehören zu genau einem Projekt. Eine aktive Sitzung gilt als gültig, wenn sie nicht widerrufen und noch nicht abgelaufen ist. Adminsitzungen sind global und können über Memberships auf mehrere Projekte zugreifen.
-
-## Shows und Projekte
-
-Eine Show wird global erstellt und kann zunächst ohne Projektverknüpfung existieren. `ShowProjektZuo` gewährt dem Projekt Zugriff auf diese Show. Eine Verknüpfung zu lösen entfernt nur den Join-Datensatz; die Show und ihre Slides bleiben bestehen. Der Showname ist auf 120 Zeichen begrenzt. Die Migration `AddGlobalShowName` setzt für bestehende Shows den Defaultnamen `Neue Show`.
-
-## Multi-Show & Live Event Ausführung
-
-In einer aktiven `GameInstance` (Play-Session) werden Shows und Spontanevents in einheitlichen `GameInstanceEvent`-Containern betrieben:
-
-- **Unified `GameInstanceEvent`**: Repräsentiert ein eigenständiges Live-Ablauf-Element (Multi-Slide Show oder 1-Slide Spontanevent).
-  - **`NavigationMode`**: Unterscheidet zwischen `"host_controlled"` (Moderator schaltet `CurrentSlideIndex` weiter) und `"self_paced"` (Teilnehmer können eigenständig vor- und zurückblättern).
-  - **`SlidesJson`**: PostgreSQL-`jsonb` Array aller Folien des Events.
-  - **Eindeutiges Teilnehmer-Feedback**: Jede Antwort ist an `(GameInstanceEventId, SlideId, ParticipantId)` gebunden, wodurch alle Ergebnisse auch beim Wechseln von Folien erhalten bleiben.
-
-  Jeopardy ist ein moderatorgesteuerter Slide-Typ ohne eigene Schemamigration. Der Laufzeitstatus (`used`, `active`, `revealed`, `selectedTeamId` und `selectedTeamName`) wird im Slide-JSON gespeichert und über einen Projektadmin-Endpunkt aktualisiert. Für jede Frage wählt die Spielleitung zuerst das Team, das anschließend Kategorie und Wert aussucht und die Frage beantwortet. Nur dieses Team erhält die Punktewertung; eine abgeschlossene Frage wird als verwendet markiert. Die öffentliche Beamerprojektion enthält Antworten nur für die aktive, aufgedeckte Frage.
-
-## Migrationen
-
-Die Migration `GlobalAdminAccounts` übernimmt frühere Projektzuordnungen in die Join-Tabelle, bevor sie die alte Projektspalte entfernt. Admin-IDs und Adminsessions bleiben erhalten. Doppelte alte Benutzernamen werden deterministisch suffixiert, weil Benutzernamen jetzt global eindeutig sind. Der Downgrade bricht absichtlich ab, wenn ein Konto inzwischen null oder mehrere Projektmitgliedschaften besitzt.
+Teilnehmer und Teilnehmernummern gehören zu genau einem Projekt. Eine aktive Sitzung gilt als gültig, wenn sie nicht widerrufen und noch nicht abgelaufen ist.

@@ -2,29 +2,36 @@
 
 ## Zielbild
 
-WeihnachtsfeierBIT soll eine Software für Events werden. Innerhalb eines Projekts sammeln Teams über mehrere Spiele hinweg Punkte. Spiele können spontan moderiert oder in vorbereiteten Shows durchgeführt werden. Eine Show besteht aus Slides; jede Slide beschreibt einen aktiven Zustand, etwa eine Quizfrage, Ankündigung, Umfrage oder Rangliste.
+WeihnachtsfeierBIT ist eine interaktive Event-Software für Feiern, Teamevents und Spielabende. Innerhalb eines Projekts sammeln Teams über verschiedene Spiele hinweg Punkte. Spiele können spontan gestartet oder in vorbereiteten Shows durchgeführt werden. Eine Show besteht aus geordneten Slides; jede Slide beschreibt ein interaktives Spielelement, wie etwa Quizfragen, Hitster-Musikraten, Jeopardy-Kategoriengitter, Abstimmungen, Punktevergaben oder Live-Ranglisten.
 
-Shows sollen wiederverwendbar und in mehreren Projekten einbindbar sein. Teilnehmer melden sich typischerweise über einen Projekt-QR-Code und ihre Teilnehmernummer an.
+Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden oder zwischen Administratoren geteilt werden. Teilnehmer melden sich über einen 6-stelligen Projekt-Code und ihre Teilnehmernummer auf ihrem Smartphone an.
 
-Die Teilnahme soll flexibel bleiben: Nicht jeder Gast muss ein Smartphone oder eine eigene Sitzung haben. Admins sollen Teilnehmer optional anlegen und Teams auch ohne individuelle Anmeldung verwalten können. Das ist eine Produktanforderung, noch keine vollständige UI-Funktion.
+## Rollen und Berechtigungskonzept
 
-## Rollen und Stand
-
-| Rolle | Ziel | Heute |
+| Rolle | Ziel | Berechtigungen & Möglichkeiten |
 | --- | --- | --- |
-| Admin / Moderator | Projekte konfigurieren, Teilnehmer und Teams verwalten, Shows vorbereiten und live moderieren | Globale Admin-Konten, Projektverwaltung, Teilnehmer/Team-CRUD (inkl. Nummern-Generator und Zufallsverteilung), Zugriffssitzungen mit Anzeige und Widerruf von Admin- und Teilnehmersitzungen, Play-Sessions (`GameInstance`), globale Show-Bibliothek mit Master-Detail-Editor & atomarer Sortierung. Live-Session-Steuerung mit einheitlichem Tabbed-Layout (1 Tab pro Show/Spontanevent), PowerPoint-Folienstreifen mit Direkt-Klick-Sprung, Beamer-Fokussierung (`📺 Beamer` Icon in Tab-Bar), Live-Auswertungs-Views für jede Slide sowie scrollbarem Spontanevent-Popup mit voll integrierten Slide-Editoren. |
-| Teilnehmer | Mit Nummer teilnehmen, Team/Profil sehen und interaktiv an Events teilnehmen | Teilnehmer-Login unter `/play/{code}` oder `/play` im Projekt `WeihnachtsfeierBit.ParticipantClient`. Bietet rahmenlose Full-Bleed-Vollbildansichten für aktive Events, Menüauswahl für passive Events, automatische SignalR-Live-Aktualisierung bei Slide-Wechseln, benutzerfreundliche deutsche Eventnamen sowie modulare Slide-Renderers für alle 6 Slide-Typen (Ankündigung, Abstimmung, Quiz, Schätzung, Buzzer, Rangliste) mit Antwortabgabe. |
-| Dashboard / Beamer | Ausgewähltes Live-Event und Punktestand gut lesbar auf einem Beamer anzeigen | Über `/play/beamer/{SessionCode}` erreichbar; passt das Layout an die verfügbare Bildschirmgröße an und aktualisiert den Team-Punktestand live. Der Admin kann die Ansicht aus der laufenden Session öffnen und auswählbare Events auf die Leinwand schalten. Alte `/play/canvas/{SessionCode}`-Links bleiben gültig. |
+| **Projekt-Ersteller (`IsCreator`)** | Volle Kontrolle über das Event | Darf das Projekt verwalten, löschen, weitere Admins einladen und granulare Berechtigungen festlegen. |
+| **Eingeladener Co-Admin** | Gezieltes Mitgestalten & Moderieren | Berechtigungen hängen von den zugewiesenen Flags ab:<br>- **Live-Session steuern**: Shows/Spontanevents starten, Folien schalten, Punkte vergeben, Session pausieren.<br>- **Teilnehmer & Teams**: Teilnehmer/Teams anlegen, bearbeiten, zufällig zuweisen.<br>- **Einstellungen**: Projektdetails & Namen anpassen.<br>- **Shows**: Shows im Projekt verknüpfen oder entfernen. |
+| **Show-Ersteller** | Eigene Shows erstellen & teilen | Besitzt die Show; kann Folien bearbeiten, die Show duplizieren, löschen oder für andere Admins freigeben. |
+| **Teilnehmer** | Mit Smartphone interaktiv teilnehmen | Login per Code & Nummer; zeigt aktive Events, Eingabemasken, Live-Ergebnisse, Chat, Musik-Wünsche und Infoseiten. Schaltet bei Verbindungsabbruch oder Pausierung automatisch Vollbild-Overlays frei. |
+| **Beamer / Leinwand (`Canvas`)** | Projektion für den Saal | Unter `/play/beamer/{SessionCode}`. Zeigt das vom Spielleiter ausgewählte Live-Event, den Beamer-Fokus sowie animierte Live-Säulendiagramme mit Punktestand. |
 
-## Bereits vorhandene Grundlagen
+## Interaktive Spiele & Slide-Typen
 
-- Admin-Konten sind global eindeutig und können mehreren Projekten zugeordnet werden.
-- Teilnehmernummern sind pro Projekt eindeutig. Eine Nummer ist eine Kennung, kein Geheimnis.
-- Admin- und Teilnehmersitzungen können ablaufen oder widerrufen werden.
-- Shows besitzen einen Namen und bestehen unabhängig von Projekten. Die Join-Entity `ShowProjektZuo` verknüpft eine Show mit null oder mehreren Projekten; das Entfernen eines Links löscht weder Show noch Slides.
-- Slides haben die Typen Poll, Announcement, Quiz und Ranking. Parameter liegen als JSONB.
-- Der Team-Punktestand lässt sich administrativ aktualisieren. Ein Punkteverlauf, Spielrunden, Antwortwertung und Live-Showzustand existieren nicht.
+Das System unterstützt 15 spezialisierte Folientypen:
+1. **Punktevergabe (`PointAwardSlide`):** Vertikales Säulendiagramm mit automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges bei Punktebuchungen.
+2. **Hitster:** Spotify-Anbindung mit Song-Player, Titel/Interpret/Veröffentlichungsjahr-Raten.
+3. **Jeopardy:** Interaktives Kategoriengitter (100–500 Punkte) mit Antwortaufdeckung und Team-Punkteauswahl.
+4. **Quiz:** Multiple-Choice Fragen mit Speed-Bonus und Zeitlimit.
+5. **Poll:** Abstimmung mit prozentualer Live-Visualisierung.
+6. **Estimation:** Schätzfrage mit Einheiten-Vergleich.
+7. **Buzzer:** Schnelligkeits-Buzzer für das schnellste Team.
+8. **Ranking:** Live-Tabellenstand & zeitlicher Treppenstufen-Verlaufsgraph.
+9. **Announcement, Text, WordCloud, Slider, Rating, Ordering, Countdown:** Ankündigungen, Freitext, Wortwolken, Regler, Bewertungen, Sortierungen und Timer.
 
-## Nicht-Fokus
+## Verbindungsqualität & Status-Overlays
 
-`Hitster/` ist ein separates Randprojekt. Es ist aktuell nicht in WeihnachtsfeierBIT integriert; eine spätere Einbettung ist denkbar, aber nicht Teil des gegenwärtigen Scopes.
+- **Live-Latenz-Anzeige:** Ein Empfangssymbol in der TopBar misst fortlaufend den Ping zum SignalR-Server (Grün/Gelb/Rot).
+- **Verbindungsabbruch:** Bei Unterbrechung erscheint ein Vollbild-Overlay *"Verbindung unterbrochen"* mit Neuverbindungs-Button.
+- **Session Pausieren:** Wenn ein Admin die Session pausiert, erscheint auf allen Smartphones das Vollbild-Overlay *"Session aktuell pausiert"*.
+- **Session Beenden:** Beim Beenden der Session werden alle Teilnehmer auf das *"Session beendet"* Vollbild-Overlay mit Option zum Beitreten einer neuen Session geleitet.

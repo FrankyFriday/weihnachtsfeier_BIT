@@ -90,17 +90,17 @@
                 </a>
 
                 <a href="@ProjectUrl("teams")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">badge</span>
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">groups</span>
                     <strong style="font-size: 13px; color: #1d2528;">Teams</strong>
                 </a>
 
                 <a href="@ProjectUrl("access-sessions")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                     <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">devices</span>
-                    <strong style="font-size: 13px; color: #1d2528;">Sitzungen</strong>
+                    <strong style="font-size: 13px; color: #1d2528;">Aktive Geräte</strong>
                 </a>
 
                 <a href="@ProjectUrl("point-logs")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">history</span>
+                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">military_tech</span>
                     <strong style="font-size: 13px; color: #1d2528;">Punkte-Log</strong>
                 </a>
 
@@ -117,11 +117,6 @@
                 <a href="@ProjectUrl("shows")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                     <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">collections_bookmark</span>
                     <strong style="font-size: 13px; color: #1d2528;">Shows</strong>
-                </a>
-
-                <a href="@ProjectUrl("sessions")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                    <span class="material-symbols-outlined" style="font-size: 26px; color: #105c4d;">pending_actions</span>
-                    <strong style="font-size: 13px; color: #1d2528;">Historie</strong>
                 </a>
 
                 <a href="@ProjectUrl("settings")" @onclick="CloseMoreSheet" style="padding: 14px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
@@ -149,7 +144,7 @@
 
     private string CurrentSection => GetProjectSection(Navigation.Uri);
 
-    private bool IsMoreSection => CurrentSection is "overview" or "shows" or "point-logs" or "info-pages" or "teams" or "sessions" or "access-sessions" or "settings" or "chat";
+    private bool IsMoreSection => CurrentSection is "overview" or "shows" or "point-logs" or "info-pages" or "teams" or "access-sessions" or "settings" or "chat";
 
     private FrameworkSelectOption[] _teamSelectOptions =>
         _teams.Select(t => new FrameworkSelectOption(t.Id.ToString(), t.DisplayName)).ToArray();

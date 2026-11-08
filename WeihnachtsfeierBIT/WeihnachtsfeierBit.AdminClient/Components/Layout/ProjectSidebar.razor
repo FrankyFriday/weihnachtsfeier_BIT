@@ -8,8 +8,14 @@
             <nav aria-label="Workspace-Navigation">
                 <div class="sidebar-section">
                     <span class="sidebar-label">WORKSPACE</span>
-                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri" @onclick="HandleLinkClick">Projekte</a>
-                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl" @onclick="HandleLinkClick">Shows</a>
+                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri" @onclick="HandleLinkClick">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">folder</span>
+                        <span>Projekte</span>
+                    </a>
+                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl" @onclick="HandleLinkClick">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">collections_bookmark</span>
+                        <span>Shows</span>
+                    </a>
                 </div>
 
                 @if (CurrentShow is not null)
@@ -17,8 +23,14 @@
                     <div class="sidebar-section sidebar-current-project">
                         <span class="sidebar-label">AKTUELLE SHOW</span>
                         <strong>@CurrentShow.Name</strong>
-                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)" @onclick="HandleLinkClick">Slides & Editor</a>
-                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")" @onclick="HandleLinkClick">Einstellungen</a>
+                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">edit_note</span>
+                            <span>Slides & Editor</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">settings</span>
+                            <span>Einstellungen</span>
+                        </a>
                     </div>
                 }
                 else if (CurrentProject is not null)
@@ -31,27 +43,57 @@
                         {
                             <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
                                 <span class="live-dot"></span>
-                                <span>Play-Session (@_activeInstance.AccessCode)</span>
+                                <span>Live-Session (@_activeInstance.AccessCode)</span>
                             </a>
                         }
                         else
                         {
                             <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
-                                <span>Play-Session</span>
+                                <span class="material-symbols-outlined" style="font-size: 18px;">play_circle</span>
+                                <span>Live-Session</span>
                             </a>
                         }
 
-                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick">Übersicht</a>
-                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick">Teilnehmer</a>
-                        <a class="sidebar-link @(CurrentSection == "access-sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "access-sessions")" @onclick="HandleLinkClick">Zugriffssitzungen</a>
-                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick">Teams</a>
-                        <a class="sidebar-link @(CurrentSection == "point-logs" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "point-logs")" @onclick="HandleLinkClick">Punkte-Logbuch</a>
-                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick">Live-Chat & Support</a>
-                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick">Info-Seiten & Menüs</a>
-                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick">DJ-Jukebox & Musik</a>
-                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")" @onclick="HandleLinkClick">Verknüpfte Shows</a>
-                        <a class="sidebar-link @(CurrentSection == "sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "sessions")" @onclick="HandleLinkClick">Session-Historie</a>
-                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")" @onclick="HandleLinkClick">Einstellungen</a>
+                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">dashboard</span>
+                            <span>Übersicht</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">person</span>
+                            <span>Teilnehmer</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">groups</span>
+                            <span>Teams</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "point-logs" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "point-logs")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">military_tech</span>
+                            <span>Punkte-Log</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">chat</span>
+                            <span>Live-Chat</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">info</span>
+                            <span>Info-Seiten</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">music_note</span>
+                            <span>Jukebox</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">collections_bookmark</span>
+                            <span>Shows</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "access-sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "access-sessions")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">devices</span>
+                            <span>Aktive Geräte</span>
+                        </a>
+                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")" @onclick="HandleLinkClick">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">settings</span>
+                            <span>Einstellungen</span>
+                        </a>
                     </div>
                 }
 
