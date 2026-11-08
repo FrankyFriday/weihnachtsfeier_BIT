@@ -223,11 +223,29 @@ public sealed class GameStateNotifier(
                     && navElem.ValueKind == JsonValueKind.Object)
                 {
                     int origin = navElem.TryGetProperty("originSlideIndex", out var oProp) && oProp.ValueKind == JsonValueKind.Number ? oProp.GetInt32() : 0;
-                    int end = navElem.TryGetProperty("sequenceEndSlideIndex", out var eProp) && eProp.ValueKind == JsonValueKind.Number ? eProp.GetInt32() : origin;
                     string? key = navElem.TryGetProperty("activeCellKey", out var kProp) && kProp.ValueKind == JsonValueKind.String ? kProp.GetString() : null;
+                    string? title = navElem.TryGetProperty("contextTitle", out var ctProp) && ctProp.ValueKind == JsonValueKind.String ? ctProp.GetString() : null;
                     string? teamName = stateElem.TryGetProperty("selectedTeamName", out var tnProp) && tnProp.ValueKind == JsonValueKind.String ? tnProp.GetString() : null;
 
-                    navContext ??= new EventNavigationContext(origin, end, key, activeTeamId, teamName);
+                    var indices = new List<int>();
+                    if (navElem.TryGetProperty("sequenceSlideIndices", out var idxArr) && idxArr.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in idxArr.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.Number) indices.Add(item.GetInt32());
+                        }
+                    }
+                    if (indices.Count == 0 && navElem.TryGetProperty("sequenceEndSlideIndex", out var endProp) && endProp.ValueKind == JsonValueKind.Number)
+                    {
+                        int end = endProp.GetInt32();
+                        for (int i = origin; i <= end; i++) indices.Add(i);
+                    }
+                    if (indices.Count == 0) indices.Add(gie.CurrentSlideIndex);
+
+                    int curSeqIdx = indices.IndexOf(gie.CurrentSlideIndex);
+                    if (curSeqIdx < 0) curSeqIdx = 0;
+
+                    navContext ??= new EventNavigationContext(origin, indices.ToArray(), curSeqIdx, title, activeTeamId, teamName, key);
                 }
             }
         }
