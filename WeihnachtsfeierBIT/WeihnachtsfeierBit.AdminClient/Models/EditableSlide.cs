@@ -8,6 +8,19 @@ public sealed class RankingEntryModel
     public int Score { get; set; }
 }
 
+public sealed class JeopardyClueModel
+{
+    public int Value { get; set; } = 100;
+    public string Question { get; set; } = string.Empty;
+    public string Answer { get; set; } = string.Empty;
+}
+
+public sealed class JeopardyCategoryModel
+{
+    public string Name { get; set; } = string.Empty;
+    public List<JeopardyClueModel> Clues { get; set; } = [];
+}
+
 public sealed class EditableSlide
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -99,6 +112,9 @@ public sealed class EditableSlide
     public string PointAwardReason { get; set; } = string.Empty;
     public int PointAwardDefaultPoints { get; set; } = 10;
 
+    public string JeopardyTitle { get; set; } = "Bünting Jeopardy";
+    public List<JeopardyCategoryModel> JeopardyCategories { get; set; } = [];
+
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
         Id = id;
@@ -189,6 +205,10 @@ public sealed class EditableSlide
                 PointAwardReason = ReadString(parameters, "defaultReason");
                 PointAwardDefaultPoints = ReadNullableInt(parameters, "defaultDeltaPoints") ?? 10;
                 break;
+            case "jeopardy":
+                JeopardyTitle = ReadString(parameters, "title") is { Length: > 0 } jeopardyTitle ? jeopardyTitle : "Bünting Jeopardy";
+                JeopardyCategories = ReadJeopardyCategories(parameters);
+                break;
         }
 
         if (string.IsNullOrWhiteSpace(InternalName))
@@ -213,6 +233,7 @@ public sealed class EditableSlide
         "ordering" => "Reihenfolge",
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
+        "jeopardy" => "Jeopardy",
         _ => "Slide"
     };
 
@@ -290,6 +311,7 @@ public sealed class EditableSlide
             "ordering" => !string.IsNullOrWhiteSpace(OrderingQuestion) ? OrderingQuestion : "Reihenfolge",
             "countdown" => !string.IsNullOrWhiteSpace(CountdownTitle) ? CountdownTitle : "Timer",
             "point_award" => !string.IsNullOrWhiteSpace(PointAwardTitle) ? PointAwardTitle : "Punktevergabe",
+            "jeopardy" => !string.IsNullOrWhiteSpace(JeopardyTitle) ? JeopardyTitle : "Jeopardy",
             _ => "Slide"
         };
     }
@@ -310,6 +332,7 @@ public sealed class EditableSlide
         "ordering" => "Neue Sortier-Aufgabe",
         "countdown" => "Neuer Timer",
         "point_award" => "Neue Punktevergabe",
+        "jeopardy" => "Neues Jeopardy",
         _ => "Neue Slide"
     };
 
@@ -573,6 +596,42 @@ public sealed class EditableSlide
                 };
                 break;
 
+            case "jeopardy":
+                var cleanCategories = JeopardyCategories
+                    .Select(category => new JeopardyCategoryModel
+                    {
+                        Name = category.Name.Trim(),
+                        Clues = category.Clues
+                            .Where(clue => !string.IsNullOrWhiteSpace(clue.Question))
+                            .Select(clue => new JeopardyClueModel
+                            {
+                                Value = clue.Value,
+                                Question = clue.Question.Trim(),
+                                Answer = clue.Answer.Trim()
+                            })
+                            .ToList()
+                    })
+                    .Where(category => category.Name.Length > 0 || category.Clues.Count > 0)
+                    .ToList();
+                if (cleanCategories.Count == 0 || cleanCategories.Any(category => category.Name.Length == 0 || category.Clues.Count == 0))
+                {
+                    ErrorMessage = "Bitte mindestens eine Kategorie mit Namen und mindestens einer Frage anlegen.";
+                    return (default, ErrorMessage);
+                }
+                payload = new
+                {
+                    internalName = InternalName.Trim(),
+                    adminNotes = AdminNotes.Trim(),
+                    isDisabled = IsDisabled,
+                    title = string.IsNullOrWhiteSpace(JeopardyTitle) ? "Bünting Jeopardy" : JeopardyTitle.Trim(),
+                    categories = cleanCategories.Select(category => new
+                    {
+                        name = category.Name,
+                        clues = category.Clues.Select(clue => new { value = clue.Value, question = clue.Question, answer = clue.Answer })
+                    })
+                };
+                break;
+
             default:
                 ErrorMessage = $"Unbekannter Slide-Typ: {Type}";
                 return (default, ErrorMessage);
@@ -667,5 +726,39 @@ public sealed class EditableSlide
                 .ToList();
         }
         return [];
+    }
+
+    private static List<JeopardyCategoryModel> ReadJeopardyCategories(JsonElement element)
+    {
+        var result = new List<JeopardyCategoryModel>();
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty("categories", out var categories)
+            || categories.ValueKind != JsonValueKind.Array)
+        {
+            return result;
+        }
+
+        foreach (var category in categories.EnumerateArray())
+        {
+            var model = new JeopardyCategoryModel { Name = ReadString(category, "name") };
+            if (category.ValueKind == JsonValueKind.Object
+                && category.TryGetProperty("clues", out var clues)
+                && clues.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var clue in clues.EnumerateArray())
+                {
+                    model.Clues.Add(new JeopardyClueModel
+                    {
+                        Value = ReadNullableInt(clue, "value") ?? 100,
+                        Question = ReadString(clue, "question"),
+                        Answer = ReadString(clue, "answer")
+                    });
+                }
+            }
+
+            result.Add(model);
+        }
+
+        return result;
     }
 }

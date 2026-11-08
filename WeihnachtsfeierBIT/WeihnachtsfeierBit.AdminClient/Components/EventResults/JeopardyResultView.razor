@@ -1,0 +1,277 @@
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div style="margin-top: 16px; display: grid; gap: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 16px; color: var(--ink);">@ReadString(CurrentSlide.Parameters, "title")</h3>
+        <FrameworkBadge Text="Jeopardy" Variant="primary" />
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: separate; border-spacing: 6px; table-layout: fixed;">
+            <thead>
+                <tr>
+                    @foreach (var category in _categories)
+                    {
+                        <th style="padding: 10px 6px; background: var(--primary-strong); color: #fff; border-radius: 8px; font-size: 13px;">@category.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int r = 0; r < _rowCount; r++)
+                {
+                    var row = r;
+                    <tr>
+                        @for (int c = 0; c < _categories.Count; c++)
+                        {
+                            var col = c;
+                            var key = $"{col}-{row}";
+                            @if (row < _categories[col].Clues.Count)
+                            {
+                                var clue = _categories[col].Clues[row];
+                                var isUsed = _used.Contains(key);
+                                var isActive = _active == key;
+                                <td style="padding: 0;">
+                                    <button type="button" class="jp-cell-btn" disabled="@(isUsed || _busy)" @onclick="() => SelectAsync(key)"
+                                            style="width: 100%; min-height: 54px; border-radius: 8px; border: 1.5px solid @(isActive ? "var(--primary)" : "var(--line)"); background: @(isActive ? "var(--primary-soft)" : "var(--surface)"); color: @(isUsed ? "var(--muted-2)" : "var(--ink)"); font-weight: 800; font-size: 18px; cursor: @(isUsed ? "default" : "pointer"); opacity: @(isUsed ? ".45" : "1");">
+                                        @(isUsed ? "–" : clue.Value.ToString())
+                                    </button>
+                                </td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (ActiveClue is { } active)
+    {
+        <div class="jp-clue" @key="@active.Question" style="padding: 16px; border: 1.5px solid var(--primary); border-radius: 12px; background: var(--surface); display: grid; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: var(--primary-strong);">@active.Category · @active.Value Punkte</strong>
+                <FrameworkBadge Text="@(_revealed ? "Antwort aufgedeckt" : "Antwort verdeckt")" Variant="primary" />
+            </div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--ink);">@active.Question</div>
+            <div style="padding: 10px 12px; border-radius: 8px; background: var(--surface-2); color: var(--ink-2);">
+                <span style="font-size: 12px; color: var(--muted);">Antwort (nur Spielleitung)</span><br />
+                <strong>@active.Answer</strong>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <FrameworkButton Label="Antwort für alle aufdecken" Variant="secondary" OnClick="RevealAsync" Disabled="@(_revealed || _busy)" />
+                <FrameworkButton Label="Frage abschließen" Variant="secondary" OnClick="CloseClueAsync" Disabled="_busy" />
+            </div>
+
+            <div style="display: grid; gap: 8px;">
+                @foreach (var team in _teams)
+                {
+                    var selectedTeam = team;
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);">
+                        <span style="width: 12px; height: 12px; border-radius: 50%; background-color: @selectedTeam.Color; display: inline-block;"></span>
+                        <strong style="flex: 1; min-width: 120px; color: var(--ink);">@selectedTeam.DisplayName <span style="color: var(--muted); font-weight: 500;">(@selectedTeam.Points)</span></strong>
+                        <FrameworkButton Label="@($"Richtig +{active.Value}")" Variant="primary" OnClick="() => AwardAsync(selectedTeam, active.Value, true)" Disabled="_busy" />
+                        <FrameworkButton Label="@($"Falsch −{active.Value}")" Variant="secondary" OnClick="() => AwardAsync(selectedTeam, -active.Value, false)" Disabled="_busy" />
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <FrameworkNotice Message="Wähle ein Feld im Board. Die Frage erscheint dann auf dem Beamer und den Teilnehmer-Handys." Severity="info" />
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FrameworkNotice Message="@_error" Severity="error" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private sealed record ClueModel(int Value, string Question, string Answer);
+    private sealed record CategoryModel(string Name, List<ClueModel> Clues);
+    private sealed record ActiveClueModel(string Category, int Value, string Question, string Answer);
+
+    private List<CategoryModel> _categories = [];
+    private HashSet<string> _used = [];
+    private string? _active;
+    private bool _revealed;
+    private TeamSummary[] _teams = [];
+    private bool _busy;
+    private string? _error;
+    private int _rowCount => _categories.Count == 0 ? 0 : _categories.Max(category => category.Clues.Count);
+
+    private ActiveClueModel? ActiveClue
+    {
+        get
+        {
+            if (_active is null) return null;
+            var parts = _active.Split('-');
+            if (parts.Length != 2 || !int.TryParse(parts[0], out var categoryIndex) || !int.TryParse(parts[1], out var clueIndex)) return null;
+            if (categoryIndex < 0 || categoryIndex >= _categories.Count || clueIndex < 0 || clueIndex >= _categories[categoryIndex].Clues.Count) return null;
+            var clue = _categories[categoryIndex].Clues[clueIndex];
+            return new ActiveClueModel(_categories[categoryIndex].Name, clue.Value, clue.Question, clue.Answer);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ReadParameters();
+        _error = null;
+        if (ProjectId == Guid.Empty)
+        {
+            _error = "Das Projekt für die Jeopardy-Punktevergabe fehlt.";
+            return;
+        }
+
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Die Admin-Sitzung ist nicht verfügbar.";
+                return;
+            }
+
+            _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void ReadParameters()
+    {
+        _categories = [];
+        var parameters = CurrentSlide.Parameters;
+        if (parameters.ValueKind != JsonValueKind.Object) return;
+
+        if (parameters.TryGetProperty("categories", out var categories) && categories.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var category in categories.EnumerateArray())
+            {
+                var clues = new List<ClueModel>();
+                if (category.ValueKind == JsonValueKind.Object
+                    && category.TryGetProperty("clues", out var clueArray)
+                    && clueArray.ValueKind == JsonValueKind.Array)
+                {
+                    clues.AddRange(clueArray.EnumerateArray().Select(clue =>
+                        new ClueModel(ReadInt(clue, "value", 100), ReadString(clue, "question"), ReadString(clue, "answer"))));
+                }
+
+                _categories.Add(new CategoryModel(ReadString(category, "name"), clues));
+            }
+        }
+
+        _used = [];
+        _active = null;
+        _revealed = false;
+        if (parameters.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Object)
+        {
+            if (state.TryGetProperty("used", out var used) && used.ValueKind == JsonValueKind.Array)
+            {
+                _used = used.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!)
+                    .ToHashSet(StringComparer.Ordinal);
+            }
+
+            _active = ReadString(state, "active") is { Length: > 0 } active ? active : null;
+            _revealed = state.TryGetProperty("revealed", out var revealed) && revealed.ValueKind == JsonValueKind.True;
+        }
+    }
+
+    private Task SelectAsync(string key) => SaveStateAsync(_used, key, false);
+
+    private Task RevealAsync() => SaveStateAsync(_used, _active, true);
+
+    private Task CloseClueAsync()
+    {
+        var used = new HashSet<string>(_used, StringComparer.Ordinal);
+        if (_active is not null) used.Add(_active);
+        return SaveStateAsync(used, null, false);
+    }
+
+    private async Task AwardAsync(TeamSummary team, int delta, bool correct)
+    {
+        var clue = ActiveClue;
+        if (clue is null) return;
+
+        await RunAsync(async token =>
+        {
+            await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, team.Id, delta, $"Jeopardy: {clue.Category} {clue.Value} ({(correct ? "richtig" : "falsch")})");
+            _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
+            if (correct)
+            {
+                var used = new HashSet<string>(_used, StringComparer.Ordinal);
+                if (_active is not null) used.Add(_active);
+                await ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, null, true));
+            }
+        });
+    }
+
+    private Task SaveStateAsync(HashSet<string> used, string? active, bool revealed) =>
+        RunAsync(token => ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, active, revealed)));
+
+    private static object BuildState(HashSet<string> used, string? active, bool revealed) =>
+        new { used = used.OrderBy(item => item, StringComparer.Ordinal).ToArray(), active, revealed };
+
+    private async Task RunAsync(Func<string, Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Die Admin-Sitzung ist nicht verfügbar.";
+                return;
+            }
+
+            await action(token);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task<string> GetTokenAsync()
+    {
+        var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+    }
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static int ReadInt(JsonElement element, string property, int defaultValue) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var result)
+            ? result
+            : defaultValue;
+}

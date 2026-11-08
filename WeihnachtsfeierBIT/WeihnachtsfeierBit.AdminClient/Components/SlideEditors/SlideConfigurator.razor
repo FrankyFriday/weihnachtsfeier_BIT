@@ -75,6 +75,9 @@
                 case "point_award":
                     <PointAwardSlideEditor Slide="Slide" />
                     break;
+                case "jeopardy":
+                    <JeopardySlideEditor Slide="Slide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(Slide.ErrorMessage))

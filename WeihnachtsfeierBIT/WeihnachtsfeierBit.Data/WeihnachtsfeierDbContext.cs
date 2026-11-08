@@ -64,7 +64,8 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasValue<RatingSlide>("rating")
             .HasValue<OrderingSlide>("ordering")
             .HasValue<CountdownSlide>("countdown")
-            .HasValue<PointAwardSlide>("point_award");
+            .HasValue<PointAwardSlide>("point_award")
+            .HasValue<JeopardySlide>("jeopardy");
         slides.HasIndex(slide => new { slide.ShowId, slide.Position });
 
         var shows = modelBuilder.Entity<Show>();

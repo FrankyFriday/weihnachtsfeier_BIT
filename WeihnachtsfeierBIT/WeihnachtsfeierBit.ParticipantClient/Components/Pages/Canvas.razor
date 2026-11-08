@@ -75,6 +75,10 @@
                             <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
                         </div>
                     }
+                    else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
+                    }
                     else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
                     {
                         var game = ReadObject(activeEvent.Parameters, "game");
@@ -302,6 +306,7 @@
         "buzzer" => "BUZZER",
         "ranking" => "PUNKTSTAND",
         "hitster" => "HITSTER · SPOTIFY",
+        "jeopardy" => "JEOPARDY",
         _ => "LIVE-EVENT"
     };
 
@@ -314,6 +319,7 @@
             "quiz" => "question",
             "estimation" => "question",
             "buzzer" => "question",
+            "jeopardy" => "title",
             _ => string.Empty
         };
 

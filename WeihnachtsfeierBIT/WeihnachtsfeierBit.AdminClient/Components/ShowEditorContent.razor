@@ -139,7 +139,8 @@
         new("rating", "Sterne-Bewertung"),
         new("ordering", "Reihenfolge sortieren"),
         new("countdown", "Timer / Countdown"),
-        new("point_award", "Punktevergabe")
+        new("point_award", "Punktevergabe"),
+        new("jeopardy", "Jeopardy (Bünting-Quiz)")
     ];
 
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);
@@ -208,6 +209,7 @@
                     "estimation" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, correctValue = 0.0, unit = string.Empty, points = 100 },
                     "buzzer" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, points = 100, timeLimitSeconds = (int?)null },
                     "hitster" => new { internalName = _newSlideInternalName.Trim(), title = "Hitster", instructions = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.", cardsToWin = 10 },
+                    "jeopardy" => new { internalName = _newSlideInternalName.Trim(), title = "Bünting Jeopardy", categories = JeopardyDefaults.Categories() },
                     _ => new { internalName = _newSlideInternalName.Trim() }
                 };
 

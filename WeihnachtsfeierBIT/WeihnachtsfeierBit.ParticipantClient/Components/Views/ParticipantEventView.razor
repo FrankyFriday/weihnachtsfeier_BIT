@@ -62,6 +62,9 @@
                 case "point_award":
                     <PointAwardRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" Teams="Teams" />
                     break;
+                case "jeopardy":
+                    <JeopardyRenderer Event="Event" CurrentSlide="currentSlide" />
+                    break;
                 default:
                     <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
                     break;
@@ -120,6 +123,7 @@
         "ordering" => "Reihenfolge",
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
+        "jeopardy" => "Jeopardy",
         _ => "Event"
     };
 }

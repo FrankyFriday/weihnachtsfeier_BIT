@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
@@ -17,6 +18,7 @@ public static class SessionControlEndpoints
 
         admin.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
         admin.MapPut("/session/events/{eventId:guid}", UpdateSessionEventAsync).WithName("UpdateSessionEvent");
+        admin.MapPut("/session/events/{eventId:guid}/slides/{slideId:guid}/state", SetSlideStateAsync).WithName("SetSlideState");
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
@@ -329,6 +331,57 @@ public static class SessionControlEndpoints
         return Results.Ok(new { eventId = newEvent.Id });
     }
 
+    private static async Task<IResult> SetSlideStateAsync(
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        SetSlideStateRequest request,
+        HttpContext httpContext,
+        AdminSessionAccessService sessionAccess,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        if (await sessionAccess.GetAdminIdAsync(httpContext, cancellationToken) is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var gameEvent = await dbContext.GameInstanceEvents
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.GameInstance.ProjektId == projectId, cancellationToken);
+        if (gameEvent is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (request.State.ValueKind != JsonValueKind.Object)
+        {
+            return Results.BadRequest(new ApiError("Der Spielzustand muss ein JSON-Objekt sein."));
+        }
+
+        if (JsonNode.Parse(gameEvent.SlidesJson) is not JsonArray slides)
+        {
+            return Results.NotFound();
+        }
+
+        var slide = slides.OfType<JsonObject>()
+            .FirstOrDefault(s => string.Equals(s["slideId"]?.GetValue<string>(), slideId.ToString(), StringComparison.OrdinalIgnoreCase));
+        if (slide is null || !string.Equals(slide["type"]?.GetValue<string>(), "jeopardy", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.NotFound();
+        }
+
+        var parameters = slide["parameters"] as JsonObject ?? new JsonObject();
+        parameters["state"] = JsonNode.Parse(request.State.GetRawText());
+        slide["parameters"] = parameters;
+        gameEvent.SlidesJson = slides.ToJsonString();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
     private static async Task<IResult> UpdateEventModeAsync(
         Guid projectId,
         Guid eventId,
@@ -513,6 +566,7 @@ public static class SessionControlEndpoints
         OrderingSlide => "ordering",
         CountdownSlide => "countdown",
         PointAwardSlide => "point_award",
+        JeopardySlide => "jeopardy",
         _ => "announcement"
     };
 
@@ -540,6 +594,7 @@ public static class SessionControlEndpoints
             "estimation" => "Spontane Schätzfrage",
             "buzzer" => "Spontaner Buzzer",
             "ranking" => "Spontane Rangliste",
+            "jeopardy" => "Jeopardy",
             _ => "Spontane Aktion"
         };
     }

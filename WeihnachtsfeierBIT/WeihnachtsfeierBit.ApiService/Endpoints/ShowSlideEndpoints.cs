@@ -180,6 +180,7 @@ public static class ShowSlideEndpoints
             "ordering" => new OrderingSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "countdown" => new CountdownSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "point_award" => new PointAwardSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "jeopardy" => new JeopardySlide { Show = show, ShowId = show.Id, Position = request.Position },
             _ => null
         };
         if (slide is null)
@@ -252,6 +253,18 @@ public static class ShowSlideEndpoints
                 case PointAwardSlide pointAward when string.Equals(request.Type, "point_award", StringComparison.OrdinalIgnoreCase):
                     pointAward.Parameters = Deserialize<PointAwardSlideParameters>(request.Parameters);
                     break;
+                case JeopardySlide jeopardy when string.Equals(request.Type, "jeopardy", StringComparison.OrdinalIgnoreCase):
+                    jeopardy.Parameters = Deserialize<JeopardySlideParameters>(request.Parameters);
+                    var categories = jeopardy.Parameters.Categories ?? [];
+                    if (categories.Count == 0
+                        || categories.Any(category => category is null
+                            || string.IsNullOrWhiteSpace(category.Name)
+                            || category.Clues is null
+                            || !category.Clues.Any(clue => clue is not null && !string.IsNullOrWhiteSpace(clue.Question))))
+                    {
+                        return (false, "Jeopardy braucht mindestens eine Kategorie mit Namen und mindestens einer Frage.");
+                    }
+                    break;
                 default:
                     return (false, "Der Slide-Typ kann beim Aktualisieren nicht geändert werden.");
             }
@@ -297,6 +310,7 @@ public static class ShowSlideEndpoints
         OrderingSlide => "ordering",
         CountdownSlide => "countdown",
         PointAwardSlide => "point_award",
+        JeopardySlide => "jeopardy",
         _ => "announcement"
     };
 }

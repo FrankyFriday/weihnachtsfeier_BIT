@@ -73,6 +73,7 @@ Admin-Authentifizierungsrouten erlauben 10 Anfragen pro Minute und Client-IP. Te
 | `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als `GameInstanceEvent` mit n Slides in der Session starten/planen (`mode`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
 | `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen/planen (`slideType`, `mode`, `parameters`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`), Modus (`mode`), Sichtbarkeit (`isHidden`) oder Status (`status`) ändern. |
+| `PUT /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/state` | Projektadmin | Laufzeitzustand einer Jeopardy-Folie setzen und Projektclients benachrichtigen. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
