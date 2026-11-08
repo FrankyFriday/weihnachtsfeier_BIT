@@ -43,7 +43,7 @@ public sealed class GameStateNotifier(
         var canvasState = await CanvasStateBuilder.BuildAsync(accessCode, dbContext, cancellationToken);
         if (canvasState is not null)
         {
-            await hubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
+            await canvasHubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
                 .SendAsync("CanvasStateUpdated", canvasState, cancellationToken);
         }
     }

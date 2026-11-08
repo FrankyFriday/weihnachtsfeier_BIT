@@ -4,7 +4,7 @@
 @inject ProjectApiClient ProjectApiClient
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
-<div style="margin-top: 16px; display: grid; gap: 16px;">
+<div class="jp-board" style="margin-top: 16px; display: grid; gap: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; font-size: 16px; color: var(--ink);">@ReadString(CurrentSlide.Parameters, "title")</h3>
         <FrameworkBadge Text="Jeopardy" Variant="primary" />
@@ -16,7 +16,7 @@
                 <tr>
                     @foreach (var category in _categories)
                     {
-                        <th style="padding: 10px 6px; background: var(--primary-strong); color: #fff; border-radius: 8px; font-size: 13px;">@category.Name</th>
+                        <th class="jp-head" style="padding: 10px 6px; border-radius: 8px; font-size: 13px;">@category.Name</th>
                     }
                 </tr>
             </thead>
@@ -35,8 +35,8 @@
                                 var isUsed = _used.Contains(key);
                                 var isActive = _active == key;
                                 <td style="padding: 0;">
-                                    <button type="button" class="jp-cell-btn" disabled="@(isUsed || _busy)" @onclick="() => SelectAsync(key)"
-                                            style="width: 100%; min-height: 54px; border-radius: 8px; border: 1.5px solid @(isActive ? "var(--primary)" : "var(--line)"); background: @(isActive ? "var(--primary-soft)" : "var(--surface)"); color: @(isUsed ? "var(--muted-2)" : "var(--ink)"); font-weight: 800; font-size: 18px; cursor: @(isUsed ? "default" : "pointer"); opacity: @(isUsed ? ".45" : "1");">
+                                    <button type="button" class="jp-cell-btn @(isActive ? "is-active" : null) @(isUsed ? "is-used" : null)" disabled="@(isUsed || _busy)" @onclick="() => SelectAsync(key)"
+                                            style="width: 100%; min-height: 54px; border-radius: 8px; font-weight: 800; font-size: 18px; cursor: @(isUsed ? "default" : "pointer");">
                                         @(isUsed ? "–" : clue.Value.ToString())
                                     </button>
                                 </td>
@@ -54,15 +54,15 @@
 
     @if (ActiveClue is { } active)
     {
-        <div class="jp-clue" @key="@active.Question" style="padding: 16px; border: 1.5px solid var(--primary); border-radius: 12px; background: var(--surface); display: grid; gap: 12px;">
+        <div class="jp-clue" @key="@active.Question" style="padding: 16px; border-radius: 12px; display: grid; gap: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="color: var(--primary-strong);">@active.Category · @active.Value Punkte</strong>
+                <strong class="jp-clue-meta">@active.Category · @active.Value Punkte</strong>
                 <FrameworkBadge Text="@(_revealed ? "Antwort aufgedeckt" : "Antwort verdeckt")" Variant="primary" />
             </div>
-            <div style="font-size: 20px; font-weight: 700; color: var(--ink);">@active.Question</div>
-            <div style="padding: 10px 12px; border-radius: 8px; background: var(--surface-2); color: var(--ink-2);">
-                <span style="font-size: 12px; color: var(--muted);">Antwort (nur Spielleitung)</span><br />
-                <strong>@active.Answer</strong>
+            <div class="jp-clue-question" style="font-size: 20px; font-weight: 700;">@active.Question</div>
+            <div class="jp-answer-panel" style="padding: 10px 12px; border-radius: 8px;">
+                <span class="jp-answer-label" style="font-size: 12px;">Antwort (nur Spielleitung)</span><br />
+                <strong class="jp-answer">@active.Answer</strong>
             </div>
 
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">

@@ -265,6 +265,74 @@
     opacity: 0.75;
 }
 
+.jp-board {
+    --jp-forest: #105c4d;
+    --jp-green: #197b67;
+    --jp-ink: #183b34;
+    --jp-gold: #c49335;
+    --jp-gold-soft: #fff7e6;
+    --jp-tile: #f3f8f6;
+    --jp-line: #cdded8;
+    --jp-muted: #82938e;
+}
+
+.jp-head {
+    background: var(--jp-forest);
+    color: #fff;
+}
+
+.jp-cell {
+    border: 1px solid var(--jp-line);
+    background: var(--jp-tile);
+    color: var(--jp-green);
+}
+
+.jp-cell.is-used,
+.jp-cell-btn.is-used {
+    border-color: #e0e8e4;
+    background: #edf2ef;
+    color: var(--jp-muted);
+}
+
+.jp-cell-btn {
+    border: 1.5px solid var(--jp-line);
+    background: #fff;
+    color: var(--jp-green);
+}
+
+.jp-cell-btn.is-active {
+    border-color: var(--jp-gold);
+    background: var(--jp-gold-soft);
+    color: var(--jp-forest);
+}
+
+.jp-clue {
+    border: 2px solid var(--jp-gold);
+    background: var(--jp-gold-soft);
+}
+
+.jp-clue-meta {
+    color: var(--jp-forest);
+}
+
+.jp-clue-question {
+    color: var(--jp-ink);
+}
+
+.jp-answer {
+    color: var(--jp-green);
+}
+
+.jp-answer-panel {
+    border: 1px solid var(--jp-line);
+    background: #f3f8f6;
+    color: var(--jp-ink);
+}
+
+.jp-answer-label {
+    color: #65766f;
+}
+
 @keyframes jp-cell-in {
     from { opacity: 0; transform: translateY(10px) scale(.92); }
     to { opacity: 1; transform: translateY(0) scale(1); }
@@ -287,7 +355,8 @@
 
 .jp-cell-btn:not(:disabled):hover {
     transform: translateY(-2px) scale(1.04);
-    background: var(--primary-soft) !important;
+    border-color: var(--jp-green);
+    background: #e3f1ec;
 }
 
 .jp-clue {
