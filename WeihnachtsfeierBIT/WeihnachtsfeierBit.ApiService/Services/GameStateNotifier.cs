@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.ApiService.Hubs;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
@@ -42,7 +43,7 @@ public sealed class GameStateNotifier(
         var canvasState = await CanvasStateBuilder.BuildAsync(accessCode, dbContext, cancellationToken);
         if (canvasState is not null)
         {
-            await hubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
+            await canvasHubContext.Clients.Group(CanvasHub.GetGroupName(accessCode))
                 .SendAsync("CanvasStateUpdated", canvasState, cancellationToken);
         }
     }
@@ -66,6 +67,9 @@ public sealed class GameStateNotifier(
             .Where(t => t.ProjektId == projectId)
             .Include(t => t.Teilnehmer)
             .ToListAsync(cancellationToken);
+        var teamParticipantIds = teams.ToDictionary(
+            team => team.Id,
+            team => team.Teilnehmer.Select(participant => participant.Id).ToHashSet());
 
         var orderedTeams = teams
             .OrderByDescending(t => t.Punkte)
@@ -112,17 +116,17 @@ public sealed class GameStateNotifier(
             var activeGie = liveEvents.FirstOrDefault(e => e.Mode == "active");
             if (activeGie is not null)
             {
-                activeEvent = ToEventState(activeGie);
+                activeEvent = ToEventState(activeGie, teamParticipantIds);
             }
 
             foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
             {
-                passiveEvents.Add(ToEventState(passiveGie));
+                passiveEvents.Add(ToEventState(passiveGie, teamParticipantIds));
             }
 
             foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled").OrderBy(e => e.ScheduledStartUtc))
             {
-                scheduledEvents.Add(ToEventState(schedGie));
+                scheduledEvents.Add(ToEventState(schedGie, teamParticipantIds));
             }
         }
 
@@ -141,7 +145,9 @@ public sealed class GameStateNotifier(
             IsEnded: isEnded);
     }
 
-    private static EventState ToEventState(GameInstanceEvent gie)
+    private static EventState ToEventState(
+        GameInstanceEvent gie,
+        IReadOnlyDictionary<Guid, HashSet<Guid>> teamParticipantIds)
     {
         var slideStates = new List<EventSlideState>();
         try
@@ -155,6 +161,10 @@ public sealed class GameStateNotifier(
                     string type = elem.TryGetProperty("type", out var typeProp) && typeProp.ValueKind == JsonValueKind.String ? typeProp.GetString() ?? "announcement" : "announcement";
                     int pos = elem.TryGetProperty("position", out var posProp) && posProp.ValueKind == JsonValueKind.Number ? posProp.GetInt32() : 0;
                     JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
+                    if (type.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        paramsElem = HitsterGameService.PublicParameters(paramsElem, teamParticipantIds);
+                    }
 
                     slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));
                 }

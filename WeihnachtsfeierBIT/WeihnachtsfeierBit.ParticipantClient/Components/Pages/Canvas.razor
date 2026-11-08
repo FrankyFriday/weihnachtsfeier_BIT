@@ -1,3 +1,4 @@
+@page "/beamer/{Code}"
 @page "/canvas/{Code}"
 @layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
 @using System.Text.Json
@@ -71,8 +72,65 @@
                     else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
                     {
                         <div style="margin-top: 16px; width: 100%;">
-                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_pointLogs" />
+                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
                         </div>
+                    }
+                    else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
+                    }
+                    else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var game = ReadObject(activeEvent.Parameters, "game");
+                        @if (ReadBool(game, "started"))
+                        {
+                            @if (ReadBool(game, "finished"))
+                            {
+                                <p class="canvas-message-text">
+                                    @if (ReadStringList(game, "winnerNames") is { Length: > 0 } winners)
+                                    {
+                                        <span>Spiel beendet · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Spiel beendet.</span>
+                                    }
+                                </p>
+                            }
+                            else
+                            {
+                                <p class="canvas-message-text">Runde @ReadInt(game, "round") · @ReadString(game, "currentTeamName") ist dran</p>
+                            }
+                            @if (ReadString(game, "phase") == "revealed")
+                            {
+                                var song = ReadObject(game, "currentSong");
+                                <h3>@ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))</h3>
+                            }
+                            <div class="canvas-hitster-teams">
+                                @if (game.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
+                                {
+                                    @foreach (var team in teams.EnumerateArray())
+                                    {
+                                        <div>
+                                            <strong>@ReadString(team, "name")</strong>
+                                            <ol class="canvas-options">
+                                                @if (team.TryGetProperty("timeline", out var timeline) && timeline.ValueKind == JsonValueKind.Array)
+                                                {
+                                                    @foreach (var card in timeline.EnumerateArray())
+                                                    {
+                                                        <li>@ReadString(card, "title") · @ReadInt(card, "year")</li>
+                                                    }
+                                                }
+                                            </ol>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="canvas-message-text">Die Spielleitung bereitet Hitster vor.</p>
+                        }
                     }
                 }
                 else
@@ -111,8 +169,9 @@
     [Parameter] public string Code { get; set; } = string.Empty;
 
     private CanvasGameState? _state;
-    private TeamPointLogDto[] _pointLogs = [];
     private HubConnection? _hubConnection;
+    private CancellationTokenSource? _connectionCancellation;
+    private Task? _connectionRecoveryTask;
     private bool _isLoading = true;
     private bool _isConnected;
     private bool _sessionEnded;
@@ -124,8 +183,13 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        await StopConnectionAsync();
+
         _isLoading = true;
         _errorMessage = null;
+        _state = null;
+        _sessionEnded = false;
+        _isConnected = false;
 
         if (Code.Length != 6 || !Code.All(char.IsAsciiDigit))
         {
@@ -136,8 +200,6 @@
 
         try
         {
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
             await ConnectAsync();
         }
         catch (HttpRequestException ex)
@@ -154,74 +216,78 @@
         }
     }
 
-    private async Task LoadPointLogsAsync()
-    {
-        if (_state is null) return;
-        try
-        {
-            _pointLogs = await ProjectApiClient.GetPointLogsAsync(string.Empty, _state.ProjectId);
-        }
-        catch
-        {
-        }
-    }
-
     private async Task ConnectAsync()
     {
         var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
         var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/canvas";
 
-        _hubConnection = new HubConnectionBuilder()
+        var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
-            .WithAutomaticReconnect()
             .Build();
+        _hubConnection = connection;
 
-        _hubConnection.On<CanvasGameState>("CanvasStateUpdated", state =>
+        connection.On<CanvasGameState>("CanvasStateUpdated", state =>
             InvokeAsync(async () =>
             {
                 _state = state;
-                await LoadPointLogsAsync();
                 StateHasChanged();
             }));
 
-        _hubConnection.On("CanvasSessionEnded", () => InvokeAsync(() =>
+        connection.On("CanvasSessionEnded", () => InvokeAsync(() =>
         {
             _sessionEnded = true;
             _connectionStatus = "Session beendet";
             StateHasChanged();
         }));
 
-        _hubConnection.Reconnecting += _ => InvokeAsync(() =>
-        {
-            _isConnected = false;
-            _connectionStatus = "Verbindung unterbrochen";
-            StateHasChanged();
-        });
+        _connectionCancellation = new CancellationTokenSource();
+        _connectionRecoveryTask = RecoverConnectionAsync(connection, Code, _connectionCancellation.Token);
 
-        _hubConnection.Reconnected += async _ =>
-        {
-            await _hubConnection.SendAsync("JoinCanvas", Code);
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
-            _isConnected = true;
-            _connectionStatus = "Live aktualisiert";
-            await InvokeAsync(StateHasChanged);
-        };
+        _state = await ProjectApiClient.GetCanvasStateAsync(Code);
+    }
 
-        try
+    private async Task RecoverConnectionAsync(HubConnection connection, string code, CancellationToken cancellationToken)
+    {
+        await HubConnectionRecovery.RunAsync(
+            connection,
+            async token =>
+            {
+                await connection.SendAsync("JoinCanvas", code, token);
+                var state = await ProjectApiClient.GetCanvasStateAsync(code, token);
+                await InvokeAsync(() =>
+                {
+                    _state = state;
+                    _sessionEnded = false;
+                    StateHasChanged();
+                });
+            },
+            exception => Logger.LogWarning(exception, "Die Live-Verbindung der Beameransicht wird erneut aufgebaut."),
+            isConnected => InvokeAsync(() =>
+            {
+                _isConnected = isConnected;
+                _connectionStatus = isConnected
+                    ? "Live aktualisiert"
+                    : "Verbindung wird automatisch wiederhergestellt";
+                StateHasChanged();
+            }),
+            cancellationToken);
+    }
+
+    private async Task StopConnectionAsync()
+    {
+        _connectionCancellation?.Cancel();
+        if (_connectionRecoveryTask is not null)
         {
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync("JoinCanvas", Code);
-            _state = await ProjectApiClient.GetCanvasStateAsync(Code);
-            await LoadPointLogsAsync();
-            _isConnected = true;
-            _connectionStatus = "Live aktualisiert";
+            await _connectionRecoveryTask;
+            _connectionRecoveryTask = null;
         }
-        catch (Exception ex)
+
+        _connectionCancellation?.Dispose();
+        _connectionCancellation = null;
+        if (_hubConnection is not null)
         {
-            Logger.LogWarning(ex, "Die Live-Verbindung für die Beameransicht konnte nicht hergestellt werden.");
-            _isConnected = false;
-            _connectionStatus = "Live-Verbindung nicht verfügbar";
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
         }
     }
 
@@ -239,6 +305,8 @@
         "estimation" => "SCHÄTZFRAGE",
         "buzzer" => "BUZZER",
         "ranking" => "PUNKTSTAND",
+        "hitster" => "HITSTER · SPOTIFY",
+        "jeopardy" => "JEOPARDY",
         _ => "LIVE-EVENT"
     };
 
@@ -251,6 +319,7 @@
             "quiz" => "question",
             "estimation" => "question",
             "buzzer" => "question",
+            "jeopardy" => "title",
             _ => string.Empty
         };
 
@@ -267,6 +336,21 @@
         value.ValueKind == JsonValueKind.String
             ? value.GetString() ?? string.Empty
             : string.Empty;
+
+    private static JsonElement ReadObject(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind == JsonValueKind.Object ? value : default;
+
+    private static int ReadInt(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.TryGetInt32(out var result) ? result : 0;
+
+    private static bool ReadBool(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object &&
+        parameters.TryGetProperty(propertyName, out var value) &&
+        value.ValueKind == JsonValueKind.True;
 
     private static string[] ReadStringList(JsonElement parameters, string propertyName)
     {
@@ -285,9 +369,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_hubConnection is not null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
+        await StopConnectionAsync();
     }
 }

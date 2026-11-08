@@ -4,6 +4,7 @@
 @inject ProjectApiClient ProjectApiClient
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
+@inject ILogger<PlayHome> Logger
 @implements IAsyncDisposable
 
 <PageTitle>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
@@ -60,11 +61,11 @@ else if (_liveGameState?.IsPaused == true)
 }
 else if (_liveGameState?.ActiveEvent is EventState activeEv && !activeEv.IsHidden)
 {
-    <ParticipantEventView Event="activeEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="false" />
+    <ParticipantEventView Event="activeEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ShowBackButton="false" />
 }
 else if (_selectedPassiveEvent is EventState passiveEv)
 {
-    <ParticipantEventView Event="passiveEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" ShowBackButton="true" OnBack="ClosePassiveEvent" />
+    <ParticipantEventView Event="passiveEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ShowBackButton="true" OnBack="ClosePassiveEvent" />
 }
 else
 {
@@ -115,6 +116,8 @@ else
     private string _nameInput = string.Empty;
 
     private HubConnection? _hubConnection;
+    private CancellationTokenSource? _connectionCancellation;
+    private Task? _connectionRecoveryTask;
 
     private TeamState? CurrentTeamState { get; set; }
 
@@ -233,67 +236,38 @@ else
         var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
 
         _hubConnection = new HubConnectionBuilder()
-            .WithUrl(hubUrl)
-            .WithAutomaticReconnect()
+            .WithUrl(hubUrl, options =>
+                options.AccessTokenProvider = () => Task.FromResult<string?>(_accessToken))
             .Build();
 
         _hubConnection.On<ProjectGameState>("GameStateUpdated", (state) =>
         {
             if (state.ProjectId == ProjectId)
             {
-                _liveGameState = state;
-                _isDisconnected = false;
-                if (state.IsEnded)
-                {
-                    _isSessionEnded = true;
-                }
-                UpdateCurrentTeamState();
-
-                if (_selectedPassiveEvent is not null)
-                {
-                    var updatedPassive = state.PassiveEvents.FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
-                    if (updatedPassive is null)
-                    {
-                        _selectedPassiveEvent = null;
-                    }
-                    else
-                    {
-                        _selectedPassiveEvent = updatedPassive;
-                    }
-                }
-
-                InvokeAsync(StateHasChanged);
+                return InvokeAsync(() => ApplyLiveGameState(state));
             }
+
+            return Task.CompletedTask;
         });
 
-        _hubConnection.Closed += ex =>
+        _hubConnection.On("SessionRevoked", () =>
         {
-            _isDisconnected = true;
-            return InvokeAsync(StateHasChanged);
-        };
+            return InvokeAsync(() =>
+            {
+                _accessToken = null;
+                _participant = null;
+                _liveGameState = null;
+                _selectedPassiveEvent = null;
+                CurrentTeamState = null;
+                _isLoggedIn = false;
+                _connectionCancellation?.Cancel();
+                _errorMessage = "Deine Sitzung wurde beendet. Bitte melde dich erneut an.";
+                StateHasChanged();
+            });
+        });
 
-        _hubConnection.Reconnecting += _ =>
-        {
-            _isDisconnected = true;
-            return InvokeAsync(StateHasChanged);
-        };
-
-        _hubConnection.Reconnected += _ =>
-        {
-            _isDisconnected = false;
-            return InvokeAsync(StateHasChanged);
-        };
-
-        try
-        {
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync("JoinProject", ProjectId);
-            _isDisconnected = false;
-        }
-        catch
-        {
-            _isDisconnected = true;
-        }
+        _connectionCancellation = new CancellationTokenSource();
+        _connectionRecoveryTask = RecoverConnectionAsync(_hubConnection, _connectionCancellation.Token);
     }
 
     private async Task ReconnectSignalRAsync()
@@ -301,21 +275,55 @@ else
         _isReconnecting = true;
         try
         {
-            if (_hubConnection is not null && _hubConnection.State == HubConnectionState.Disconnected)
+            if (_hubConnection is not null && _hubConnection.State != HubConnectionState.Disconnected)
             {
-                await _hubConnection.StartAsync();
-                await _hubConnection.SendAsync("JoinProject", ProjectId);
+                await _hubConnection.StopAsync();
             }
-            _isDisconnected = false;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Die Teilnehmersitzung konnte nicht sofort neu verbunden werden.");
             _isDisconnected = true;
         }
         finally
         {
             _isReconnecting = false;
         }
+    }
+
+    private async Task RecoverConnectionAsync(HubConnection connection, CancellationToken cancellationToken)
+    {
+        await HubConnectionRecovery.RunAsync(
+            connection,
+            async token =>
+            {
+                await connection.SendAsync("JoinProject", ProjectId, token);
+                var state = await ProjectApiClient.GetSessionStateAsync(_accessToken!, ProjectId, token);
+                await InvokeAsync(() => ApplyLiveGameState(state));
+            },
+            exception => Logger.LogWarning(exception, "Die Spielverbindung wird automatisch wiederhergestellt."),
+            isConnected => InvokeAsync(() =>
+            {
+                _isDisconnected = !isConnected;
+                StateHasChanged();
+            }),
+            cancellationToken);
+    }
+
+    private void ApplyLiveGameState(ProjectGameState state)
+    {
+        _liveGameState = state;
+        _isDisconnected = false;
+        _isSessionEnded = state.IsEnded;
+        UpdateCurrentTeamState();
+
+        if (_selectedPassiveEvent is not null)
+        {
+            _selectedPassiveEvent = state.PassiveEvents
+                .FirstOrDefault(e => e.EventId == _selectedPassiveEvent.EventId);
+        }
+
+        StateHasChanged();
     }
 
     private void ResetSessionAndGoToJoin()
@@ -339,6 +347,13 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        _connectionCancellation?.Cancel();
+        if (_connectionRecoveryTask is not null)
+        {
+            await _connectionRecoveryTask;
+        }
+
+        _connectionCancellation?.Dispose();
         if (_hubConnection is not null)
         {
             try

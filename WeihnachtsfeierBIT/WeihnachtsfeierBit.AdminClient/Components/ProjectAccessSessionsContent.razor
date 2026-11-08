@@ -1,0 +1,310 @@
+@inherits AuthenticatedComponentBase
+
+<FrameworkPage>
+    <PageHeading Eyebrow="PROJEKT" Title="Zugriffssitzungen" Description="Aktive Admin- und Teilnehmersitzungen prüfen und bei Bedarf widerrufen." />
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionNotice))
+    {
+        <FrameworkNotice Message="@_actionNotice" />
+    }
+
+    @if (!string.IsNullOrEmpty(_actionError))
+    {
+        <FrameworkNotice Message="@_actionError" />
+    }
+
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Zugriffssitzungen werden geladen ..." />
+    }
+    else
+    {
+        <section class="access-session-section">
+            <h2>Admin-Sitzungen <span class="access-session-count">@_adminSessions.Length</span></h2>
+            <p class="access-session-description">Aktive Anmeldungen von Admin-Konten mit Zugriff auf dieses Projekt.</p>
+
+            @if (_adminSessions.Length == 0)
+            {
+                <p class="access-session-empty">Keine aktiven Admin-Sitzungen.</p>
+            }
+            else
+            {
+                <div class="access-session-list">
+                    @foreach (var session in _adminSessions)
+                    {
+                        <article class="access-session-row" @key="session.Id">
+                            <div class="access-session-details">
+                                <strong>@session.Username</strong>
+                                <span>Angemeldet: @FormatDate(session.ErstelltAmUtc) · Zuletzt aktiv: @FormatDate(session.LetzteAktivitaetAmUtc)</span>
+                                <span>Läuft ab: @FormatDate(session.LaeuftAbAmUtc)</span>
+                                @if (!string.IsNullOrWhiteSpace(session.UserAgent))
+                                {
+                                    <span class="access-session-user-agent">@session.UserAgent</span>
+                                }
+                            </div>
+                            @if (session.IsCurrent)
+                            {
+                                <span class="access-session-current">Diese Sitzung · aktuell</span>
+                            }
+                            else
+                            {
+                                <FrameworkButton Label="Widerrufen" Variant="danger" OnClick="() => RequestAdminRevoke(session)" />
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="access-session-section">
+            <h2>Teilnehmersitzungen</h2>
+            <p class="access-session-description">Wähle einen Teilnehmer aus, um seine aktiven Anmeldungen einzusehen.</p>
+
+            @if (_participants.Length == 0)
+            {
+                <p class="access-session-empty">Für dieses Projekt sind keine Teilnehmer angelegt.</p>
+            }
+            else
+            {
+                <div class="access-session-list">
+                    @foreach (var participant in _participants)
+                    {
+                        <article class="access-session-participant" @key="participant.Id">
+                            <div class="access-session-participant-header">
+                                <div>
+                                    <strong>Nr. @participant.Number</strong>
+                                    <span>@(string.IsNullOrWhiteSpace(participant.Name) ? "Unbenannt" : participant.Name)</span>
+                                </div>
+                                <FrameworkButton
+                                    Label="@(_expandedParticipantId == participant.Id ? "Sitzungen schließen" : "Sitzungen anzeigen")"
+                                    Variant="secondary"
+                                    OnClick="() => ToggleParticipantSessionsAsync(participant)"
+                                    Busy="@(_loadingParticipantId == participant.Id)"
+                                    Disabled="@(_loadingParticipantId == participant.Id)" />
+                            </div>
+
+                            @if (_expandedParticipantId == participant.Id)
+                            {
+                                @if (_loadingParticipantId == participant.Id)
+                                {
+                                    <FrameworkLoading Message="Teilnehmersitzungen werden geladen ..." />
+                                }
+                                else if (_participantSessions.TryGetValue(participant.Id, out var sessions))
+                                {
+                                    @if (sessions.Length == 0)
+                                    {
+                                        <p class="access-session-empty">Keine aktiven Sitzungen für diesen Teilnehmer.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="access-session-list access-session-nested-list">
+                                            @foreach (var session in sessions)
+                                            {
+                                                <div class="access-session-row" @key="session.Id">
+                                                    <div class="access-session-details">
+                                                        <strong>Angemeldet: @FormatDate(session.CreatedAtUtc)</strong>
+                                                        <span>Zuletzt aktiv: @FormatDate(session.LastActivityAtUtc) · Läuft ab: @FormatDate(session.ExpiresAtUtc)</span>
+                                                        @if (!string.IsNullOrWhiteSpace(session.UserAgent))
+                                                        {
+                                                            <span class="access-session-user-agent">@session.UserAgent</span>
+                                                        }
+                                                    </div>
+                                                    <FrameworkButton Label="Widerrufen" Variant="danger" OnClick="() => RequestParticipantRevoke(participant, session)" />
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</FrameworkPage>
+
+<FrameworkModal IsOpen="_showRevokeConfirmation" Title="Sitzung widerrufen?" OnClose="CancelRevoke">
+    @if (_pendingRevoke is not null)
+    {
+        <p>Die Anmeldung von <strong>@_pendingRevoke.DisplayName</strong> wird beendet. Das Gerät muss sich anschließend erneut anmelden.</p>
+        @if (_pendingRevoke.Type == SessionType.Admin)
+        {
+            <p>Admin-Sitzungen gelten kontoweit. Der Widerruf meldet das Gerät auch aus anderen Projekten ab.</p>
+        }
+        @if (!string.IsNullOrEmpty(_revokeError))
+        {
+            <FrameworkNotice Message="@_revokeError" />
+        }
+        <div class="framework-button-row" style="justify-content: flex-end;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelRevoke" Disabled="@_revoking" />
+            <FrameworkButton Label="Sitzung widerrufen" Variant="danger" OnClick="RevokeSessionAsync" Busy="@_revoking" Disabled="@_revoking" />
+        </div>
+    }
+</FrameworkModal>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private AdminAccessSessionSummary[] _adminSessions = [];
+    private ParticipantSummary[] _participants = [];
+    private readonly Dictionary<Guid, SessionSummary[]> _participantSessions = [];
+    private Guid? _expandedParticipantId;
+    private Guid? _loadingParticipantId;
+    private SessionRevokeTarget? _pendingRevoke;
+    private string? _actionNotice;
+    private string? _actionError;
+    private string? _revokeError;
+    private bool _showRevokeConfirmation;
+    private bool _revoking;
+
+    protected override async Task OnParametersSetAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        await LoadAuthenticatedAsync(async token =>
+        {
+            var adminSessionsTask = ProjectApiClient.GetAdminSessionsAsync(token, ProjectId);
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+            await Task.WhenAll(adminSessionsTask, participantsTask);
+            _adminSessions = await adminSessionsTask;
+            _participants = (await participantsTask).OrderBy(participant => participant.Number).ToArray();
+        });
+    }
+
+    private async Task ToggleParticipantSessionsAsync(ParticipantSummary participant)
+    {
+        _actionError = null;
+        _actionNotice = null;
+        if (_expandedParticipantId == participant.Id)
+        {
+            _expandedParticipantId = null;
+            return;
+        }
+
+        _expandedParticipantId = participant.Id;
+        if (_participantSessions.ContainsKey(participant.Id))
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(AccessToken))
+        {
+            _actionError = "Die Admin-Sitzung ist nicht verfügbar. Bitte melde dich erneut an.";
+            return;
+        }
+
+        _loadingParticipantId = participant.Id;
+        try
+        {
+            _participantSessions[participant.Id] =
+                await ProjectApiClient.GetParticipantSessionsAsync(AccessToken, ProjectId, participant.Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            _actionError = exception.Message;
+            _expandedParticipantId = null;
+        }
+        finally
+        {
+            _loadingParticipantId = null;
+        }
+    }
+
+    private void RequestAdminRevoke(AdminAccessSessionSummary session)
+    {
+        if (session.IsCurrent)
+        {
+            return;
+        }
+
+        _pendingRevoke = new(SessionType.Admin, session.Id, Guid.Empty, session.Username);
+        _revokeError = null;
+        _showRevokeConfirmation = true;
+    }
+
+    private void RequestParticipantRevoke(ParticipantSummary participant, SessionSummary session)
+    {
+        var name = string.IsNullOrWhiteSpace(participant.Name)
+            ? $"Teilnehmer Nr. {participant.Number}"
+            : participant.Name ?? "Unbenannt";
+        _pendingRevoke = new(SessionType.Participant, session.Id, participant.Id, name);
+        _revokeError = null;
+        _showRevokeConfirmation = true;
+    }
+
+    private async Task RevokeSessionAsync()
+    {
+        var target = _pendingRevoke;
+        if (_revoking || target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(AccessToken))
+        {
+            _revokeError = "Die Admin-Sitzung ist nicht verfügbar. Bitte melde dich erneut an.";
+            return;
+        }
+
+        _revoking = true;
+        _revokeError = null;
+        _actionNotice = null;
+        _actionError = null;
+        try
+        {
+            if (target.Type == SessionType.Admin)
+            {
+                await ProjectApiClient.RevokeAdminSessionAsync(AccessToken, ProjectId, target.SessionId);
+                _adminSessions = _adminSessions.Where(session => session.Id != target.SessionId).ToArray();
+            }
+            else
+            {
+                await ProjectApiClient.RevokeParticipantSessionAsync(
+                    AccessToken,
+                    ProjectId,
+                    target.ParticipantId,
+                    target.SessionId);
+                if (_participantSessions.TryGetValue(target.ParticipantId, out var sessions))
+                {
+                    _participantSessions[target.ParticipantId] =
+                        sessions.Where(session => session.Id != target.SessionId).ToArray();
+                }
+            }
+
+            _actionNotice = $"Die Sitzung von {target.DisplayName} wurde widerrufen.";
+            CancelRevoke();
+        }
+        catch (HttpRequestException exception)
+        {
+            _revokeError = exception.Message;
+        }
+        finally
+        {
+            _revoking = false;
+        }
+    }
+
+    private void CancelRevoke()
+    {
+        _showRevokeConfirmation = false;
+        _pendingRevoke = null;
+        _revokeError = null;
+    }
+
+    private static string FormatDate(DateTime dateTimeUtc) =>
+        dateTimeUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+
+    private enum SessionType
+    {
+        Admin,
+        Participant
+    }
+
+    private sealed record SessionRevokeTarget(SessionType Type, Guid SessionId, Guid ParticipantId, string DisplayName);
+}

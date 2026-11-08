@@ -14,6 +14,9 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit.ParticipantClient")
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/dpkeys"));
 
 builder.Services.AddWeihnachtsfeierFramework(client =>
 {

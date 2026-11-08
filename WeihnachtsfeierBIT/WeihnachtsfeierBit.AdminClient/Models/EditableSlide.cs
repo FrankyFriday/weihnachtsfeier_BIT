@@ -8,6 +8,19 @@ public sealed class RankingEntryModel
     public int Score { get; set; }
 }
 
+public sealed class JeopardyClueModel
+{
+    public int Value { get; set; } = 100;
+    public string Question { get; set; } = string.Empty;
+    public string Answer { get; set; } = string.Empty;
+}
+
+public sealed class JeopardyCategoryModel
+{
+    public string Name { get; set; } = string.Empty;
+    public List<JeopardyClueModel> Clues { get; set; } = [];
+}
+
 public sealed class EditableSlide
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -60,6 +73,11 @@ public sealed class EditableSlide
     public int BuzzerPoints { get; set; } = 100;
     public int? BuzzerTimeLimitSeconds { get; set; }
 
+    // Hitster
+    public string HitsterTitle { get; set; } = "Hitster";
+    public string HitsterInstructions { get; set; } = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+    public int HitsterCardsToWin { get; set; } = 10;
+
     // Text (Freitext)
     public string TextQuestion { get; set; } = string.Empty;
     public string TextPlaceholder { get; set; } = "Dein Text...";
@@ -93,6 +111,9 @@ public sealed class EditableSlide
     public string PointAwardTitle { get; set; } = string.Empty;
     public string PointAwardReason { get; set; } = string.Empty;
     public int PointAwardDefaultPoints { get; set; } = 10;
+
+    public string JeopardyTitle { get; set; } = "Bünting Jeopardy";
+    public List<JeopardyCategoryModel> JeopardyCategories { get; set; } = [];
 
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
@@ -143,6 +164,13 @@ public sealed class EditableSlide
                 BuzzerPoints = ReadNullableInt(parameters, "points") ?? 100;
                 BuzzerTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
                 break;
+            case "hitster":
+                HitsterTitle = ReadString(parameters, "title") is { Length: > 0 } title ? title : "Hitster";
+                HitsterInstructions = ReadString(parameters, "instructions") is { Length: > 0 } instructions
+                    ? instructions
+                    : "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+                HitsterCardsToWin = ReadNullableInt(parameters, "cardsToWin") ?? 10;
+                break;
             case "text":
                 TextQuestion = ReadString(parameters, "question");
                 TextPlaceholder = ReadString(parameters, "placeholder");
@@ -177,6 +205,10 @@ public sealed class EditableSlide
                 PointAwardReason = ReadString(parameters, "defaultReason");
                 PointAwardDefaultPoints = ReadNullableInt(parameters, "defaultDeltaPoints") ?? 10;
                 break;
+            case "jeopardy":
+                JeopardyTitle = ReadString(parameters, "title") is { Length: > 0 } jeopardyTitle ? jeopardyTitle : "Bünting Jeopardy";
+                JeopardyCategories = ReadJeopardyCategories(parameters);
+                break;
         }
 
         if (string.IsNullOrWhiteSpace(InternalName))
@@ -193,6 +225,7 @@ public sealed class EditableSlide
         "ranking" => "Rangliste",
         "estimation" => "Schätzfrage",
         "buzzer" => "Buzzer",
+        "hitster" => "Hitster",
         "text" => "Freitext",
         "word_cloud" => "Wortwolke",
         "slider" => "Schieberegler",
@@ -200,6 +233,7 @@ public sealed class EditableSlide
         "ordering" => "Reihenfolge",
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
+        "jeopardy" => "Jeopardy",
         _ => "Slide"
     };
 
@@ -269,6 +303,7 @@ public sealed class EditableSlide
             "ranking" => !string.IsNullOrWhiteSpace(RankingTitle) ? RankingTitle : "Zwischenstand",
             "estimation" => !string.IsNullOrWhiteSpace(EstimationQuestion) ? EstimationQuestion : "Schätzfrage",
             "buzzer" => !string.IsNullOrWhiteSpace(BuzzerQuestion) ? BuzzerQuestion : "Buzzer",
+            "hitster" => !string.IsNullOrWhiteSpace(HitsterTitle) ? HitsterTitle : "Hitster",
             "text" => !string.IsNullOrWhiteSpace(TextQuestion) ? TextQuestion : "Freitext-Frage",
             "word_cloud" => !string.IsNullOrWhiteSpace(WordCloudQuestion) ? WordCloudQuestion : "Wortwolke",
             "slider" => !string.IsNullOrWhiteSpace(SliderQuestion) ? SliderQuestion : "Schieberegler",
@@ -276,6 +311,7 @@ public sealed class EditableSlide
             "ordering" => !string.IsNullOrWhiteSpace(OrderingQuestion) ? OrderingQuestion : "Reihenfolge",
             "countdown" => !string.IsNullOrWhiteSpace(CountdownTitle) ? CountdownTitle : "Timer",
             "point_award" => !string.IsNullOrWhiteSpace(PointAwardTitle) ? PointAwardTitle : "Punktevergabe",
+            "jeopardy" => !string.IsNullOrWhiteSpace(JeopardyTitle) ? JeopardyTitle : "Jeopardy",
             _ => "Slide"
         };
     }
@@ -288,6 +324,7 @@ public sealed class EditableSlide
         "ranking" => "Zwischenstand",
         "estimation" => "Neue Schätzfrage",
         "buzzer" => "Neuer Buzzer",
+        "hitster" => "Hitster",
         "text" => "Neue Freitext-Frage",
         "word_cloud" => "Neue Wortwolke",
         "slider" => "Neuer Schieberegler",
@@ -295,6 +332,7 @@ public sealed class EditableSlide
         "ordering" => "Neue Sortier-Aufgabe",
         "countdown" => "Neuer Timer",
         "point_award" => "Neue Punktevergabe",
+        "jeopardy" => "Neues Jeopardy",
         _ => "Neue Slide"
     };
 
@@ -422,6 +460,28 @@ public sealed class EditableSlide
                 };
                 break;
 
+            case "hitster":
+                if (string.IsNullOrWhiteSpace(HitsterTitle) || HitsterTitle.Length > 120)
+                {
+                    ErrorMessage = "Bitte einen Hitster-Titel mit maximal 120 Zeichen eingeben.";
+                    return (default, ErrorMessage);
+                }
+                if (HitsterInstructions.Length > 1000 || HitsterCardsToWin is < 3 or > 20)
+                {
+                    ErrorMessage = "Die Anleitung darf maximal 1000 Zeichen lang sein und die Siegbedingung muss zwischen 3 und 20 Karten liegen.";
+                    return (default, ErrorMessage);
+                }
+                payload = new
+                {
+                    internalName = InternalName.Trim(),
+                    adminNotes = AdminNotes.Trim(),
+                    isDisabled = IsDisabled,
+                    title = HitsterTitle.Trim(),
+                    instructions = HitsterInstructions.Trim(),
+                    cardsToWin = HitsterCardsToWin
+                };
+                break;
+
             case "text":
                 if (string.IsNullOrWhiteSpace(TextQuestion))
                 {
@@ -536,6 +596,42 @@ public sealed class EditableSlide
                 };
                 break;
 
+            case "jeopardy":
+                var cleanCategories = JeopardyCategories
+                    .Select(category => new JeopardyCategoryModel
+                    {
+                        Name = category.Name.Trim(),
+                        Clues = category.Clues
+                            .Where(clue => !string.IsNullOrWhiteSpace(clue.Question))
+                            .Select(clue => new JeopardyClueModel
+                            {
+                                Value = clue.Value,
+                                Question = clue.Question.Trim(),
+                                Answer = clue.Answer.Trim()
+                            })
+                            .ToList()
+                    })
+                    .Where(category => category.Name.Length > 0 || category.Clues.Count > 0)
+                    .ToList();
+                if (cleanCategories.Count == 0 || cleanCategories.Any(category => category.Name.Length == 0 || category.Clues.Count == 0))
+                {
+                    ErrorMessage = "Bitte mindestens eine Kategorie mit Namen und mindestens einer Frage anlegen.";
+                    return (default, ErrorMessage);
+                }
+                payload = new
+                {
+                    internalName = InternalName.Trim(),
+                    adminNotes = AdminNotes.Trim(),
+                    isDisabled = IsDisabled,
+                    title = string.IsNullOrWhiteSpace(JeopardyTitle) ? "Bünting Jeopardy" : JeopardyTitle.Trim(),
+                    categories = cleanCategories.Select(category => new
+                    {
+                        name = category.Name,
+                        clues = category.Clues.Select(clue => new { value = clue.Value, question = clue.Question, answer = clue.Answer })
+                    })
+                };
+                break;
+
             default:
                 ErrorMessage = $"Unbekannter Slide-Typ: {Type}";
                 return (default, ErrorMessage);
@@ -630,5 +726,39 @@ public sealed class EditableSlide
                 .ToList();
         }
         return [];
+    }
+
+    private static List<JeopardyCategoryModel> ReadJeopardyCategories(JsonElement element)
+    {
+        var result = new List<JeopardyCategoryModel>();
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty("categories", out var categories)
+            || categories.ValueKind != JsonValueKind.Array)
+        {
+            return result;
+        }
+
+        foreach (var category in categories.EnumerateArray())
+        {
+            var model = new JeopardyCategoryModel { Name = ReadString(category, "name") };
+            if (category.ValueKind == JsonValueKind.Object
+                && category.TryGetProperty("clues", out var clues)
+                && clues.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var clue in clues.EnumerateArray())
+                {
+                    model.Clues.Add(new JeopardyClueModel
+                    {
+                        Value = ReadNullableInt(clue, "value") ?? 100,
+                        Question = ReadString(clue, "question"),
+                        Answer = ReadString(clue, "answer")
+                    });
+                }
+            }
+
+            result.Add(model);
+        }
+
+        return result;
     }
 }

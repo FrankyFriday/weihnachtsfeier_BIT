@@ -114,6 +114,20 @@ public sealed class BuzzerSlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class HitsterSlide : Slide
+{
+    private HitsterSlideParameters? _parameters;
+
+    [NotMapped]
+    public HitsterSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<HitsterSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public sealed class TextSlide : Slide
 {
     private TextSlideParameters? _parameters;
@@ -212,6 +226,20 @@ public sealed class PointAwardSlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class JeopardySlide : Slide
+{
+    private JeopardySlideParameters? _parameters;
+
+    [NotMapped]
+    public JeopardySlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<JeopardySlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public abstract class SlideParameters
 {
     public int SchemaVersion { get; set; } = 1;
@@ -291,6 +319,15 @@ public sealed class BuzzerSlideParameters : SlideParameters
     public int? TimeLimitSeconds { get; set; }
 }
 
+public sealed class HitsterSlideParameters : SlideParameters
+{
+    public string Title { get; set; } = "Hitster";
+
+    public string Instructions { get; set; } = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.";
+
+    public int CardsToWin { get; set; } = 10;
+}
+
 public sealed class TextSlideParameters : SlideParameters
 {
     public string Question { get; set; } = string.Empty;
@@ -337,4 +374,23 @@ public sealed class PointAwardSlideParameters : SlideParameters
     public string Title { get; set; } = string.Empty;
     public string DefaultReason { get; set; } = string.Empty;
     public int DefaultDeltaPoints { get; set; } = 10;
+}
+
+public sealed class JeopardySlideParameters : SlideParameters
+{
+    public string Title { get; set; } = "Bünting Jeopardy";
+    public List<JeopardyCategory> Categories { get; set; } = [];
+}
+
+public sealed class JeopardyCategory
+{
+    public string Name { get; set; } = string.Empty;
+    public List<JeopardyClue> Clues { get; set; } = [];
+}
+
+public sealed class JeopardyClue
+{
+    public int Value { get; set; } = 100;
+    public string Question { get; set; } = string.Empty;
+    public string Answer { get; set; } = string.Empty;
 }

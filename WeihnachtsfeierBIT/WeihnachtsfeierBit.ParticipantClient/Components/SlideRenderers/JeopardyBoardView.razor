@@ -1,0 +1,186 @@
+@using System.Text.Json
+
+<div class="jp-board" style="display: grid; gap: 14px; width: 100%;">
+    @if (_active is { } active)
+    {
+        <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: 16px; border-radius: 14px; text-align: center;">
+            <div class="jp-clue-meta" style="font-size: 12px; font-weight: 800; letter-spacing: .08em;">@active.Category.ToUpperInvariant() · @active.Value</div>
+            @if (!string.IsNullOrEmpty(active.SelectedTeam))
+            {
+                <div class="jp-answering-team">Team @active.SelectedTeam ist an der Reihe</div>
+            }
+            <div class="jp-clue-question" style="font-size: @(Large ? "40px" : "20px"); font-weight: 800; margin: 8px 0;">@active.Question</div>
+            @if (!string.IsNullOrEmpty(active.Answer))
+            {
+                <div class="jp-answer" style="font-size: @(Large ? "30px" : "17px"); font-weight: 700;">Antwort: @active.Answer</div>
+            }
+        </div>
+    }
+
+    <div style="overflow: @(Large ? "visible" : "auto");">
+        <table style="width: 100%; border-collapse: separate; border-spacing: 5px; table-layout: fixed;">
+            <thead>
+                <tr>
+                    @for (int h = 0; h < _categories.Count; h++)
+                    {
+                        var category = _categories[h];
+                        <th class="jp-head" style="animation-delay: @(h * 60)ms; padding: @(Large ? "clamp(6px, 1.2vh, 14px) 8px" : "8px 4px"); border-radius: 8px; font-size: @(Large ? "clamp(10px, 1vw, 18px)" : "11px"); overflow-wrap: break-word; hyphens: auto; line-height: 1.15;">@category.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int r = 0; r < _rows; r++)
+                {
+                    var row = r;
+                    <tr>
+                        @for (int column = 0; column < _categories.Count; column++)
+                        {
+                            var category = _categories[column];
+                            @if (row < category.Values.Count)
+                            {
+                                var (value, used) = category.Values[row];
+                                <td class="jp-cell @(used ? "is-used" : null)" style="animation-delay: @(300 + (row * _categories.Count + column) * 25)ms; text-align: center; padding: @(Large ? "clamp(5px, 1.6vh, 18px) 6px" : "10px 4px"); border-radius: 8px; font-weight: 800; font-size: @(Large ? "clamp(14px, 1.8vw, 28px)" : "15px");">
+                                    @(used ? "" : value.ToString())
+                                </td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public JsonElement Parameters { get; set; }
+    [Parameter] public bool Large { get; set; }
+
+    private sealed record CategoryView(string Name, List<(int Value, bool Used)> Values);
+    private sealed record ActiveView(string Category, int Value, string Question, string? Answer, string? SelectedTeam);
+
+    private List<CategoryView> _categories = [];
+    private ActiveView? _active;
+    private int _rows => _categories.Count == 0 ? 0 : _categories.Max(category => category.Values.Count);
+
+    protected override void OnParametersSet()
+    {
+        _categories = [];
+        _active = null;
+        if (Parameters.ValueKind != JsonValueKind.Object) return;
+
+        if (Parameters.TryGetProperty("board", out var board) && board.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var category in board.EnumerateArray())
+            {
+                var values = new List<(int, bool)>();
+                if (category.ValueKind == JsonValueKind.Object
+                    && category.TryGetProperty("clues", out var clues)
+                    && clues.ValueKind == JsonValueKind.Array)
+                {
+                    values.AddRange(clues.EnumerateArray().Select(clue =>
+                        (ReadInt(clue, "value"), ReadBool(clue, "used"))));
+                }
+
+                _categories.Add(new CategoryView(ReadString(category, "name"), values));
+            }
+
+            if (Parameters.TryGetProperty("activeClue", out var activeClue) && activeClue.ValueKind == JsonValueKind.Object)
+            {
+                var answer = ReadString(activeClue, "answer");
+                _active = new ActiveView(
+                    ReadString(activeClue, "category"),
+                    ReadInt(activeClue, "value"),
+                    ReadString(activeClue, "question"),
+                    answer.Length > 0 ? answer : null,
+                    ReadString(activeClue, "selectedTeam"));
+            }
+
+            return;
+        }
+
+        var usedKeys = ReadStringSet(Parameters, "state", "used");
+        var state = ReadObject(Parameters, "state");
+        var activeKey = ReadString(state, "active");
+        var revealed = ReadBool(state, "revealed");
+        if (!Parameters.TryGetProperty("categories", out var categories) || categories.ValueKind != JsonValueKind.Array) return;
+
+        var categoryIndex = 0;
+        foreach (var category in categories.EnumerateArray())
+        {
+            var values = new List<(int, bool)>();
+            if (category.ValueKind == JsonValueKind.Object
+                && category.TryGetProperty("clues", out var clues)
+                && clues.ValueKind == JsonValueKind.Array)
+            {
+                var clueIndex = 0;
+                foreach (var clue in clues.EnumerateArray())
+                {
+                    var key = $"{categoryIndex}-{clueIndex}";
+                    values.Add((ReadInt(clue, "value"), usedKeys.Contains(key)));
+                    if (key == activeKey)
+                    {
+                        _active = new ActiveView(
+                            ReadString(category, "name"),
+                            ReadInt(clue, "value"),
+                            ReadString(clue, "question"),
+                            revealed ? ReadString(clue, "answer") : null,
+                            ReadString(state, "selectedTeamName"));
+                    }
+
+                    clueIndex++;
+                }
+            }
+
+            _categories.Add(new CategoryView(ReadString(category, "name"), values));
+            categoryIndex++;
+        }
+    }
+
+    private static JsonElement ReadObject(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Object
+            ? value
+            : default;
+
+    private static HashSet<string> ReadStringSet(JsonElement element, string objectProperty, string arrayProperty)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        var container = ReadObject(element, objectProperty);
+        if (container.ValueKind == JsonValueKind.Object
+            && container.TryGetProperty(arrayProperty, out var array)
+            && array.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in array.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String))
+            {
+                set.Add(item.GetString()!);
+            }
+        }
+
+        return set;
+    }
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static int ReadInt(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var result)
+            ? result
+            : 0;
+
+    private static bool ReadBool(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.True;
+}

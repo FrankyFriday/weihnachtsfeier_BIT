@@ -17,6 +17,8 @@ builder.Services.AddDbContext<WeihnachtsfeierDbContext>(options =>
            .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.ProjectHubConnectionManager>();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier, WeihnachtsfeierBit.ApiService.Services.GameStateNotifier>();
 builder.Services.AddHostedService<WeihnachtsfeierBit.ApiService.Services.ScheduledEventsBackgroundService>();
 
@@ -28,10 +30,32 @@ builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("authentication", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            GetRateLimitPartition(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy("participant-authentication", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetRateLimitPartition(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy("public-session-read", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetRateLimitPartition(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
@@ -75,3 +99,10 @@ if (app.Environment.IsDevelopment())
 app.MapDefaultEndpoints();
 
 app.Run();
+
+static string GetRateLimitPartition(HttpContext httpContext)
+{
+    var clientAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var endpoint = httpContext.GetEndpoint()?.DisplayName ?? httpContext.Request.Path.Value ?? "unknown";
+    return $"{clientAddress}:{endpoint}";
+}

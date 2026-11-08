@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Endpoints;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
+using CanvasPointLogDto = WeihnachtsfeierBit.Framework.TeamPointLogDto;
 
 namespace WeihnachtsfeierBit.ApiService.Services;
 
@@ -41,6 +43,13 @@ public static class CanvasStateBuilder
                 team.Punkte
             })
             .ToListAsync(cancellationToken);
+        var teamParticipantRows = await dbContext.Teilnehmer.AsNoTracking()
+            .Where(participant => participant.ProjektId == instance.ProjektId && participant.TeamId != null)
+            .Select(participant => new { participant.Id, participant.TeamId })
+            .ToListAsync(cancellationToken);
+        var teamParticipantIds = teamParticipantRows
+            .GroupBy(participant => participant.TeamId!.Value)
+            .ToDictionary(group => group.Key, group => group.Select(participant => participant.Id).ToHashSet());
 
         var teams = orderedTeams
             .Select((team, index) => new CanvasTeamState(
@@ -63,9 +72,31 @@ public static class CanvasStateBuilder
                         gameEvent.Id,
                         currentSlide.Value.Type,
                         gameEvent.Title,
-                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters));
+                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters, teamParticipantIds));
                 }
             }
+        }
+
+        var pointLogs = Array.Empty<CanvasPointLogDto>();
+        if (activeEvent is not null &&
+            activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase) &&
+            activeEvent.Parameters.TryGetProperty("chartType", out var chartType) &&
+            chartType.ValueKind == JsonValueKind.String &&
+            chartType.GetString() == "line_graph")
+        {
+            pointLogs = await dbContext.TeamPointLogs.AsNoTracking()
+                .Where(log => log.ProjektId == instance.ProjektId)
+                .OrderByDescending(log => log.CreatedAtUtc)
+                .Select(log => new CanvasPointLogDto(
+                    log.Id,
+                    log.TeamId,
+                    log.Team.DisplayName,
+                    log.Team.Color,
+                    log.DeltaPoints,
+                    log.NewTotalPoints,
+                    log.Reason,
+                    log.CreatedAtUtc))
+                .ToArrayAsync(cancellationToken);
         }
 
         return new CanvasGameState(
@@ -73,7 +104,8 @@ public static class CanvasStateBuilder
             instance.Projekt.Name,
             teams,
             activeEvent,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            pointLogs);
     }
 
     private static (string Type, JsonElement Parameters)? GetCurrentSlide(GameInstanceEvent gameEvent)
@@ -101,7 +133,10 @@ public static class CanvasStateBuilder
         return null;
     }
 
-    private static JsonElement BuildPublicParameters(string slideType, JsonElement parameters)
+    private static JsonElement BuildPublicParameters(
+        string slideType,
+        JsonElement parameters,
+        IReadOnlyDictionary<Guid, HashSet<Guid>> teamParticipantIds)
     {
         var allowedProperties = slideType.ToLowerInvariant() switch
         {
@@ -110,8 +145,20 @@ public static class CanvasStateBuilder
             "quiz" => new[] { "question", "answers" },
             "estimation" => new[] { "question", "unit" },
             "buzzer" => new[] { "question" },
+            "ranking" => new[] { "chartType" },
+            "hitster" => new[] { "title", "instructions", "cardsToWin", "game" },
             _ => Array.Empty<string>()
         };
+
+        if (slideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
+        {
+            return HostGamePublicParameters.Jeopardy(parameters);
+        }
+
+        if (slideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+        {
+            return HitsterGameService.PublicParameters(parameters, teamParticipantIds);
+        }
 
         var publicParameters = new Dictionary<string, JsonElement>();
         if (parameters.ValueKind == JsonValueKind.Object)

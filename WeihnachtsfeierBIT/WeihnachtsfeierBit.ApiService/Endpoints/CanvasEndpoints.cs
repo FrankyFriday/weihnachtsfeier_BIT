@@ -8,7 +8,7 @@ public static class CanvasEndpoints
     public static void MapPublic(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/game-instances/by-code/{code}/canvas", GetCanvasStateAsync)
-            .RequireRateLimiting("authentication")
+            .RequireRateLimiting("public-session-read")
             .WithName("GetCanvasState");
     }
 

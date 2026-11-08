@@ -11,6 +11,7 @@ COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/ WeihnachtsfeierBIT/Weihna
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/ WeihnachtsfeierBIT/WeihnachtsfeierBit.Data/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/ WeihnachtsfeierBIT/WeihnachtsfeierBit.Framework/
 COPY WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/ WeihnachtsfeierBIT/WeihnachtsfeierBit.ServiceDefaults/
+COPY Hitster/data/songs.json Hitster/data/songs.json
 RUN dotnet publish WeihnachtsfeierBIT/WeihnachtsfeierBit.ApiService/WeihnachtsfeierBit.ApiService.csproj \
     --configuration Release --output /app/publish
 

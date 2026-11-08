@@ -6,7 +6,7 @@
 | --- | --- |
 | `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Projektberechtigungen und EF-Core-Migrationen beim Start |
 | `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, Workspace-Sidebar, globaler Show-Bibliothek und projektspezifischen Show-Verknüpfungen |
-| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` und die Beameransicht unter `/play/canvas/{sessionCode}`, mit SignalR Live-Anbindung |
+| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` und die Beameransicht unter `/play/beamer/{sessionCode}` (alter Pfad `/play/canvas/{sessionCode}` bleibt kompatibel), mit SignalR Live-Anbindung |
 | `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client und gemeinsam genutzten Verträgen; enthält keine Admin-/Projektseiten |
 | `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient und `/play` an den ParticipantClient |
 | `WeihnachtsfeierBit.Data` | EF-Core-Entities, PostgreSQL-Mappings und Migrationen |
@@ -44,7 +44,7 @@ flowchart LR
 - Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
 - Testclient und Proxy: `WeihnachtsfeierBit.Web/`
 
-Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt nur freigegebene Eventinhalte sowie Team-Punktestände.
+Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. SignalR-Verbindungen werden nach fehlgeschlagenem Start oder Abbruch mit wachsendem Abstand automatisch neu aufgebaut; beim erneuten Beitritt werden Gruppe und aktueller Zustand synchronisiert. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt freigegebene Eventinhalte, Team-Punktestände und bei einer Linienrangliste den Team-Punkteverlauf.
 
 ## Produktgrenzen
 

@@ -14,6 +14,7 @@ RUN dotnet publish WeihnachtsfeierBIT/WeihnachtsfeierBit.Web/WeihnachtsfeierBit.
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+RUN mkdir -p /var/dpkeys && chown 1654:1654 /var/dpkeys
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 COPY --from=build /app/publish .

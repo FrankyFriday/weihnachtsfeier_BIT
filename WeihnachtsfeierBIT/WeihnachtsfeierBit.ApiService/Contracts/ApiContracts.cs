@@ -94,6 +94,7 @@ public sealed record UpdateSessionEventRequest(
     DateTime? LastResumedAtUtc);
 
 public sealed record UpdateEventModeRequest(string Mode);
+public sealed record SetSlideStateRequest(JsonElement State);
 public sealed record SubmitResponseRequest(JsonElement ResponseData);
 public sealed record SetCanvasEventRequest(Guid? EventId);
 

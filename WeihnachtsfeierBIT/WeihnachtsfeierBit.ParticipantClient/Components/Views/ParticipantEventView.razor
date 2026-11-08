@@ -38,6 +38,9 @@
                 case "buzzer":
                     <BuzzerRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                     break;
+                case "hitster":
+                    <HitsterRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" TeamId="@TeamId" />
+                    break;
                 case "text":
                     <TextRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
                     break;
@@ -58,6 +61,9 @@
                     break;
                 case "point_award":
                     <PointAwardRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" Teams="Teams" />
+                    break;
+                case "jeopardy":
+                    <JeopardyRenderer Event="Event" CurrentSlide="currentSlide" />
                     break;
                 default:
                     <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
@@ -82,6 +88,7 @@
     [Parameter] public string? AccessToken { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
+    [Parameter] public Guid? TeamId { get; set; }
     [Parameter] public bool ShowBackButton { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
 
@@ -107,6 +114,7 @@
         "quiz" => "Quiz",
         "estimation" => "Schätzfrage",
         "buzzer" => "Buzzer",
+        "hitster" => "Hitster · Spotify",
         "ranking" => "Rangliste",
         "text" => "Freitext",
         "word_cloud" => "Wortwolke",
@@ -115,6 +123,7 @@
         "ordering" => "Reihenfolge",
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
+        "jeopardy" => "Jeopardy",
         _ => "Event"
     };
 }

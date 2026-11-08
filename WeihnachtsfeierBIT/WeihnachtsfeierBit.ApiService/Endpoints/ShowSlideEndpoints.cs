@@ -172,6 +172,7 @@ public static class ShowSlideEndpoints
             "ranking" => new RankingSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "estimation" => new EstimationSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "buzzer" => new BuzzerSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "hitster" => new HitsterSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "text" => new TextSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "word_cloud" => new WordCloudSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "slider" => new SliderSlide { Show = show, ShowId = show.Id, Position = request.Position },
@@ -179,6 +180,7 @@ public static class ShowSlideEndpoints
             "ordering" => new OrderingSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "countdown" => new CountdownSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "point_award" => new PointAwardSlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "jeopardy" => new JeopardySlide { Show = show, ShowId = show.Id, Position = request.Position },
             _ => null
         };
         if (slide is null)
@@ -219,6 +221,17 @@ public static class ShowSlideEndpoints
                 case BuzzerSlide buzzer when string.Equals(request.Type, "buzzer", StringComparison.OrdinalIgnoreCase):
                     buzzer.Parameters = Deserialize<BuzzerSlideParameters>(request.Parameters);
                     break;
+                case HitsterSlide hitster when string.Equals(request.Type, "hitster", StringComparison.OrdinalIgnoreCase):
+                    hitster.Parameters = Deserialize<HitsterSlideParameters>(request.Parameters);
+                    if (string.IsNullOrWhiteSpace(hitster.Parameters.Title) || hitster.Parameters.Title.Trim().Length > 120)
+                    {
+                        return (false, "Der Hitster-Titel muss zwischen 1 und 120 Zeichen lang sein.");
+                    }
+                    if (hitster.Parameters.Instructions.Length > 1000 || hitster.Parameters.CardsToWin is < 3 or > 20)
+                    {
+                        return (false, "Die Anleitung darf maximal 1000 Zeichen lang sein und die Siegbedingung muss zwischen 3 und 20 Karten liegen.");
+                    }
+                    break;
                 case TextSlide text when string.Equals(request.Type, "text", StringComparison.OrdinalIgnoreCase):
                     text.Parameters = Deserialize<TextSlideParameters>(request.Parameters);
                     break;
@@ -239,6 +252,18 @@ public static class ShowSlideEndpoints
                     break;
                 case PointAwardSlide pointAward when string.Equals(request.Type, "point_award", StringComparison.OrdinalIgnoreCase):
                     pointAward.Parameters = Deserialize<PointAwardSlideParameters>(request.Parameters);
+                    break;
+                case JeopardySlide jeopardy when string.Equals(request.Type, "jeopardy", StringComparison.OrdinalIgnoreCase):
+                    jeopardy.Parameters = Deserialize<JeopardySlideParameters>(request.Parameters);
+                    var categories = jeopardy.Parameters.Categories ?? [];
+                    if (categories.Count == 0
+                        || categories.Any(category => category is null
+                            || string.IsNullOrWhiteSpace(category.Name)
+                            || category.Clues is null
+                            || !category.Clues.Any(clue => clue is not null && !string.IsNullOrWhiteSpace(clue.Question))))
+                    {
+                        return (false, "Jeopardy braucht mindestens eine Kategorie mit Namen und mindestens einer Frage.");
+                    }
                     break;
                 default:
                     return (false, "Der Slide-Typ kann beim Aktualisieren nicht geändert werden.");
@@ -276,6 +301,7 @@ public static class ShowSlideEndpoints
         QuizSlide => "quiz",
         EstimationSlide => "estimation",
         BuzzerSlide => "buzzer",
+        HitsterSlide => "hitster",
         RankingSlide => "ranking",
         TextSlide => "text",
         WordCloudSlide => "word_cloud",
@@ -284,6 +310,7 @@ public static class ShowSlideEndpoints
         OrderingSlide => "ordering",
         CountdownSlide => "countdown",
         PointAwardSlide => "point_award",
+        JeopardySlide => "jeopardy",
         _ => "announcement"
     };
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using WeihnachtsfeierBit.Web;
 using WeihnachtsfeierBit.Web.Components;
 using WeihnachtsfeierBit.Framework;
@@ -18,6 +19,9 @@ builder.Services.AddDataProtection()
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit.Web")
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/dpkeys"));
 
 builder.Services.AddOutputCache();
 builder.Services.AddWeihnachtsfeierFramework(client =>

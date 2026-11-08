@@ -45,11 +45,13 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | --- | --- | --- |
 | `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`; verknüpft die Sitzung mit der aktiven `GameInstance`. |
 | `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
-| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; Teilnehmerantworten und Profile werden nicht ausgegeben. |
+| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; bei einer Linienrangliste zusätzlich den Team-Punkteverlauf. Teilnehmerantworten und Profile werden nicht ausgegeben. |
 | `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`; Teilnehmernummer ist alleiniger Kennzeichner. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
 | `GET /api/projects/{projectId}/me/sessions` | Teilnehmer | Eigene Sessions anzeigen. |
 | `DELETE /api/projects/{projectId}/me/sessions/{sessionId}` | Teilnehmer | Eigene Session widerrufen. |
+
+Admin-Authentifizierungsrouten erlauben 10 Anfragen pro Minute und Client-IP. Teilnehmer-Login und öffentliche Session-Leseendpunkte erlauben je 120 Anfragen pro Minute und Client-IP; die Limits werden pro Route getrennt gezählt, damit Teilnehmer hinter derselben serverseitigen Client-IP nicht ein gemeinsames 10-Anfragen-Limit teilen.
 
 ## Projektadmins verwalten
 
@@ -58,7 +60,7 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `GET /api/projects/{projectId}/admins` | Projektadmin | Memberships anzeigen. |
 | `POST /api/projects/{projectId}/admins` | Projektadmin | Bereits registriertes Konto mit `{ "username": "..." }` zuordnen. Erstellt kein Konto. |
 | `DELETE /api/projects/{projectId}/admins/{adminId}` | Projektadmin | Membership entfernen; Selbstentfernung und Entfernen des letzten Admins sind gesperrt. |
-| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen. |
+| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen; kennzeichnet die anfragende Sitzung mit `isCurrent`. |
 | `DELETE /api/projects/{projectId}/admin-sessions/{sessionId}` | Projektadmin | Adminsession widerrufen. |
 | `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
 | `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
@@ -71,18 +73,19 @@ Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitg
 | `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als `GameInstanceEvent` mit n Slides in der Session starten/planen (`mode`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
 | `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen/planen (`slideType`, `mode`, `parameters`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`), Modus (`mode`), Sichtbarkeit (`isHidden`) oder Status (`status`) ändern. |
+| `PUT /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/state` | Projektadmin | Laufzeitzustand einer Jeopardy-Folie setzen (`used`, `active`, `revealed`, `selectedTeamId`, `selectedTeamName`) und Projektclients benachrichtigen. Das ausgewählte Team wählt Kategorie und Punktewert; nur dieses Team wird für die aktive Frage gewertet. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
 
-Die Beameransicht unter `/play/canvas/{sessionCode}` verbindet sich über `/hubs/canvas`. Sie tritt mit einem gültigen Session-Code ihrer Canvas-Gruppe bei und erhält ausschließlich den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus.
+Die Beameransicht unter `/play/beamer/{sessionCode}` verbindet sich über `/hubs/canvas`; der bisherige Pfad `/play/canvas/{sessionCode}` bleibt kompatibel. Sie tritt mit einem gültigen Session-Code ihrer Gruppe bei und erhält den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Für Jeopardy wird das ausgewählte Antwortteam mit der aktiven Frage angezeigt; die Antwort erscheint erst nach Freigabe. Für eine Linienrangliste werden außerdem die Team-Punktelog-Daten geladen. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus. Beamer, Teilnehmer-Session, Dashboard und Chat bauen SignalR-Verbindungen nach fehlgeschlagenem Start oder Abbruch automatisch mit wachsendem Retry-Abstand wieder auf; nach Wiederverbindung synchronisieren sie ihren Gruppenbeitritt und den aktuellen Serverzustand.
 
 ## Fachliche Endpunkte
 
 Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`, `/session/state`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
 
-SignalR WebSockets: `/hubs/gamestate` erlaubt Clients, per `JoinProject(projectId)` Live-Updates (`GameStateUpdated`) mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows) zu empfangen.
+SignalR WebSockets: `/hubs/gamestate` verlangt beim Beitritt per `JoinProject(projectId)` ein gültiges Teilnehmer- oder Admin-API-Token für genau dieses Projekt. Das Token wird über den SignalR-`AccessTokenProvider` übertragen; die Sitzung und Projektmitgliedschaft werden beim Beitritt geprüft. Berechtigte Verbindungen erhalten `GameStateUpdated` mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows). Beim Widerruf einer Sitzung werden ihre bestehenden Hub-Verbindungen aus allen Projektgruppen entfernt und erhalten `SessionRevoked`; ein erneuter Beitritt ist nicht möglich.
 
 Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `POST /participants/generate` (automatische 2-, 3- oder 4-stellige Nummern-Generierung), `POST /participants/randomize-teams` (gleichmäßige Zufallsverteilung auf Teams), `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
 

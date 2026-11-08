@@ -1,10 +1,12 @@
 @namespace WeihnachtsfeierBit.Framework
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.Extensions.Configuration
+@using Microsoft.Extensions.Logging
 @using Microsoft.JSInterop
 @inject ProjectApiClient ProjectApiClient
 @inject IConfiguration Configuration
 @inject IJSRuntime JS
+@inject ILogger<FrameworkChat> Logger
 @implements IAsyncDisposable
 
 <div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; position: relative;">
@@ -198,6 +200,8 @@
     private bool _isCreating;
 
     private HubConnection? _hubConnection;
+    private CancellationTokenSource? _connectionCancellation;
+    private Task? _connectionRecoveryTask;
 
     private string CurrentGroupName => _groups.FirstOrDefault(g => g.Id == _selectedGroupId)?.Name ?? "Chat";
 
@@ -364,39 +368,63 @@
     private async Task SetupSignalRAsync()
     {
         if (_hubConnection is not null) return;
-        try
+        var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+        var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl, options =>
+                options.AccessTokenProvider = () => Task.FromResult<string?>(AccessToken))
+            .Build();
+
+        _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", async msg =>
         {
-            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
-            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
-
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
-                .WithAutomaticReconnect()
-                .Build();
-
-            _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", async (msg) =>
+            await InvokeAsync(async () =>
             {
+                if (_selectedGroupId.HasValue && msg.ChatGroupId == _selectedGroupId.Value && _currentView == "room")
+                {
+                    _messages = [.. _messages, msg];
+                    StateHasChanged();
+                }
+
+                await LoadGroupsAsync();
+            });
+        });
+
+        _connectionCancellation = new CancellationTokenSource();
+        _connectionRecoveryTask = RecoverConnectionAsync(_hubConnection, _connectionCancellation.Token);
+    }
+
+    private async Task RecoverConnectionAsync(HubConnection connection, CancellationToken cancellationToken)
+    {
+        await HubConnectionRecovery.RunAsync(
+            connection,
+            async token =>
+            {
+                await connection.SendAsync("JoinProject", ProjectId, token);
                 await InvokeAsync(async () =>
                 {
-                    if (_selectedGroupId.HasValue && msg.ChatGroupId == _selectedGroupId.Value && _currentView == "room")
+                    if (_selectedGroupId is Guid groupId && _currentView == "room")
                     {
-                        _messages = [.. _messages, msg];
-                        StateHasChanged();
+                        _messages = await ProjectApiClient.GetChatMessagesAsync(AccessToken, ProjectId, groupId, token);
                     }
+
                     await LoadGroupsAsync();
                 });
-            });
-
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync("JoinProject", ProjectId);
-        }
-        catch
-        {
-        }
+            },
+            exception => Logger.LogWarning(exception, "Die Chat-Liveverbindung wird erneut aufgebaut."),
+            _ => Task.CompletedTask,
+            cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
     {
+        _connectionCancellation?.Cancel();
+        if (_connectionRecoveryTask is not null)
+        {
+            await _connectionRecoveryTask;
+        }
+
+        _connectionCancellation?.Dispose();
         if (_hubConnection is not null)
         {
             try

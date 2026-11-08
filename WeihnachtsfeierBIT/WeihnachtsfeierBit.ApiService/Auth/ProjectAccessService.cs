@@ -42,6 +42,8 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 
                     return new ProjectAccess(
                         projectId,
+                        adminSession.Id,
+                        adminSession.LaeuftAbAmUtc,
                         null,
                         adminSession.ProjektAdminId,
                         IsCreator: isCreator,
@@ -71,14 +73,14 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return new ProjectAccess(projectId, participantSession.TeilnehmerId, null);
+        return new ProjectAccess(projectId, participantSession.Id, participantSession.LaeuftAbAmUtc, participantSession.TeilnehmerId, null);
     }
 
-    public async Task RevokeParticipantSessionAsync(string? token, CancellationToken cancellationToken)
+    public async Task<(Guid SessionId, DateTime ExpiresAtUtc)?> RevokeParticipantSessionAsync(string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
-            return;
+            return null;
         }
 
         var tokenHash = ApiToken.Hash(token);
@@ -86,18 +88,19 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
             item.TokenHash == tokenHash && item.WiderrufenAmUtc == null, cancellationToken);
         if (session is null)
         {
-            return;
+            return null;
         }
 
         session.WiderrufenAmUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        return (session.Id, session.LaeuftAbAmUtc);
     }
 
-    public async Task RevokeAdminSessionAsync(string? token, CancellationToken cancellationToken)
+    public async Task<(Guid SessionId, DateTime ExpiresAtUtc)?> RevokeAdminSessionAsync(string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
-            return;
+            return null;
         }
 
         var tokenHash = ApiToken.Hash(token);
@@ -105,11 +108,12 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
             item.TokenHash == tokenHash && item.WiderrufenAmUtc == null, cancellationToken);
         if (session is null)
         {
-            return;
+            return null;
         }
 
         session.WiderrufenAmUtc = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        return (session.Id, session.LaeuftAbAmUtc);
     }
 
     public static string? GetBearerToken(HttpRequest request)

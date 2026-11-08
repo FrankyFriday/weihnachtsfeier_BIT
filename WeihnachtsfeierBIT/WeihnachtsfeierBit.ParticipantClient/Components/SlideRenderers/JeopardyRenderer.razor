@@ -1,0 +1,22 @@
+@using System.Text.Json
+
+<div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: var(--surface); overflow-y: auto;">
+    <div style="text-align: center; margin-bottom: 16px;">
+        <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 11px;">JEOPARDY</span>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0; color: var(--ink);">@ReadTitle()</h2>
+    </div>
+
+    <JeopardyBoardView Parameters="CurrentSlide.Parameters" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private string ReadTitle() =>
+        CurrentSlide.Parameters.ValueKind == JsonValueKind.Object
+        && CurrentSlide.Parameters.TryGetProperty("title", out var title)
+        && title.ValueKind == JsonValueKind.String
+            ? title.GetString() ?? string.Empty
+            : string.Empty;
+}

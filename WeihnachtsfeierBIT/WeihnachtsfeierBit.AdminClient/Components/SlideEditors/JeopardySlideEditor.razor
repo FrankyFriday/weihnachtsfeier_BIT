@@ -1,0 +1,76 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div style="display: grid; gap: 12px; margin-top: 12px;">
+    <FrameworkFormGroup Label="Titel des Spiels">
+        <FrameworkInputText @bind-Value="Slide.JeopardyTitle" Placeholder="z. B. Bünting Jeopardy" />
+    </FrameworkFormGroup>
+
+    <p style="margin: 0; color: var(--muted); font-size: 13px;">
+        Jede Kategorie bekommt fünf Fragen: 100 Punkte sind am leichtesten, 500 Punkte am schwersten. Ein Team wählt die Kategorie und den Punktewert.
+        Die Antwort sieht nur die Spielleitung, bis sie aufgedeckt wird.
+    </p>
+
+    @for (int c = 0; c < Slide.JeopardyCategories.Count; c++)
+    {
+        var ci = c;
+        var category = Slide.JeopardyCategories[ci];
+        <div style="padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); display: grid; gap: 10px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="flex: 1;">
+                    <FrameworkInputText @bind-Value="category.Name" Placeholder="Kategorie, z. B. Rund um Bünting" />
+                </div>
+                <FrameworkIconButton Icon="delete" Title="Kategorie löschen" OnClick="() => RemoveCategory(ci)" />
+            </div>
+
+            @for (int r = 0; r < category.Clues.Count; r++)
+            {
+                var ri = r;
+                var clue = category.Clues[ri];
+                <div style="display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 8px; align-items: center;">
+                    <FrameworkInputNumber @bind-Value="clue.Value" Min="100" Max="500" Step="100" />
+                    <FrameworkInputText @bind-Value="clue.Question" Placeholder="Frage / Hinweis" />
+                    <FrameworkInputText @bind-Value="clue.Answer" Placeholder="Antwort" />
+                    <FrameworkIconButton Icon="close" Title="Frage entfernen" OnClick="() => RemoveClue(ci, ri)" />
+                </div>
+            }
+
+            <div>
+                <FrameworkButton Label="+ Frage hinzufügen" Variant="secondary" OnClick="() => AddClue(ci)" />
+            </div>
+        </div>
+    }
+
+    <FrameworkButton Label="+ Kategorie hinzufügen" Variant="secondary" OnClick="AddCategory" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+
+    private void AddCategory()
+    {
+        var category = new JeopardyCategoryModel();
+        for (int value = 100; value <= 500; value += 100)
+        {
+            category.Clues.Add(new JeopardyClueModel { Value = value });
+        }
+
+        Slide.JeopardyCategories.Add(category);
+    }
+
+    private void RemoveCategory(int index) => Slide.JeopardyCategories.RemoveAt(index);
+
+    private void AddClue(int categoryIndex)
+    {
+        var clues = Slide.JeopardyCategories[categoryIndex].Clues;
+        var nextValue = Enumerable.Range(1, 5)
+            .Select(level => level * 100)
+            .FirstOrDefault(value => clues.All(clue => clue.Value != value));
+        if (nextValue != 0)
+        {
+            clues.Add(new JeopardyClueModel { Value = nextValue });
+        }
+    }
+
+    private void RemoveClue(int categoryIndex, int clueIndex) => Slide.JeopardyCategories[categoryIndex].Clues.RemoveAt(clueIndex);
+}

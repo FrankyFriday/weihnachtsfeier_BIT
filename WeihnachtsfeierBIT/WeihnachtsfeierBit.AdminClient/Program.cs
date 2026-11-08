@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using WeihnachtsfeierBit.AdminClient;
 using WeihnachtsfeierBit.AdminClient.Components;
@@ -10,6 +11,9 @@ builder.AddServiceDefaults();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddDataProtection()
+    .SetApplicationName("WeihnachtsfeierBit.AdminClient")
+    .PersistKeysToFileSystem(new DirectoryInfo("/var/dpkeys"));
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<ProjectShowLinksState>();
 builder.Services.AddAuthorization();

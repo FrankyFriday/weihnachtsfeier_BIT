@@ -264,3 +264,175 @@
     cursor: not-allowed;
     opacity: 0.75;
 }
+
+.jp-board {
+    --jp-forest: #105c4d;
+    --jp-green: #197b67;
+    --jp-ink: #183b34;
+    --jp-gold: #c49335;
+    --jp-gold-soft: #fff7e6;
+    --jp-tile: #f3f8f6;
+    --jp-line: #cdded8;
+    --jp-muted: #82938e;
+}
+
+.jp-turn-picker {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--jp-line);
+    border-radius: 10px;
+    background: var(--jp-tile);
+    color: var(--jp-ink);
+}
+
+.jp-turn-picker > span {
+    color: #65766f;
+    font-size: 13px;
+}
+
+.jp-team-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.jp-team-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--jp-line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--jp-ink);
+    cursor: pointer;
+}
+
+.jp-team-select.is-selected {
+    border-color: var(--jp-green);
+    background: #e3f1ec;
+    box-shadow: 0 0 0 1px var(--jp-green);
+}
+
+.jp-team-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.jp-team-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    border-radius: 50%;
+}
+
+.jp-answering-team {
+    color: var(--jp-forest);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.jp-score-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 1px solid var(--jp-line);
+    border-radius: 8px;
+    background: var(--jp-tile);
+    color: var(--jp-ink);
+}
+
+.jp-head {
+    background: var(--jp-forest);
+    color: #fff;
+}
+
+.jp-cell {
+    border: 1px solid var(--jp-line);
+    background: var(--jp-tile);
+    color: var(--jp-green);
+}
+
+.jp-cell.is-used,
+.jp-cell-btn.is-used {
+    border-color: #e0e8e4;
+    background: #edf2ef;
+    color: var(--jp-muted);
+}
+
+.jp-cell-btn {
+    border: 1.5px solid var(--jp-line);
+    background: #fff;
+    color: var(--jp-green);
+}
+
+.jp-cell-btn.is-active {
+    border-color: var(--jp-gold);
+    background: var(--jp-gold-soft);
+    color: var(--jp-forest);
+}
+
+.jp-clue {
+    border: 2px solid var(--jp-gold);
+    background: var(--jp-gold-soft);
+}
+
+.jp-clue-meta {
+    color: var(--jp-forest);
+}
+
+.jp-clue-question {
+    color: var(--jp-ink);
+}
+
+.jp-answer {
+    color: var(--jp-green);
+}
+
+.jp-answer-panel {
+    border: 1px solid var(--jp-line);
+    background: #f3f8f6;
+    color: var(--jp-ink);
+}
+
+.jp-answer-label {
+    color: #65766f;
+}
+
+@keyframes jp-cell-in {
+    from { opacity: 0; transform: translateY(10px) scale(.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes jp-clue-in {
+    from { opacity: 0; transform: perspective(900px) rotateX(-70deg) scale(.85); }
+    to { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
+}
+
+@keyframes jp-answer-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.jp-cell,
+.jp-head {
+    animation: jp-cell-in .45s ease-out both;
+}
+
+.jp-cell-btn:not(:disabled):hover {
+    transform: translateY(-2px) scale(1.04);
+    border-color: var(--jp-green);
+    background: #e3f1ec;
+}
+
+.jp-clue {
+    animation: jp-clue-in .6s ease-out both;
+    transform-origin: top center;
+}
+
+.jp-answer {
+    animation: jp-answer-in .5s ease-out both;
+}
