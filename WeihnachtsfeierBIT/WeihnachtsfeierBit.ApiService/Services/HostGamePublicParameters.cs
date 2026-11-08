@@ -10,6 +10,7 @@ internal static class HostGamePublicParameters
         var used = ReadStringSet(state, "used");
         var active = ReadString(state, "active");
         var revealed = ReadBool(state, "revealed");
+        var selectedTeamName = ReadString(state, "selectedTeamName");
 
         var categories = new List<object>();
         object? activeClue = null;
@@ -38,7 +39,8 @@ internal static class HostGamePublicParameters
                                 category = ReadString(category, "name"),
                                 value,
                                 question = ReadString(clue, "question"),
-                                answer = revealed ? ReadString(clue, "answer") : null
+                                answer = revealed ? ReadString(clue, "answer") : null,
+                                selectedTeam = selectedTeamName
                             };
                         }
 

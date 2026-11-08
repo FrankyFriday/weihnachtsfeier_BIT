@@ -276,6 +276,75 @@
     --jp-muted: #82938e;
 }
 
+.jp-turn-picker {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--jp-line);
+    border-radius: 10px;
+    background: var(--jp-tile);
+    color: var(--jp-ink);
+}
+
+.jp-turn-picker > span {
+    color: #65766f;
+    font-size: 13px;
+}
+
+.jp-team-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.jp-team-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--jp-line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--jp-ink);
+    cursor: pointer;
+}
+
+.jp-team-select.is-selected {
+    border-color: var(--jp-green);
+    background: #e3f1ec;
+    box-shadow: 0 0 0 1px var(--jp-green);
+}
+
+.jp-team-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.jp-team-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    border-radius: 50%;
+}
+
+.jp-answering-team {
+    color: var(--jp-forest);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.jp-score-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 1px solid var(--jp-line);
+    border-radius: 8px;
+    background: var(--jp-tile);
+    color: var(--jp-ink);
+}
+
 .jp-head {
     background: var(--jp-forest);
     color: #fff;

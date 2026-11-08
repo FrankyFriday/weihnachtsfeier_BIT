@@ -10,6 +10,25 @@
         <FrameworkBadge Text="Jeopardy" Variant="primary" />
     </div>
 
+    <div class="jp-turn-picker">
+        <strong>Welches Team ist an der Reihe?</strong>
+        <span>Das Team wählt eine Kategorie und einen Punktewert von 100 (leicht) bis 500 (schwer) und beantwortet die Frage.</span>
+        <div class="jp-team-options">
+            @foreach (var team in _teams)
+            {
+                var selected = team;
+                <button type="button"
+                        class="jp-team-select @(_selectedTeamId == selected.Id ? "is-selected" : null)"
+                        aria-pressed="@(_selectedTeamId == selected.Id)"
+                        disabled="@(_busy || (_active is not null && SelectedTeam is not null))"
+                        @onclick="() => SelectTeamAsync(selected)">
+                    <span class="jp-team-dot" style="background-color: @selected.Color;"></span>
+                    @selected.DisplayName
+                </button>
+            }
+        </div>
+    </div>
+
     <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: separate; border-spacing: 6px; table-layout: fixed;">
             <thead>
@@ -35,8 +54,8 @@
                                 var isUsed = _used.Contains(key);
                                 var isActive = _active == key;
                                 <td style="padding: 0;">
-                                    <button type="button" class="jp-cell-btn @(isActive ? "is-active" : null) @(isUsed ? "is-used" : null)" disabled="@(isUsed || _busy)" @onclick="() => SelectAsync(key)"
-                                            style="width: 100%; min-height: 54px; border-radius: 8px; font-weight: 800; font-size: 18px; cursor: @(isUsed ? "default" : "pointer");">
+                                    <button type="button" class="jp-cell-btn @(isActive ? "is-active" : null) @(isUsed ? "is-used" : null)" disabled="@(isUsed || _busy || SelectedTeam is null || _active is not null)" @onclick="() => SelectAsync(key)"
+                                            style="width: 100%; min-height: 54px; border-radius: 8px; font-weight: 800; font-size: 18px; cursor: @(isUsed ? "default" : SelectedTeam is null || _active is not null ? "not-allowed" : "pointer");">
                                         @(isUsed ? "–" : clue.Value.ToString())
                                     </button>
                                 </td>
@@ -59,6 +78,7 @@
                 <strong class="jp-clue-meta">@active.Category · @active.Value Punkte</strong>
                 <FrameworkBadge Text="@(_revealed ? "Antwort aufgedeckt" : "Antwort verdeckt")" Variant="primary" />
             </div>
+            <div class="jp-answering-team">Antwortendes Team: <strong>@(SelectedTeam?.DisplayName ?? "nicht ausgewählt")</strong></div>
             <div class="jp-clue-question" style="font-size: 20px; font-weight: 700;">@active.Question</div>
             <div class="jp-answer-panel" style="padding: 10px 12px; border-radius: 8px;">
                 <span class="jp-answer-label" style="font-size: 12px;">Antwort (nur Spielleitung)</span><br />
@@ -70,23 +90,20 @@
                 <FrameworkButton Label="Frage abschließen" Variant="secondary" OnClick="CloseClueAsync" Disabled="_busy" />
             </div>
 
-            <div style="display: grid; gap: 8px;">
-                @foreach (var team in _teams)
+            <div class="jp-score-team">
+                @if (SelectedTeam is { } answeringTeam)
                 {
-                    var selectedTeam = team;
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);">
-                        <span style="width: 12px; height: 12px; border-radius: 50%; background-color: @selectedTeam.Color; display: inline-block;"></span>
-                        <strong style="flex: 1; min-width: 120px; color: var(--ink);">@selectedTeam.DisplayName <span style="color: var(--muted); font-weight: 500;">(@selectedTeam.Points)</span></strong>
-                        <FrameworkButton Label="@($"Richtig +{active.Value}")" Variant="primary" OnClick="() => AwardAsync(selectedTeam, active.Value, true)" Disabled="_busy" />
-                        <FrameworkButton Label="@($"Falsch −{active.Value}")" Variant="secondary" OnClick="() => AwardAsync(selectedTeam, -active.Value, false)" Disabled="_busy" />
-                    </div>
+                    <span class="jp-team-dot" style="background-color: @answeringTeam.Color;"></span>
+                    <strong>@answeringTeam.DisplayName <span style="color: var(--muted); font-weight: 500;">(@answeringTeam.Points)</span></strong>
+                    <FrameworkButton Label="@($"Richtig +{active.Value}")" Variant="primary" OnClick="() => AwardAsync(answeringTeam, active.Value, true)" Disabled="_busy" />
+                    <FrameworkButton Label="@($"Falsch −{active.Value}")" Variant="secondary" OnClick="() => AwardAsync(answeringTeam, -active.Value, false)" Disabled="_busy" />
                 }
             </div>
         </div>
     }
     else
     {
-        <FrameworkNotice Message="Wähle ein Feld im Board. Die Frage erscheint dann auf dem Beamer und den Teilnehmer-Handys." Severity="info" />
+        <FrameworkNotice Message="@(SelectedTeam is null ? "Wähle zuerst ein Team aus. Dieses Team sucht anschließend eine Kategorie und einen Punktewert aus." : "Das ausgewählte Team wählt jetzt ein Feld im Board. Die Frage erscheint dann auf dem Beamer und den Teilnehmer-Handys.")" Severity="info" />
     }
 
     @if (!string.IsNullOrEmpty(_error))
@@ -108,6 +125,7 @@
     private HashSet<string> _used = [];
     private string? _active;
     private bool _revealed;
+    private Guid? _selectedTeamId;
     private TeamSummary[] _teams = [];
     private bool _busy;
     private string? _error;
@@ -125,6 +143,10 @@
             return new ActiveClueModel(_categories[categoryIndex].Name, clue.Value, clue.Question, clue.Answer);
         }
     }
+
+    private TeamSummary? SelectedTeam => _selectedTeamId is Guid teamId
+        ? _teams.FirstOrDefault(team => team.Id == teamId)
+        : null;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -179,6 +201,7 @@
         _used = [];
         _active = null;
         _revealed = false;
+        _selectedTeamId = null;
         if (parameters.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Object)
         {
             if (state.TryGetProperty("used", out var used) && used.ValueKind == JsonValueKind.Array)
@@ -191,43 +214,52 @@
 
             _active = ReadString(state, "active") is { Length: > 0 } active ? active : null;
             _revealed = state.TryGetProperty("revealed", out var revealed) && revealed.ValueKind == JsonValueKind.True;
+            _selectedTeamId = Guid.TryParse(ReadString(state, "selectedTeamId"), out var teamId) ? teamId : null;
         }
     }
 
-    private Task SelectAsync(string key) => SaveStateAsync(_used, key, false);
+    private Task SelectTeamAsync(TeamSummary team) =>
+        _busy || (_active is not null && SelectedTeam is not null)
+            ? Task.CompletedTask
+            : SaveStateAsync(_used, _active, _revealed, team.Id, team.DisplayName);
 
-    private Task RevealAsync() => SaveStateAsync(_used, _active, true);
+    private Task SelectAsync(string key)
+    {
+        if (SelectedTeam is null || _active is not null) return Task.CompletedTask;
+        return SaveStateAsync(_used, key, false, _selectedTeamId, SelectedTeam.DisplayName);
+    }
+
+    private Task RevealAsync() => SelectedTeam is { } team
+        ? SaveStateAsync(_used, _active, true, team.Id, team.DisplayName)
+        : Task.CompletedTask;
 
     private Task CloseClueAsync()
     {
         var used = new HashSet<string>(_used, StringComparer.Ordinal);
         if (_active is not null) used.Add(_active);
-        return SaveStateAsync(used, null, false);
+        return SaveStateAsync(used, null, false, null, null);
     }
 
     private async Task AwardAsync(TeamSummary team, int delta, bool correct)
     {
         var clue = ActiveClue;
-        if (clue is null) return;
+        if (clue is null || _selectedTeamId != team.Id) return;
 
         await RunAsync(async token =>
         {
             await ProjectApiClient.AwardTeamPointsAsync(token, ProjectId, team.Id, delta, $"Jeopardy: {clue.Category} {clue.Value} ({(correct ? "richtig" : "falsch")})");
             _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
-            if (correct)
-            {
-                var used = new HashSet<string>(_used, StringComparer.Ordinal);
-                if (_active is not null) used.Add(_active);
-                await ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, null, true));
-            }
+            var used = new HashSet<string>(_used, StringComparer.Ordinal);
+            used.Add(_active!);
+            await ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, null, false, null, null));
         });
     }
 
-    private Task SaveStateAsync(HashSet<string> used, string? active, bool revealed) =>
-        RunAsync(token => ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, active, revealed)));
+    private Task SaveStateAsync(HashSet<string> used, string? active, bool revealed, Guid? selectedTeamId, string? selectedTeamName) =>
+        RunAsync(token => ProjectApiClient.SetSlideStateAsync(token, ProjectId, Event.EventId, CurrentSlide.SlideId, BuildState(used, active, revealed, selectedTeamId, selectedTeamName)));
 
-    private static object BuildState(HashSet<string> used, string? active, bool revealed) =>
-        new { used = used.OrderBy(item => item, StringComparer.Ordinal).ToArray(), active, revealed };
+    private static object BuildState(HashSet<string> used, string? active, bool revealed, Guid? selectedTeamId, string? selectedTeamName) =>
+        new { used = used.OrderBy(item => item, StringComparer.Ordinal).ToArray(), active, revealed, selectedTeamId, selectedTeamName };
 
     private async Task RunAsync(Func<string, Task> action)
     {
