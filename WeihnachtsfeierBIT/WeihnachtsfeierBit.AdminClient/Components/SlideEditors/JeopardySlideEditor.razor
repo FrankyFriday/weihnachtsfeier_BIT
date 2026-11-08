@@ -7,7 +7,7 @@
     </FrameworkFormGroup>
 
     <p style="margin: 0; color: var(--muted); font-size: 13px;">
-        Jede Kategorie bekommt Fragen mit steigendem Punktwert, z. B. Fragen über Bünting, Allgemeinwissen oder IT.
+        Jede Kategorie bekommt fünf Fragen: 100 Punkte sind am leichtesten, 500 Punkte am schwersten. Ein Team wählt die Kategorie und den Punktewert.
         Die Antwort sieht nur die Spielleitung, bis sie aufgedeckt wird.
     </p>
 
@@ -28,7 +28,7 @@
                 var ri = r;
                 var clue = category.Clues[ri];
                 <div style="display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 8px; align-items: center;">
-                    <FrameworkInputNumber @bind-Value="clue.Value" Min="10" Max="10000" />
+                    <FrameworkInputNumber @bind-Value="clue.Value" Min="100" Max="500" Step="100" />
                     <FrameworkInputText @bind-Value="clue.Question" Placeholder="Frage / Hinweis" />
                     <FrameworkInputText @bind-Value="clue.Answer" Placeholder="Antwort" />
                     <FrameworkIconButton Icon="close" Title="Frage entfernen" OnClick="() => RemoveClue(ci, ri)" />
@@ -63,7 +63,13 @@
     private void AddClue(int categoryIndex)
     {
         var clues = Slide.JeopardyCategories[categoryIndex].Clues;
-        clues.Add(new JeopardyClueModel { Value = clues.Count == 0 ? 100 : clues.Max(clue => clue.Value) + 100 });
+        var nextValue = Enumerable.Range(1, 5)
+            .Select(level => level * 100)
+            .FirstOrDefault(value => clues.All(clue => clue.Value != value));
+        if (nextValue != 0)
+        {
+            clues.Add(new JeopardyClueModel { Value = nextValue });
+        }
     }
 
     private void RemoveClue(int categoryIndex, int clueIndex) => Slide.JeopardyCategories[categoryIndex].Clues.RemoveAt(clueIndex);

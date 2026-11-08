@@ -5,6 +5,10 @@
     {
         <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: 16px; border-radius: 14px; text-align: center;">
             <div class="jp-clue-meta" style="font-size: 12px; font-weight: 800; letter-spacing: .08em;">@active.Category.ToUpperInvariant() · @active.Value</div>
+            @if (!string.IsNullOrEmpty(active.SelectedTeam))
+            {
+                <div class="jp-answering-team">Team @active.SelectedTeam ist an der Reihe</div>
+            }
             <div class="jp-clue-question" style="font-size: @(Large ? "40px" : "20px"); font-weight: 800; margin: 8px 0;">@active.Question</div>
             @if (!string.IsNullOrEmpty(active.Answer))
             {
@@ -56,7 +60,7 @@
     [Parameter] public bool Large { get; set; }
 
     private sealed record CategoryView(string Name, List<(int Value, bool Used)> Values);
-    private sealed record ActiveView(string Category, int Value, string Question, string? Answer);
+    private sealed record ActiveView(string Category, int Value, string Question, string? Answer, string? SelectedTeam);
 
     private List<CategoryView> _categories = [];
     private ActiveView? _active;
@@ -91,7 +95,8 @@
                     ReadString(activeClue, "category"),
                     ReadInt(activeClue, "value"),
                     ReadString(activeClue, "question"),
-                    answer.Length > 0 ? answer : null);
+                    answer.Length > 0 ? answer : null,
+                    ReadString(activeClue, "selectedTeam"));
             }
 
             return;
@@ -122,7 +127,8 @@
                             ReadString(category, "name"),
                             ReadInt(clue, "value"),
                             ReadString(clue, "question"),
-                            revealed ? ReadString(clue, "answer") : null);
+                            revealed ? ReadString(clue, "answer") : null,
+                            ReadString(state, "selectedTeamName"));
                     }
 
                     clueIndex++;

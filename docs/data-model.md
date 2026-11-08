@@ -34,7 +34,7 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | Ranking | Interner Name, Regie-Notizen, Deaktivieren, Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
 | Estimation | Interner Name, Regie-Notizen, Deaktivieren, Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
 | Buzzer | Interner Name, Regie-Notizen, Deaktivieren, Buzzer-Frage, Punkte, Zeitlimit |
-| Jeopardy | Interner Name, Regie-Notizen, Deaktivieren, Titel, Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktiver Frage und Antwortfreigabe. |
+| Jeopardy | Interner Name, Regie-Notizen, Deaktivieren, Titel, Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. Standardwerte von 100 bis 500 ordnen die Fragen von leicht nach schwer. |
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration. Ein neuer Untertyp muss in `Slide.cs` und im EF-Discriminator in `OnModelCreating` ergänzt werden. `SchemaVersion` ist für spätere JSON-Formatmigrationen vorgesehen.
 
@@ -59,7 +59,7 @@ In einer aktiven `GameInstance` (Play-Session) werden Shows und Spontanevents in
   - **`SlidesJson`**: PostgreSQL-`jsonb` Array aller Folien des Events.
   - **Eindeutiges Teilnehmer-Feedback**: Jede Antwort ist an `(GameInstanceEventId, SlideId, ParticipantId)` gebunden, wodurch alle Ergebnisse auch beim Wechseln von Folien erhalten bleiben.
 
-  Jeopardy ist ein moderatorgesteuerter Slide-Typ ohne eigene Schemamigration. Der Laufzeitstatus (`used`, `active`, `revealed`) wird im Slide-JSON gespeichert und über einen Projektadmin-Endpunkt aktualisiert. Die öffentliche Beamerprojektion enthält Antworten nur für die aktive, aufgedeckte Frage.
+  Jeopardy ist ein moderatorgesteuerter Slide-Typ ohne eigene Schemamigration. Der Laufzeitstatus (`used`, `active`, `revealed`, `selectedTeamId` und `selectedTeamName`) wird im Slide-JSON gespeichert und über einen Projektadmin-Endpunkt aktualisiert. Für jede Frage wählt die Spielleitung zuerst das Team, das anschließend Kategorie und Wert aussucht und die Frage beantwortet. Nur dieses Team erhält die Punktewertung; eine abgeschlossene Frage wird als verwendet markiert. Die öffentliche Beamerprojektion enthält Antworten nur für die aktive, aufgedeckte Frage.
 
 ## Migrationen
 
