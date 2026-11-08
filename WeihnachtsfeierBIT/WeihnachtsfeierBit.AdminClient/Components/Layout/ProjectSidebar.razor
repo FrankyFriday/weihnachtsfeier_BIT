@@ -4,17 +4,22 @@
 
 <AuthorizeView>
     <Authorized>
-        <aside class="project-sidebar">
+        <aside class="project-sidebar @(_isCollapsed ? "collapsed" : null)">
             <nav aria-label="Workspace-Navigation">
+                <!-- COLLAPSE/EXPAND TOGGLE BUTTON (DESKTOP) -->
+                <button type="button" class="sidebar-toggle-btn" @onclick="ToggleCollapse" title="@(_isCollapsed ? "Sidebar erweitern" : "Sidebar einklappen")">
+                    <span class="material-symbols-outlined" style="font-size: 20px;">@(_isCollapsed ? "chevron_right" : "chevron_left")</span>
+                </button>
+
                 <div class="sidebar-section">
                     <span class="sidebar-label">WORKSPACE</span>
-                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri" @onclick="HandleLinkClick">
+                    <a class="sidebar-link @(IsProjectOverview ? "active" : null)" href="@Navigation.BaseUri" @onclick="HandleLinkClick" title="Projekte">
                         <span class="material-symbols-outlined" style="font-size: 18px;">folder</span>
-                        <span>Projekte</span>
+                        <span class="sidebar-link-text">Projekte</span>
                     </a>
-                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl" @onclick="HandleLinkClick">
+                    <a class="sidebar-link @(IsShowCatalog ? "active" : null)" href="@WorkspaceShowsUrl" @onclick="HandleLinkClick" title="Shows">
                         <span class="material-symbols-outlined" style="font-size: 18px;">collections_bookmark</span>
-                        <span>Shows</span>
+                        <span class="sidebar-link-text">Shows</span>
                     </a>
                 </div>
 
@@ -22,14 +27,14 @@
                 {
                     <div class="sidebar-section sidebar-current-project">
                         <span class="sidebar-label">AKTUELLE SHOW</span>
-                        <strong>@CurrentShow.Name</strong>
-                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)" @onclick="HandleLinkClick">
+                        <strong class="sidebar-current-title">@CurrentShow.Name</strong>
+                        <a class="sidebar-link @(CurrentShowSection == "editor" ? "active" : null)" href="@ShowUrl(CurrentShow.Id)" @onclick="HandleLinkClick" title="Slides & Editor">
                             <span class="material-symbols-outlined" style="font-size: 18px;">edit_note</span>
-                            <span>Slides & Editor</span>
+                            <span class="sidebar-link-text">Slides & Editor</span>
                         </a>
-                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentShowSection == "settings" ? "active" : null)" href="@ShowUrl(CurrentShow.Id, "settings")" @onclick="HandleLinkClick" title="Einstellungen">
                             <span class="material-symbols-outlined" style="font-size: 18px;">settings</span>
-                            <span>Einstellungen</span>
+                            <span class="sidebar-link-text">Einstellungen</span>
                         </a>
                     </div>
                 }
@@ -37,62 +42,62 @@
                 {
                     <div class="sidebar-section sidebar-current-project">
                         <span class="sidebar-label">AKTUELLES PROJEKT</span>
-                        <strong>@CurrentProject.Name</strong>
+                        <strong class="sidebar-current-title">@CurrentProject.Name</strong>
 
                         @if (_activeInstance is not null)
                         {
-                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
+                            <a class="sidebar-link active-session-badge @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick" title="@($"Live-Session ({_activeInstance.AccessCode})")">
                                 <span class="live-dot"></span>
-                                <span>Live-Session (@_activeInstance.AccessCode)</span>
+                                <span class="sidebar-link-text">Live-Session (@_activeInstance.AccessCode)</span>
                             </a>
                         }
                         else
                         {
-                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick">
+                            <a class="sidebar-link @(CurrentSection == "session" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "session")" @onclick="HandleLinkClick" title="Live-Session">
                                 <span class="material-symbols-outlined" style="font-size: 18px;">play_circle</span>
-                                <span>Live-Session</span>
+                                <span class="sidebar-link-text">Live-Session</span>
                             </a>
                         }
 
-                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "overview" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id)" @onclick="HandleLinkClick" title="Übersicht">
                             <span class="material-symbols-outlined" style="font-size: 18px;">dashboard</span>
-                            <span>Übersicht</span>
+                            <span class="sidebar-link-text">Übersicht</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "participants" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "participants")" @onclick="HandleLinkClick" title="Teilnehmer">
                             <span class="material-symbols-outlined" style="font-size: 18px;">person</span>
-                            <span>Teilnehmer</span>
+                            <span class="sidebar-link-text">Teilnehmer</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "teams" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "teams")" @onclick="HandleLinkClick" title="Teams">
                             <span class="material-symbols-outlined" style="font-size: 18px;">groups</span>
-                            <span>Teams</span>
+                            <span class="sidebar-link-text">Teams</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "point-logs" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "point-logs")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "point-logs" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "point-logs")" @onclick="HandleLinkClick" title="Punkte-Log">
                             <span class="material-symbols-outlined" style="font-size: 18px;">military_tech</span>
-                            <span>Punkte-Log</span>
+                            <span class="sidebar-link-text">Punkte-Log</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "chat" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "chat")" @onclick="HandleLinkClick" title="Live-Chat">
                             <span class="material-symbols-outlined" style="font-size: 18px;">chat</span>
-                            <span>Live-Chat</span>
+                            <span class="sidebar-link-text">Live-Chat</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "info-pages" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "info-pages")" @onclick="HandleLinkClick" title="Info-Seiten">
                             <span class="material-symbols-outlined" style="font-size: 18px;">info</span>
-                            <span>Info-Seiten</span>
+                            <span class="sidebar-link-text">Info-Seiten</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "jukebox" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "jukebox")" @onclick="HandleLinkClick" title="Jukebox">
                             <span class="material-symbols-outlined" style="font-size: 18px;">music_note</span>
-                            <span>Jukebox</span>
+                            <span class="sidebar-link-text">Jukebox</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "shows" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "shows")" @onclick="HandleLinkClick" title="Shows">
                             <span class="material-symbols-outlined" style="font-size: 18px;">collections_bookmark</span>
-                            <span>Shows</span>
+                            <span class="sidebar-link-text">Shows</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "access-sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "access-sessions")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "access-sessions" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "access-sessions")" @onclick="HandleLinkClick" title="Aktive Geräte">
                             <span class="material-symbols-outlined" style="font-size: 18px;">devices</span>
-                            <span>Aktive Geräte</span>
+                            <span class="sidebar-link-text">Aktive Geräte</span>
                         </a>
-                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")" @onclick="HandleLinkClick">
+                        <a class="sidebar-link @(CurrentSection == "settings" ? "active" : null)" href="@ProjectUrl(CurrentProject.Id, "settings")" @onclick="HandleLinkClick" title="Einstellungen">
                             <span class="material-symbols-outlined" style="font-size: 18px;">settings</span>
-                            <span>Einstellungen</span>
+                            <span class="sidebar-link-text">Einstellungen</span>
                         </a>
                     </div>
                 }
@@ -103,9 +108,9 @@
                         <span class="sidebar-label">PROJEKTE</span>
                         @foreach (var project in _projects)
                         {
-                            <a class="sidebar-link" href="@ProjectUrl(project.Id)" @key="project.Id" @onclick="HandleLinkClick">
+                            <a class="sidebar-link" href="@ProjectUrl(project.Id)" @key="project.Id" @onclick="HandleLinkClick" title="@project.Name">
                                 <span class="sidebar-project-dot"></span>
-                                <span class="sidebar-project-name">@project.Name</span>
+                                <span class="sidebar-project-name sidebar-link-text">@project.Name</span>
                             </a>
                         }
                     </div>
@@ -121,6 +126,7 @@
     private ProjectSummary[] _projects = [];
     private AdminShow[] _shows = [];
     private GameInstanceSummary? _activeInstance;
+    private bool _isCollapsed;
 
     private Guid? CurrentProjectId => GetProjectId(Navigation.Uri);
     private Guid? CurrentShowId => GetShowId(Navigation.Uri);
@@ -158,6 +164,8 @@
             }
         });
     }
+
+    private void ToggleCollapse() => _isCollapsed = !_isCollapsed;
 
     private async Task HandleLinkClick()
     {
