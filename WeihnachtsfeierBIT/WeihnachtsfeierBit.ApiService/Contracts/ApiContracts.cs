@@ -53,6 +53,7 @@ public sealed record ParticipantLoginRequest(int Number);
 public sealed record ApiError(string Message);
 public sealed record CreateTestEntryRequest(string? Name);
 
+public sealed record StartGameInstanceRequest(string? PreferredAccessCode = null);
 public sealed record GameInstanceResponse(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
 public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
 public sealed record LoginByCodeRequest(string Code, int Number);

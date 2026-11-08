@@ -4,23 +4,22 @@
 
 | Projekt | Verantwortung |
 | --- | --- |
-| `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Projektberechtigungen und EF-Core-Migrationen beim Start |
-| `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, Workspace-Sidebar, globaler Show-Bibliothek und projektspezifischen Show-Verknüpfungen |
-| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` und die Beameransicht unter `/play/beamer/{sessionCode}` (alter Pfad `/play/canvas/{sessionCode}` bleibt kompatibel), mit SignalR Live-Anbindung |
-| `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client und gemeinsam genutzten Verträgen; enthält keine Admin-/Projektseiten |
-| `WeihnachtsfeierBit.Web` | Entwicklungs-/Testclient; proxyt `/admin` per YARP an den AdminClient und `/play` an den ParticipantClient |
+| `WeihnachtsfeierBit.ApiService` | HTTP-API, Login, Admin-Sharing & Rechte, SignalR Hubs (`GameStateHub`, `CanvasHub`) und automatische EF-Core-Migrationen beim Start |
+| `WeihnachtsfeierBit.AdminClient` | Server-seitiger Blazor-Client mit Admin-Login, Projektverwaltung, gekürzter Icon-Workspace-Sidebar, globaler Show-Bibliothek und Live-Session-Steuerung |
+| `WeihnachtsfeierBit.ParticipantClient` | Server-seitiger Blazor-Client für Teilnehmer unter `/play/{projectId}` und Beameransicht unter `/play/beamer/{sessionCode}`, mit SignalR Live-Anbindung und Verbindungs-Latenzanzeige |
+| `WeihnachtsfeierBit.Framework` | Rollenübergreifender Razor-Class-Library-Baustein mit generischen UI-Primitiven, API-Client, `FrameworkConnectionStatus` und gemeinsam genutzten Verträgen |
+| `WeihnachtsfeierBit.Web` | Reverse-Proxy; proxyt `/admin` per YARP an den AdminClient und `/play` an den ParticipantClient |
 | `WeihnachtsfeierBit.Data` | EF-Core-Entities, PostgreSQL-Mappings und Migrationen |
 | `WeihnachtsfeierBit.ServiceDefaults` | Aspire Service Discovery, Health Checks, Resilience und Telemetrie |
 | `WeihnachtsfeierBit.AppHost` | Lokale Aspire-Orchestrierung |
 
 ```mermaid
 flowchart LR
-    Browser -->|/| TestClient
-    Browser -->|/admin/*| TestClient
-    Browser -->|/play/*| TestClient
-    TestClient -->|YARP| AdminClient
-    TestClient -->|YARP| ParticipantClient
-    TestClient --> API
+    Browser -->|/| ReverseProxy
+    Browser -->|/admin/*| ReverseProxy
+    Browser -->|/play/*| ReverseProxy
+    ReverseProxy -->|YARP| AdminClient
+    ReverseProxy -->|YARP| ParticipantClient
     AdminClient --> API
     ParticipantClient --> API
     API --> PostgreSQL
@@ -28,24 +27,16 @@ flowchart LR
 
 ## Laufzeit
 
-`WeihnachtsfeierBIT/docker-compose.yml` startet PostgreSQL, API, Testclient und Adminclient als Container. Am Host veröffentlicht sind Testclient `8080`, API `8081` und PostgreSQL ausschließlich auf `127.0.0.1:5432`. Der Adminclient-Port bleibt intern; `/admin` wird vom Testclient weitergeleitet. Aspire beschreibt denselben Dienstgraphen für lokale Entwicklung.
-
-`WeihnachtsfeierBit.Data` und `WeihnachtsfeierBit.ServiceDefaults` sind Bibliotheken und laufen nicht als eigene Container. `Hitster/` gehört nicht zu diesem Dienstgraphen.
+`WeihnachtsfeierBIT/docker-compose.yml` startet PostgreSQL, API, Reverse-Proxy, AdminClient und ParticipantClient als Container. Am Host veröffentlicht sind Proxy `8080`, API `8081` und PostgreSQL auf `127.0.0.1:5432`. Der Adminclient-Port bleibt intern; `/admin` wird vom Proxy weitergeleitet. Aspire beschreibt denselben Dienstgraphen für lokale Entwicklung.
 
 ## Codepfade
 
-- API-Komposition & SignalR Hubs: `WeihnachtsfeierBit.ApiService/Program.cs` (`GameStateHub` unter `/hubs/gamestate`), Hintergrund-Worker `ScheduledEventsBackgroundService.cs` für automatische Event-Starts.
-- Routenmodule: `WeihnachtsfeierBit.ApiService/Endpoints/`
+- API-Komposition & SignalR Hubs: `WeihnachtsfeierBit.ApiService/Program.cs` (`GameStateHub` unter `/hubs/gamestate`, `CanvasHub` unter `/hubs/canvas`), Hintergrund-Worker `ScheduledEventsBackgroundService.cs` für automatische Event-Starts.
+- Endpunkte: `WeihnachtsfeierBit.ApiService/Endpoints/`
+- Admin Sharing & Permissions: `WeihnachtsfeierBit.ApiService/Endpoints/AdminSharingEndpoints.cs`
 - Authentifizierung und Projektfilter: `WeihnachtsfeierBit.ApiService/Auth/`
-- Request-/Response-Verträge: `WeihnachtsfeierBit.ApiService/Contracts/`
-- Entities und Mapping: `WeihnachtsfeierBit.Data/`
-- Admin-Routen, Fachansichten, Sidebar und Adminformulare: `WeihnachtsfeierBit.AdminClient/`
+- Admin-Routen, Fachansichten, Icon-Sidebar und Adminformulare: `WeihnachtsfeierBit.AdminClient/`
 - Teilnehmer-Client (`/play/{projectId}`): `WeihnachtsfeierBit.ParticipantClient/`
 - Generische UI-Primitiven und gemeinsame API-Adapter: `WeihnachtsfeierBit.Framework/`
-- Testclient und Proxy: `WeihnachtsfeierBit.Web/`
 
-Fachlogik gehört in Endpoint-/Serviceklassen, nicht in `Program.cs` oder Razor-Komponenten. Fachansichten und Navigation bleiben im jeweiligen Client; nur zweckneutrale UI-Primitiven und wiederverwendbare API-Verträge liegen im Framework. SignalR-Verbindungen werden nach fehlgeschlagenem Start oder Abbruch mit wachsendem Abstand automatisch neu aufgebaut; beim erneuten Beitritt werden Gruppe und aktueller Zustand synchronisiert. Die Beameransicht verwendet einen eigenen SignalR-Kanal und zeigt freigegebene Eventinhalte, Team-Punktestände und bei einer Linienrangliste den Team-Punkteverlauf.
-
-## Produktgrenzen
-
-Vereinheitlichtes Event-Modell, Admin-Verwaltung, Live-Showausführung, spontanes Moderieren, zeitliche Event-Planung & Auto-Start, Event-Sichtbarkeitssteuerung, freie Teilnehmer-Navigation (`self_paced`), Beamer-Fokussierung (`ActiveCanvasEventId`), SignalR-Echtzeitsynchronisation, mobiler Teilnehmer-Client und Beameransicht sind umgesetzt sind vollständig umgesetzt. Das Leinwand-Dashboard (Projektor-Anzeige) ist der nächste geplante Schritt. Siehe [Produktvision und Rollen](product-and-roles.md).
+Fachlogik gehört in Endpoint-/Serviceklassen. SignalR-Verbindungen werden bei Abbruch automatisch mit wachsendem Retry-Abstand wieder aufgebaut; nach Wiederverbindung synchronisieren sie ihren Gruppenbeitritt und den aktuellen Serverzustand.

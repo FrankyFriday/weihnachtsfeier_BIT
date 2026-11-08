@@ -49,7 +49,7 @@
                 }
                 else
                 {
-                    <FrameworkButton Label="Session jetzt starten" Variant="primary" OnClick="StartNewSessionAsync" Busy="@_processing" Disabled="@_processing" />
+                    <FrameworkButton Label="Session jetzt starten" Variant="primary" OnClick="OpenStartSessionModal" Busy="@_processing" Disabled="@_processing" />
                 }
             </div>
         </div>
@@ -582,6 +582,29 @@
     </div>
 </FrameworkModal>
 
+<!-- START SESSION MODAL WITH OPTIONAL PREFERRED CODE -->
+<FrameworkModal IsOpen="@_isStartSessionModalOpen" Title="Play-Session starten" OnClose="() => _isStartSessionModalOpen = false">
+    <div class="modal-form">
+        <p style="margin: 0 0 14px 0; color: #64748b; font-size: 13px;">Starte die Live-Play-Session für dieses Projekt, damit sich deine Gäste per 6-stelligem Code anmelden können.</p>
+
+        <FrameworkFormGroup Label="Optionaler Wunsch-Code (6 Ziffern)" ForId="preferred-code">
+            <FrameworkInputText Id="preferred-code" @bind-Value="_preferredCodeInput" MaxLength="6" Placeholder="z. B. 123456" />
+        </FrameworkFormGroup>
+
+        <p class="framework-help-text" style="margin-top: 6px;">Lasse das Feld leer, um automatisch einen zufälligen 6-stelligen Code zu generieren.</p>
+
+        @if (!string.IsNullOrEmpty(_startSessionError))
+        {
+            <FrameworkNotice Message="@_startSessionError" Severity="error" Style="margin-top: 12px;" />
+        }
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="() => _isStartSessionModalOpen = false" Disabled="@_processing" />
+            <FrameworkButton Label="Session starten" Variant="primary" OnClick="ConfirmStartSessionAsync" Busy="@_processing" Disabled="@_processing" />
+        </div>
+    </div>
+</FrameworkModal>
+
 <!-- SHARE PROJECT MODAL -->
 <FrameworkModal IsOpen="@_isShareProjectModalOpen" Title="Projekt teilen & Admins verwalten" OnClose="() => _isShareProjectModalOpen = false">
     @if (!string.IsNullOrEmpty(AccessToken))
@@ -1001,22 +1024,38 @@
         await CloseEventAsync(eventId);
     }
 
-    private async Task StartNewSessionAsync()
+    private bool _isStartSessionModalOpen;
+    private string _preferredCodeInput = string.Empty;
+    private string? _startSessionError;
+
+    private void OpenStartSessionModal()
+    {
+        _preferredCodeInput = string.Empty;
+        _startSessionError = null;
+        _isStartSessionModalOpen = true;
+    }
+
+    private async Task ConfirmStartSessionAsync()
     {
         _processing = true;
-        _actionError = null;
+        _startSessionError = null;
         try
         {
             await RunAuthenticatedAsync(async token =>
             {
-                _instance = await ProjectApiClient.StartGameInstanceAsync(token, ProjectId);
+                _instance = await ProjectApiClient.StartGameInstanceAsync(token, ProjectId, _preferredCodeInput);
                 _noticeMessage = $"Session mit Code {_instance.AccessCode} erfolgreich gestartet!";
+                _isStartSessionModalOpen = false;
                 await LoadDataAsync();
             });
         }
         catch (HttpRequestException ex)
         {
-            _actionError = ex.Message;
+            _startSessionError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _startSessionError = ex.Message;
         }
         finally
         {

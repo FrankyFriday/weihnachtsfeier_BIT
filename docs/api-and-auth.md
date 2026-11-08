@@ -6,20 +6,26 @@ Routen liegen in `WeihnachtsfeierBit.ApiService/Endpoints/`, Authentifizierung u
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `POST /api/admin-accounts` | öffentlich, rate-limited | Globales Konto registrieren; Body `{ "username", "password" }`; erstellt eine Adminsession. |
-| `POST /api/admin-sessions` | öffentlich, rate-limited | Global anmelden; Body `{ "username", "password" }`; keine Projekt-ID. |
+| `POST /api/admin-accounts` | öffentlich, rate-limited | Globales Konto registrieren; Body `{ "Username", "Password" }`; erstellt eine Adminsession. |
+| `POST /api/admin-sessions` | öffentlich, rate-limited | Global anmelden; Body `{ "Username", "Password" }`; keine Projekt-ID. |
 | `DELETE /api/admin-sessions/current` | Bearer-Token | Globale Adminsession widerrufen. |
+| `GET /api/admin/admins/search?q={query}` | Admin-Bearer-Token | Autocomplete-Suche nach registrierten Admin-Konten anhand des Benutzernamens. |
 
-Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitgliedschaften, verwaltet:
+## Globale Shows & Sharing
+
+Globale Shows werden mit einer aktiven Adminsession verwaltet:
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `GET /api/admin/shows` | Admin-Bearer-Token | Globale Shows samt Anzahl verknüpfter Projekte auflisten. |
-| `POST /api/admin/shows` | Admin-Bearer-Token | Show global anlegen; Body `{ "name": "..." }`. |
+| `GET /api/admin/shows` | Admin-Bearer-Token | Shows auflisten, die der Admin erstellt hat oder zu denen er eingeladen wurde. |
+| `POST /api/admin/shows` | Admin-Bearer-Token | Show global anlegen; Body `{ "name": "..." }`; setzt den Ersteller (`ErstellerAdminId`). |
 | `GET /api/admin/shows/{showId}` | Admin-Bearer-Token | Eine globale Show laden. |
 | `PUT /api/admin/shows/{showId}` | Admin-Bearer-Token | Shownamen aktualisieren; Body `{ "name": "..." }`. |
-| `DELETE /api/admin/shows/{showId}` | Admin-Bearer-Token | Show und alle zugehörigen Slides löschen. |
+| `DELETE /api/admin/shows/{showId}` | Show-Ersteller | Show und alle zugehörigen Slides löschen. |
 | `POST /api/admin/shows/{showId}/duplicate` | Admin-Bearer-Token | Show mit allen Slides als Kopie duplizieren. |
+| `GET /api/admin/shows/{showId}/admins` | Show-Admin | Liste der freigegebenen Admins und Ersteller-Status abrufen. |
+| `POST /api/admin/shows/{showId}/admins` | Show-Ersteller | Weiteren Admin zur Show einladen; Body `{ "username": "..." }`. |
+| `DELETE /api/admin/shows/{showId}/admins/{adminId}` | Show-Ersteller | Einladung eines Admins für diese Show widerrufen. |
 | `GET /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Geordnete Slides einer globalen Show laden. |
 | `POST /api/admin/shows/{showId}/slides` | Admin-Bearer-Token | Slide mit Typ, Position und JSON-Parametern anlegen. |
 | `PUT /api/admin/shows/{showId}/slide-positions` | Admin-Bearer-Token | Slide-Reihenfolge atomar per ID-Array aktualisieren (`{ "slideIds": [...] }`). |
@@ -28,69 +34,50 @@ Globale Shows werden mit einer aktiven Adminsession, unabhängig von Projektmitg
 
 Registrierung, Login und Teilnehmernummern-Login sind auf zehn Requests pro IP und Minute begrenzt.
 
-## Projektzugriff
+## Projektzugriff & Granulare Berechtigungen
 
 Geschützte Projektendpunkte verwenden `/api/projects/{projectId}` und `Authorization: Bearer <AccessToken>`.
 
 | Rolle | Rechte |
 | --- | --- |
-| Teilnehmer mit aktiver Sitzung dieses Projekts | Projekt, eigenes Profil, Teams, Shows und Slides lesen; eigene Sitzungen ansehen/widerrufen. |
-| Admin mit aktiver globaler Sitzung und Membership im Projekt | Projekt-/Teilnehmer-/Team-CRUD, Show-Projekt-Verknüpfungen und Slide-CRUD sowie Admin- und Sitzungspflege. Globale Show-Metadaten verwaltet ein Admin mit aktiver Sitzung unabhängig vom Projekt. |
+| **Projekt-Ersteller (`IsCreator`)** | Volle Kontrolle: Projekt bearbeiten/löschen, Co-Admins einladen, Berechtigungen anpassen. |
+| **Eingeladener Co-Admin** | Berechtigungen hängen von den zugewiesenen Flags ab:<br>- `CanControlSession`: Live-Session starten, pausieren, Folien wechseln, Punkte vergeben.<br>- `CanManageParticipants`: Teilnehmer & Teams anlegen, bearbeiten, zufällig verteilen.<br>- `CanEditProjectSettings`: Projektdetails & Name bearbeiten.<br>- `CanManageShows`: Shows im Projekt verknüpfen oder entfernen. |
+| **Teilnehmer** | Projekt, eigenes Profil, Teams, Shows und Slides lesen; eigene Sitzungen ansehen/widerrufen; Antworten abgeben. |
 
-Bei jedem Request prüft der Filter Token-Hash, Ablauf, Widerruf und Projektmitgliedschaft. Ein Admin-Token kann für mehrere Memberships verwendet werden; ohne Membership gibt es für das Projekt `401`. Ungültige/fehlende Sessions liefern `401`; gültige Teilnehmer ohne Adminrecht erhalten bei Schreibzugriff `403`.
+## Projektadmins & Sharing verwalten
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/admin/projects/{projectId}/admins` | Projektadmin | Liste aller Projektadmins samt Erstellerstatus und Berechtigungs-Flags abrufen. |
+| `POST /api/admin/projects/{projectId}/admins` | Projekt-Ersteller | Admin per Benutzernamen `{ "username": "..." }` zum Projekt einladen. |
+| `PUT /api/admin/projects/{projectId}/admins/{adminId}/permissions` | Projekt-Ersteller | Granulare Berechtigungs-Flags eines Co-Admins anpassen (`CanControlSession`, `CanManageParticipants`, `CanEditProjectSettings`, `CanManageShows`). |
+| `DELETE /api/admin/projects/{projectId}/admins/{adminId}` | Projekt-Ersteller | Co-Admin aus dem Projekt entfernen. |
+| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen. |
+| `DELETE /api/projects/{projectId}/admin-sessions/{sessionId}` | Projektadmin | Adminsession widerrufen. |
+| `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
+| `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
 
 ## Teilnehmer-Sessions
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`; verknüpft die Sitzung mit der aktiven `GameInstance`. |
+| `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`. |
 | `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
-| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand; bei einer Linienrangliste zusätzlich den Team-Punkteverlauf. Teilnehmerantworten und Profile werden nicht ausgegeben. |
-| `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`; Teilnehmernummer ist alleiniger Kennzeichner. |
+| `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand. |
+| `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
-| `GET /api/projects/{projectId}/me/sessions` | Teilnehmer | Eigene Sessions anzeigen. |
-| `DELETE /api/projects/{projectId}/me/sessions/{sessionId}` | Teilnehmer | Eigene Session widerrufen. |
-
-Admin-Authentifizierungsrouten erlauben 10 Anfragen pro Minute und Client-IP. Teilnehmer-Login und öffentliche Session-Leseendpunkte erlauben je 120 Anfragen pro Minute und Client-IP; die Limits werden pro Route getrennt gezählt, damit Teilnehmer hinter derselben serverseitigen Client-IP nicht ein gemeinsames 10-Anfragen-Limit teilen.
-
-## Projektadmins verwalten
-
-| Methode/Route | Zugriff | Zweck |
-| --- | --- | --- |
-| `GET /api/projects/{projectId}/admins` | Projektadmin | Memberships anzeigen. |
-| `POST /api/projects/{projectId}/admins` | Projektadmin | Bereits registriertes Konto mit `{ "username": "..." }` zuordnen. Erstellt kein Konto. |
-| `DELETE /api/projects/{projectId}/admins/{adminId}` | Projektadmin | Membership entfernen; Selbstentfernung und Entfernen des letzten Admins sind gesperrt. |
-| `GET /api/projects/{projectId}/admin-sessions` | Projektadmin | Aktive Sitzungen der Projektadmins ansehen; kennzeichnet die anfragende Sitzung mit `isCurrent`. |
-| `DELETE /api/projects/{projectId}/admin-sessions/{sessionId}` | Projektadmin | Adminsession widerrufen. |
-| `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
-| `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
 
 ## Live Session & Event Steuerung
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState` inkl. `ScheduledEvents` Timeline) abrufen. |
-| `POST /api/projects/{projectId}/session/shows` | Projektadmin | Show als `GameInstanceEvent` mit n Slides in der Session starten/planen (`mode`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
-| `POST /api/projects/{projectId}/session/events` | Projektadmin | Spontanes Event erstellen/planen (`slideType`, `mode`, `parameters`, `navigationMode`, `isHidden`, `scheduledStartUtc`, `autoStartOnSchedule`). |
-| `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin | Event-Slide-Index (`CurrentSlideIndex`), Modus (`mode`), Sichtbarkeit (`isHidden`) oder Status (`status`) ändern. |
-| `PUT /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/state` | Projektadmin | Laufzeitzustand einer Jeopardy-Folie setzen (`used`, `active`, `revealed`, `selectedTeamId`, `selectedTeamName`) und Projektclients benachrichtigen. Das ausgewählte Team wählt Kategorie und Punktewert; nur dieses Team wird für die aktive Frage gewertet. |
-| `PUT /api/projects/{projectId}/session/events/{eventId}/mode` | Projektadmin | Event-Modus ändern (`"active"` oder `"passive"`). |
-| `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin | Event beenden. |
-| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion (Vote, Quiz-Auswahl, Schätzwert, Buzzer) für eine spezifische Folie eines Events einreichen (Eindeutiges Upsert pro Teilnehmer & Folie). |
-| `PUT /api/projects/{projectId}/session/canvas` | Projektadmin | Welches Event aktuell auf der Beamer/Leinwand-Ansicht angezeigt werden soll (`{ "eventId": "..." }` oder `{ "eventId": null }`). |
+| `GET /api/projects/{projectId}/session/state` | Admin / Teilnehmer | Aktuellen vollen Session-Livezustand (`ProjectGameState` inkl. `IsPaused` und `ScheduledEvents`) abrufen. |
+| `POST /api/projects/{projectId}/session/shows` | Projektadmin (`CanControlSession`) | Show als Event starten/planen. |
+| `POST /api/projects/{projectId}/session/events` | Projektadmin (`CanControlSession`) | Spontanes Event erstellen/planen. |
+| `POST /api/projects/{projectId}/session/toggle-pause` | Projektadmin (`CanControlSession`) | Session pausieren / fortsetzen. |
+| `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin (`CanControlSession`) | CurrentSlideIndex, Modus, Pausierung oder Status ändern. |
+| `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin (`CanControlSession`) | Event beenden. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion einreichen. |
+| `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
 
-Die Beameransicht unter `/play/beamer/{sessionCode}` verbindet sich über `/hubs/canvas`; der bisherige Pfad `/play/canvas/{sessionCode}` bleibt kompatibel. Sie tritt mit einem gültigen Session-Code ihrer Gruppe bei und erhält den ausgewählten Eventinhalt sowie Teamname, Rang und Punktestand. Für Jeopardy wird das ausgewählte Antwortteam mit der aktiven Frage angezeigt; die Antwort erscheint erst nach Freigabe. Für eine Linienrangliste werden außerdem die Team-Punktelog-Daten geladen. Änderungen an Team-Punkten oder der Beamer-Auswahl lösen ein Live-Update aus. Beamer, Teilnehmer-Session, Dashboard und Chat bauen SignalR-Verbindungen nach fehlgeschlagenem Start oder Abbruch automatisch mit wachsendem Retry-Abstand wieder auf; nach Wiederverbindung synchronisieren sie ihren Gruppenbeitritt und den aktuellen Serverzustand.
-
-## Fachliche Endpunkte
-
-Mit aktiver Teilnehmer- oder Adminsession lesbar: `GET /api/projects/{projectId}`, `/overview`, `/participants/me`, `PUT /participants/me` (einen eigenen Namen eintragen), `/teams`, `/shows`, `/shows/{showId}/slides`, `/session/state`. Die Projekt-Showliste enthält nur Shows mit einer `ShowProjektZuo`-Verknüpfung.
-
-SignalR WebSockets: `/hubs/gamestate` verlangt beim Beitritt per `JoinProject(projectId)` ein gültiges Teilnehmer- oder Admin-API-Token für genau dieses Projekt. Das Token wird über den SignalR-`AccessTokenProvider` übertragen; die Sitzung und Projektmitgliedschaft werden beim Beitritt geprüft. Berechtigte Verbindungen erhalten `GameStateUpdated` mit dem vollständigen `ProjectGameState` (Teams, Punktestände, Ränge, aktives Vordergrund-Event, passive Hintergrund-Events, laufende Shows). Beim Widerruf einer Sitzung werden ihre bestehenden Hub-Verbindungen aus allen Projektgruppen entfernt und erhalten `SessionRevoked`; ein erneuter Beitritt ist nicht möglich.
-
-Admin-only: `PUT`/`DELETE /api/projects/{projectId}`; Teilnehmer `GET`/`POST /participants`, `POST /participants/generate` (automatische 2-, 3- oder 4-stellige Nummern-Generierung), `POST /participants/randomize-teams` (gleichmäßige Zufallsverteilung auf Teams), `PUT`/`DELETE /participants/{participantId}`; Teams `POST /teams`, `PUT`/`DELETE /teams/{teamId}`; Show-Links `POST /shows` mit `{ "showId": "..." }` und `DELETE /shows/{showId}`; Slides `POST /shows/{showId}/slides`, `PUT`/`DELETE /shows/{showId}/slides/{slideId}`. Show-Unlink entfernt nur die Projektverknüpfung; Show und Slides bleiben bestehen.
-
-Verschachtelte IDs werden gegen Projekt und Show geprüft. `GET /api/projects/{projectId}/overview` liefert Projektname sowie Show-, Teilnehmer- und Teamanzahl aggregiert in einer Antwort.
-
-## Noch nicht umgesetzt
-
-Vor öffentlichem Einsatz zweiten Faktor/Teilnahmecode und robusteren Abuse-Schutz ergänzen.
+SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. Bei Unterbrechungen, Pausierung oder Session-Ende empfangen alle verbundenen Clients in Echtzeit entsprechende Nachrichten und schalten Vollbild-Overlays frei.
