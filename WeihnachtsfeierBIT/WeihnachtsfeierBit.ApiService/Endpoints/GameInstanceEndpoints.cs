@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
@@ -61,12 +63,45 @@ public static class GameInstanceEndpoints
 
     private static async Task<IResult> StartGameInstanceAsync(
         Guid projectId,
+        [FromBody] StartGameInstanceRequest? request,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Play-Session zu starten."));
+        }
+
         var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
         if (project is null) return Results.NotFound();
+
+        string newCode;
+        var preferredCode = request?.PreferredAccessCode?.Trim();
+        if (!string.IsNullOrWhiteSpace(preferredCode))
+        {
+            if (preferredCode.Length != 6 || !preferredCode.All(char.IsDigit))
+            {
+                return Results.BadRequest(new ApiError("Der Wunsch-Code muss aus genau 6 Ziffern bestehen (z. B. 123456)."));
+            }
+
+            var isCodeOccupied = await dbContext.GameInstances.AnyAsync(
+                gi => gi.AccessCode == preferredCode && gi.ProjektId != projectId,
+                cancellationToken);
+
+            if (isCodeOccupied)
+            {
+                return Results.Conflict(new ApiError($"Der Wunsch-Code '{preferredCode}' ist aktuell bereits durch eine andere aktive Session belegt."));
+            }
+
+            newCode = preferredCode;
+        }
+        else
+        {
+            newCode = await GenerateUniqueCodeAsync(dbContext, cancellationToken);
+        }
 
         // Remove any previous instance for this project
         var previousInstances = await dbContext.GameInstances
@@ -76,7 +111,6 @@ public static class GameInstanceEndpoints
         var previousAccessCodes = previousInstances.Select(instance => instance.AccessCode).ToArray();
         dbContext.GameInstances.RemoveRange(previousInstances);
 
-        var newCode = await GenerateUniqueCodeAsync(dbContext, cancellationToken);
         var newInstance = new GameInstance
         {
             ProjektId = projectId,
@@ -96,10 +130,17 @@ public static class GameInstanceEndpoints
 
     private static async Task<IResult> EndGameInstanceAsync(
         Guid projectId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Play-Session zu beenden."));
+        }
+
         var instances = await dbContext.GameInstances
             .Where(gi => gi.ProjektId == projectId)
             .ToListAsync(cancellationToken);

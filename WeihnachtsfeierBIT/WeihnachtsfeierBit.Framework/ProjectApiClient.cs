@@ -477,9 +477,12 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken);
     }
 
-    public async Task<GameInstanceSummary> StartGameInstanceAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<GameInstanceSummary> StartGameInstanceAsync(string accessToken, Guid projectId, string? preferredAccessCode = null, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instance", accessToken);
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/game-instance", accessToken, new
+        {
+            PreferredAccessCode = string.IsNullOrWhiteSpace(preferredAccessCode) ? null : preferredAccessCode.Trim()
+        });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<GameInstanceSummary>(cancellationToken)
