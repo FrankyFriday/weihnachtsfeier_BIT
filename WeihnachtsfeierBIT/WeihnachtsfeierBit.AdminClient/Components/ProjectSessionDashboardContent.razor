@@ -281,6 +281,9 @@
                                 case "jeopardy":
                                     <JeopardyResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
+                                case "pantomime":
+                                    <PantomimeResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                                    break;
                                 default:
                                     <FallbackResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
@@ -598,6 +601,9 @@
                 case "jeopardy":
                     <JeopardySlideEditor Slide="_spontaneousSlide" />
                     break;
+                case "pantomime":
+                    <PantomimeSlideEditor Slide="_spontaneousSlide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(_modalError))
@@ -748,7 +754,8 @@
         new("ordering", "Reihenfolge sortieren"),
         new("countdown", "Timer / Countdown"),
         new("point_award", "Punktevergabe"),
-        new("jeopardy", "Jeopardy")
+        new("jeopardy", "Jeopardy"),
+        new("pantomime", "Pantomime")
     ];
 
     private static readonly FrameworkSelectOption[] _modeOptions =

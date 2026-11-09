@@ -166,6 +166,10 @@ public sealed class GameStateNotifier(
                     {
                         paramsElem = HitsterGameService.PublicParameters(paramsElem, teamParticipantIds);
                     }
+                    else if (type.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
+                    {
+                        paramsElem = PantomimeGameService.PublicParameters(paramsElem);
+                    }
 
                     slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));
                 }

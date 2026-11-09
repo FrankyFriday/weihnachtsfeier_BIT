@@ -18,7 +18,7 @@ Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden o
 
 ## Interaktive Spiele & Slide-Typen
 
-Das System unterstützt 15 spezialisierte Folientypen:
+Das System unterstützt 16 spezialisierte Folientypen:
 1. **Punktevergabe (`PointAwardSlide`):** Vertikales Säulendiagramm mit automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges bei Punktebuchungen.
 2. **Hitster:** Spotify-Anbindung mit Song-Player, Titel/Interpret/Veröffentlichungsjahr-Raten.
 3. **Jeopardy:** Interaktives Kategoriengitter (100–500 Punkte) mit Antwortaufdeckung und Team-Punkteauswahl.
@@ -28,6 +28,9 @@ Das System unterstützt 15 spezialisierte Folientypen:
 7. **Buzzer:** Schnelligkeits-Buzzer für das schnellste Team.
 8. **Ranking:** Live-Tabellenstand & zeitlicher Treppenstufen-Verlaufsgraph.
 9. **Announcement, Text, WordCloud, Slider, Rating, Ordering, Countdown:** Ankündigungen, Freitext, Wortwolken, Regler, Bewertungen, Sortierungen und Timer.
+10. **Pantomime:** Jedes Team erhält eine konfigurierbare Runde mit derselben Begriffsliste; ein ausgewähltes Teammitglied stellt die Begriffe dar. Jeder erratene Begriff zählt einen Punkt. Die Begriffe erscheinen nur im Admin-Spielbereich; der Beamer zeigt Team, darstellende Person, Restzeit und Fortschritt.
+
+Die Beameransicht zeigt während einer aktiven Sitzung einen QR-Code, der die Teilnehmerseite mit vorausgefülltem Session-Code öffnet.
 
 ## Verbindungsqualität & Status-Overlays
 

@@ -878,11 +878,25 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.HasDiscriminator().HasValue("hitster");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.JeopardySlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("jeopardy");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.OrderingSlide", b =>
                 {
                     b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
 
                     b.HasDiscriminator().HasValue("ordering");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.PantomimeSlide", b =>
+                {
+                    b.HasBaseType("WeihnachtsfeierBit.Data.Slide");
+
+                    b.HasDiscriminator().HasValue("pantomime");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.PointAwardSlide", b =>

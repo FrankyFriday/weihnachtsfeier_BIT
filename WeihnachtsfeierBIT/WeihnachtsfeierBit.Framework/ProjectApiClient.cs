@@ -439,6 +439,34 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<PantomimeAdminData> GetPantomimeAsync(string accessToken, Guid projectId, Guid eventId, Guid slideId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<PantomimeAdminData>(cancellationToken)
+            ?? throw new InvalidOperationException("Die Pantomime-Daten konnten nicht geladen werden.");
+    }
+
+    public async Task UpdatePantomimeAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        string action,
+        Guid? teamId = null,
+        Guid? performerId = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/{Uri.EscapeDataString(action)}",
+            accessToken,
+            new { teamId, performerId });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<TeamPointLogDto[]> GetPointLogsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/point-logs", accessToken);
@@ -1084,6 +1112,8 @@ public sealed record EventState(
     DateTime? LastResumedAtUtc = null,
     Guid? ActiveTeamId = null,
     EventNavigationContext? NavigationContext = null);
+
+public sealed record PantomimeAdminData(string Category, string[] Terms, int RoundDurationSeconds, JsonElement State);
 
 public sealed record ProjectGameState(
     Guid ProjectId,

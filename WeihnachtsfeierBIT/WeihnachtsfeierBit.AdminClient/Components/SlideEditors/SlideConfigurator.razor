@@ -82,6 +82,9 @@
                 case "jeopardy":
                     <JeopardySlideEditor Slide="Slide" AvailableSlides="AvailableSlides" />
                     break;
+                case "pantomime":
+                    <PantomimeSlideEditor Slide="Slide" />
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(Slide.ErrorMessage))

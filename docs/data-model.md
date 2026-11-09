@@ -20,7 +20,7 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `TeamPointLog` | Chronologisches Punkte-Logbuch für Buchungen, Bonifikationen und Abzüge mit Zeitstempel und Begründung. |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides und Ersteller-Zuordnung (`ErstellerAdminId`). |
 | `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. |
-| `Slide` | Show-ID, Position und konkrete Untertypen (Poll, Announcement, Quiz, Ranking, Estimation, Buzzer, Jeopardy, Hitster, PointAward, Text, WordCloud, Slider, Rating, Ordering, Countdown). |
+| `Slide` | Show-ID, Position und konkrete Untertypen (Poll, Announcement, Quiz, Ranking, Estimation, Buzzer, Jeopardy, Hitster, Pantomime, PointAward, Text, WordCloud, Slider, Rating, Ordering, Countdown). |
 
 Passwörter werden mit PBKDF2 gehasht. API-Tokens werden zufällig generiert; persistiert wird ausschließlich ihr SHA-256-Hash.
 
@@ -39,6 +39,7 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
 | Buzzer | Buzzer-Frage, Punkte, Zeitlimit |
 | Jeopardy | Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. |
+| Pantomime | Kategorie, 3–100 Begriffe und Rundendauer (10–600 Sekunden); Laufzeitstatus mit Team, ausgewählter darstellender Person, Begriffsfortschritt und Timer. Begriffe werden nur an berechtigte Spielleiter-Endpunkte ausgegeben. |
 | Text / WordCloud | Freitext-Fragen & dynamische Wortwolken-Auswertung |
 | Slider / Rating | Schieberegler & Sterne-Bewertungen |
 | Ordering / Countdown | Reihenfolge-Sortierung & visuelle Timer |
