@@ -190,10 +190,16 @@ public static class HitsterEndpoints
         Guid projectId,
         Guid eventId,
         Guid slideId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext db,
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
     {
+        if (!CanControlSession(httpContext))
+        {
+            return Results.Forbid();
+        }
+
         var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
         if (gameEvent is null)
         {
@@ -265,9 +271,15 @@ public static class HitsterEndpoints
         Guid projectId,
         Guid eventId,
         Guid slideId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext db,
         CancellationToken cancellationToken)
     {
+        if (!CanControlSession(httpContext))
+        {
+            return Results.Forbid();
+        }
+
         var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
         if (gameEvent is null)
         {
@@ -359,10 +371,16 @@ public static class HitsterEndpoints
         Guid projectId,
         Guid eventId,
         Guid slideId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext db,
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
     {
+        if (!CanControlSession(httpContext))
+        {
+            return Results.Forbid();
+        }
+
         var voteLock = VoteLocks.GetOrAdd((eventId, slideId), _ => new SemaphoreSlim(1, 1));
         await voteLock.WaitAsync(cancellationToken);
         try
@@ -440,10 +458,16 @@ public static class HitsterEndpoints
         Guid projectId,
         Guid eventId,
         Guid slideId,
+        HttpContext httpContext,
         WeihnachtsfeierDbContext db,
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
     {
+        if (!CanControlSession(httpContext))
+        {
+            return Results.Forbid();
+        }
+
         var gameEvent = await GetEventAsync(db, projectId, eventId, cancellationToken);
         if (gameEvent is null)
         {
@@ -501,6 +525,9 @@ public static class HitsterEndpoints
             item => item.Id == eventId && item.GameInstance.ProjektId == projectId &&
                 item.Status == "active" && item.Mode == "active",
             cancellationToken);
+
+    private static bool CanControlSession(HttpContext httpContext) =>
+        httpContext.Items[RequireProjectAccessFilter.AccessItemKey] is ProjectAccess { CanControlSession: true };
 
     private static async Task SaveStateAsync(
         GameInstanceEvent gameEvent,

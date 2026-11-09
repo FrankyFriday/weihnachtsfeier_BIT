@@ -36,6 +36,8 @@ Registrierung, Login und Teilnehmernummern-Login sind auf zehn Requests pro IP u
 
 ## Projektzugriff & Granulare Berechtigungen
 
+Neue Projekte speichern den erstellenden Admin als `ErstellerAdminId`. Bei älteren Projekten ohne gespeicherten Ersteller gilt kein impliziter Erstellerzugriff: Admins benötigen eine explizite Projektmitgliedschaft. Projektmitglieder können solche Projekte nicht übernehmen oder Admins einladen bzw. entfernen; eine Wiederherstellung der Erstellerzuordnung muss über einen separaten, geprüften Prozess erfolgen.
+
 Geschützte Projektendpunkte verwenden `/api/projects/{projectId}` und `Authorization: Bearer <AccessToken>`.
 
 | Rolle | Rechte |
@@ -43,6 +45,8 @@ Geschützte Projektendpunkte verwenden `/api/projects/{projectId}` und `Authoriz
 | **Projekt-Ersteller (`IsCreator`)** | Volle Kontrolle: Projekt bearbeiten/löschen, Co-Admins einladen, Berechtigungen anpassen. |
 | **Eingeladener Co-Admin** | Berechtigungen hängen von den zugewiesenen Flags ab:<br>- `CanControlSession`: Live-Session starten, pausieren, Folien wechseln, Punkte vergeben.<br>- `CanManageParticipants`: Teilnehmer & Teams anlegen, bearbeiten, zufällig verteilen.<br>- `CanEditProjectSettings`: Projektdetails & Name bearbeiten.<br>- `CanManageShows`: Shows im Projekt verknüpfen oder entfernen. |
 | **Teilnehmer** | Projekt, eigenes Profil, Teams, Shows und Slides lesen; eigene Sitzungen ansehen/widerrufen; Antworten abgeben. |
+
+Die Hitster-Steuerungsendpunkte (Start, aktuellen Song abrufen, aufdecken und zum nächsten Song wechseln) erfordern `CanControlSession`, wie die übrigen Live-Session-Steuerungsendpunkte.
 
 ## Projektadmins & Sharing verwalten
 
