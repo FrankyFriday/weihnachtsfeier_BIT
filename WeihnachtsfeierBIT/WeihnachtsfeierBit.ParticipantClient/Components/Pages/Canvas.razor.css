@@ -25,6 +25,17 @@
     gap: 1rem;
 }
 
+.canvas-brand {
+    min-width: 0;
+}
+
+.canvas-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
 .canvas-header h1 {
     margin: 0.3rem 0 0;
     color: #1d2528;
@@ -32,6 +43,47 @@
     font-size: clamp(1.35rem, 2.5vw, 2.5rem);
     font-weight: 800;
     letter-spacing: -0.04em;
+}
+
+.canvas-join-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 0.75rem 0.65rem 1rem;
+    border: 1px solid #c7ddd5;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 8px 24px #18352c14;
+}
+
+.canvas-join-copy {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.canvas-join-copy span {
+    color: #197b67;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+}
+
+.canvas-join-copy strong {
+    color: #1d2528;
+    font-size: clamp(0.9rem, 1.2vw, 1.1rem);
+}
+
+.canvas-join-copy small {
+    color: #556265;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.canvas-join-qr {
+    display: block;
+    width: clamp(112px, 12vw, 152px);
+    height: clamp(112px, 12vw, 152px);
+    flex: 0 0 auto;
 }
 
 .canvas-eyebrow,
@@ -310,6 +362,14 @@
         grid-template-rows: auto auto;
     }
 
+    .canvas-header {
+        align-items: flex-start;
+    }
+
+    .canvas-header-actions {
+        flex-wrap: wrap;
+    }
+
     .canvas-content {
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: minmax(18rem, auto) auto;
@@ -323,6 +383,25 @@
 @media (max-width: 480px) {
     .canvas-page {
         padding: 1rem 0.75rem;
+    }
+
+    .canvas-header {
+        flex-direction: column;
+    }
+
+    .canvas-header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .canvas-join-card {
+        gap: 0.65rem;
+        padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+    }
+
+    .canvas-join-qr {
+        width: 112px;
+        height: 112px;
     }
 
     .canvas-connection {
