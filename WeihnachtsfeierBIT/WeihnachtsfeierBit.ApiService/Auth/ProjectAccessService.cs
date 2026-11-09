@@ -29,7 +29,7 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 
             if (project is not null)
             {
-                bool isCreator = !project.ErstellerAdminId.HasValue || project.ErstellerAdminId == adminSession.ProjektAdminId;
+                bool isCreator = project.ErstellerAdminId == adminSession.ProjektAdminId;
                 var membership = project.Admins.FirstOrDefault(a => a.ProjektAdminId == adminSession.ProjektAdminId);
 
                 if (isCreator || membership is not null)

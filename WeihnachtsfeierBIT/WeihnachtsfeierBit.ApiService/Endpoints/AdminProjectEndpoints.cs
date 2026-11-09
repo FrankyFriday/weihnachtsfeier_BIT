@@ -55,7 +55,7 @@ public static class AdminProjectEndpoints
             return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Der Projektname muss zwischen 1 und 120 Zeichen lang sein."));
         }
 
-        var project = new Projekt { Name = name };
+        var project = new Projekt { Name = name, ErstellerAdminId = adminId.Value };
         dbContext.ProjektAdminProjekte.Add(new ProjektAdminProjekt
         {
             ProjektAdminId = adminId.Value,

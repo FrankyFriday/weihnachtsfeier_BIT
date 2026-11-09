@@ -67,25 +67,6 @@ public static class AdminSharingEndpoints
 
         if (project is null) return Results.NotFound();
 
-        // Auto-assign creator if unassigned
-        if (!project.ErstellerAdminId.HasValue)
-        {
-            project.ErstellerAdminId = adminId;
-            if (!project.Admins.Any(a => a.ProjektAdminId == adminId.Value))
-            {
-                dbContext.ProjektAdminProjekte.Add(new ProjektAdminProjekt
-                {
-                    ProjektAdminId = adminId.Value,
-                    ProjektId = projectId,
-                    CanControlSession = true,
-                    CanManageParticipants = true,
-                    CanEditProjectSettings = true,
-                    CanManageShows = true
-                });
-            }
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
         bool isMember = project.ErstellerAdminId == adminId || project.Admins.Any(a => a.ProjektAdminId == adminId);
         if (!isMember) return Results.Forbid();
 
@@ -121,15 +102,9 @@ public static class AdminSharingEndpoints
 
         if (project is null) return Results.NotFound();
 
-        if (!project.ErstellerAdminId.HasValue)
-        {
-            project.ErstellerAdminId = adminId;
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
         if (project.ErstellerAdminId != adminId)
         {
-            return Results.BadRequest(new ApiError("Nur der Ersteller des Projekts kann andere Admins einladen."));
+            return Results.Forbid();
         }
 
         var targetUsername = request.Username?.Trim();
@@ -220,15 +195,9 @@ public static class AdminSharingEndpoints
         var project = await dbContext.Projekte.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
         if (project is null) return Results.NotFound();
 
-        if (!project.ErstellerAdminId.HasValue)
-        {
-            project.ErstellerAdminId = currentAdminId;
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
         if (project.ErstellerAdminId != currentAdminId)
         {
-            return Results.BadRequest(new ApiError("Nur der Ersteller des Projekts kann Einladungen entfernen."));
+            return Results.Forbid();
         }
 
         if (project.ErstellerAdminId == adminId)
