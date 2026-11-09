@@ -83,5 +83,9 @@ Die Hitster-Steuerungsendpunkte (Start, aktuellen Song abrufen, aufdecken und zu
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin (`CanControlSession`) | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion einreichen. |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
+| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime` | Projektadmin (`CanControlSession`) | Pantomime-Begriffe und Laufzeitstatus für die Spielleitung abrufen. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/{action}` | Projektadmin (`CanControlSession`) | Pantomime-Runde starten, pausieren, fortsetzen, beenden, Begriff als erraten markieren oder überspringen. |
 
 SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. Bei Unterbrechungen, Pausierung oder Session-Ende empfangen alle verbundenen Clients in Echtzeit entsprechende Nachrichten und schalten Vollbild-Overlays frei.
+
+Pantomime-Begriffe werden aus Teilnehmer- und Beamerzuständen entfernt; nur der geschützte Admin-Endpunkt liefert die aktuelle Begriffsliste. Der QR-Code auf der Beamerseite führt zur Teilnehmeranmeldung mit vorausgefülltem Session-Code.

@@ -1,0 +1,16 @@
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div class="callout callout-info" role="note">Begriffe werden nur der Spielleitung angezeigt, nicht auf den Beamer oder an Teilnehmer übertragen. Die Spielleitung wählt pro Runde Team und darstellende Person.</div>
+<FrameworkFormGroup Label="Kategorie" ForId="pantomime-category">
+    <FrameworkInputText Id="pantomime-category" @bind-Value="Slide.PantomimeCategory" MaxLength="120" Placeholder="z. B. IT-Tätigkeiten" />
+</FrameworkFormGroup>
+<FrameworkFormGroup Label="Begriffe" HelpText="Ein Begriff pro Zeile, 3 bis 100 Begriffe." ForId="pantomime-terms">
+    <FrameworkTextArea Id="pantomime-terms" @bind-Value="Slide.PantomimeTermsText" Rows="10" />
+</FrameworkFormGroup>
+<FrameworkFormGroup Label="Rundendauer in Sekunden" HelpText="10 bis 600 Sekunden pro Teamrunde." ForId="pantomime-duration">
+    <FrameworkInputNumber Id="pantomime-duration" @bind-Value="Slide.PantomimeRoundDurationSeconds" Min="10" Max="600" />
+</FrameworkFormGroup>
+
+@code {
+    [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
+}

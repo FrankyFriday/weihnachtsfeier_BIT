@@ -181,6 +181,7 @@ public static class ShowSlideEndpoints
             "countdown" => new CountdownSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "point_award" => new PointAwardSlide { Show = show, ShowId = show.Id, Position = request.Position },
             "jeopardy" => new JeopardySlide { Show = show, ShowId = show.Id, Position = request.Position },
+            "pantomime" => new PantomimeSlide { Show = show, ShowId = show.Id, Position = request.Position },
             _ => null
         };
         if (slide is null)
@@ -264,6 +265,24 @@ public static class ShowSlideEndpoints
                         return (false, "Jeopardy braucht mindestens eine Kategorie mit Namen.");
                     }
                     break;
+                case PantomimeSlide pantomime when string.Equals(request.Type, "pantomime", StringComparison.OrdinalIgnoreCase):
+                    pantomime.Parameters = Deserialize<PantomimeSlideParameters>(request.Parameters);
+                    var terms = pantomime.Parameters.Terms?
+                        .Select(term => term?.Trim())
+                        .Where(term => !string.IsNullOrWhiteSpace(term))
+                        .ToList() ?? [];
+                    if (string.IsNullOrWhiteSpace(pantomime.Parameters.Category)
+                        || pantomime.Parameters.Category.Trim().Length > 120
+                        || terms.Count is < 3 or > 100
+                        || terms.Any(term => term!.Length > 120)
+                        || pantomime.Parameters.RoundDurationSeconds is < 10 or > 600)
+                    {
+                        return (false, "Pantomime benötigt eine Kategorie, 3–100 Begriffe (je maximal 120 Zeichen) und eine Rundendauer von 10 bis 600 Sekunden.");
+                    }
+
+                    pantomime.Parameters.Category = pantomime.Parameters.Category.Trim();
+                    pantomime.Parameters.Terms = terms.Select(term => term!).ToList();
+                    break;
                 default:
                     return (false, "Der Slide-Typ kann beim Aktualisieren nicht geändert werden.");
             }
@@ -310,6 +329,7 @@ public static class ShowSlideEndpoints
         CountdownSlide => "countdown",
         PointAwardSlide => "point_award",
         JeopardySlide => "jeopardy",
+        PantomimeSlide => "pantomime",
         _ => "announcement"
     };
 }

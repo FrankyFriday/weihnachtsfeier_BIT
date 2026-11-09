@@ -1,0 +1,102 @@
+@using System.Text.Json
+@implements IDisposable
+
+<div style="width: 100%; padding: 20px; box-sizing: border-box; text-align: center;">
+    <span style="font-size: 15px; font-weight: 800; letter-spacing: .12em; color: #64748b;">PANTOMIME · @ReadString(Parameters, "category")</span>
+    <h2 style="margin: 10px 0; font-size: clamp(30px, 5vw, 64px); font-weight: 900;">@ReadString(_state, "teamName")</h2>
+    @if (ReadBool(_state, "isRunning") || ReadBool(_state, "isPaused"))
+    {
+        <p style="font-size: 24px; color: #475569; margin: 0;">Darsteller: @ReadString(_state, "performerName")</p>
+        <div style="font: 900 clamp(72px, 16vw, 180px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 12px 0;">
+            @FormatSeconds(_remainingSeconds)
+        </div>
+        <div style="font-size: clamp(22px, 3vw, 34px); font-weight: 700;">@ReadInt(_state, "correctCount") Begriffe erraten</div>
+        @if (ReadBool(_state, "isPaused"))
+        {
+            <p style="font-size: 22px; color: #a16207;">PAUSE</p>
+        }
+        else if (_remainingSeconds == 0)
+        {
+            <p style="font-size: 22px; color: #b91c1c;">Runde beendet</p>
+        }
+    }
+    else
+    {
+        <p style="font-size: clamp(24px, 4vw, 46px); color: #475569;">Wählt eine darstellende Person. Die Runde startet gleich!</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public JsonElement Parameters { get; set; }
+
+    private JsonElement _state;
+    private int _remainingSeconds;
+    private readonly CancellationTokenSource _cancellation = new();
+    private Task? _timerTask;
+
+    protected override void OnInitialized()
+    {
+        _timerTask = UpdateTimerAsync(_cancellation.Token);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _state = Parameters.ValueKind == JsonValueKind.Object
+            && Parameters.TryGetProperty("state", out var state)
+                ? state
+                : default;
+        UpdateRemaining();
+    }
+
+    private async Task UpdateTimerAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                UpdateRemaining();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void UpdateRemaining()
+    {
+        if (ReadBool(_state, "isRunning")
+            && _state.TryGetProperty("deadlineUtc", out var deadlineValue)
+            && deadlineValue.ValueKind == JsonValueKind.String
+            && deadlineValue.TryGetDateTime(out var deadline))
+        {
+            _remainingSeconds = Math.Max(0, (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds));
+        }
+        else
+        {
+            _remainingSeconds = ReadInt(_state, "remainingSeconds");
+        }
+    }
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static bool ReadBool(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static int ReadInt(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var result)
+            ? result
+            : 0;
+
+    private static string FormatSeconds(int seconds) => TimeSpan.FromSeconds(seconds).ToString(@"mm\:ss");
+
+    public void Dispose()
+    {
+        _cancellation.Cancel();
+        _cancellation.Dispose();
+    }
+}

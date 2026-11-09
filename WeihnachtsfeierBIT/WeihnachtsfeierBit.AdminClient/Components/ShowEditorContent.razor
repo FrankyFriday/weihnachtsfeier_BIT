@@ -145,7 +145,8 @@
         new("ordering", "Reihenfolge sortieren"),
         new("countdown", "Timer / Countdown"),
         new("point_award", "Punktevergabe"),
-        new("jeopardy", "Jeopardy (Bünting-Quiz)")
+        new("jeopardy", "Jeopardy (Bünting-Quiz)"),
+        new("pantomime", "Pantomime")
     ];
 
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(LoadDataAsync);
@@ -215,6 +216,7 @@
                     "buzzer" => new { internalName = _newSlideInternalName.Trim(), question = string.Empty, points = 100, timeLimitSeconds = (int?)null },
                     "hitster" => new { internalName = _newSlideInternalName.Trim(), title = "Hitster", instructions = "Ordnet die Songs in der Zeitleiste nach ihrem Erscheinungsjahr ein.", cardsToWin = 10 },
                     "jeopardy" => new { internalName = _newSlideInternalName.Trim(), title = "Jeopardy Board", categories = new[] { new { name = "Kategorie 1", clues = new[] { new { value = 100 }, new { value = 200 } } } } },
+                    "pantomime" => new { internalName = _newSlideInternalName.Trim(), category = "IT-Tätigkeiten", terms = new[] { "Passwort zurücksetzen", "Drucker reparieren", "Meeting starten" }, roundDurationSeconds = 60 },
                     _ => new { internalName = _newSlideInternalName.Trim() }
                 };
 

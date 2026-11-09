@@ -240,6 +240,20 @@ public sealed class JeopardySlide : Slide
     internal override void UpdateParametersJson() => SetParameters(Parameters);
 }
 
+public sealed class PantomimeSlide : Slide
+{
+    private PantomimeSlideParameters? _parameters;
+
+    [NotMapped]
+    public PantomimeSlideParameters Parameters
+    {
+        get => _parameters ??= GetParameters<PantomimeSlideParameters>();
+        set => _parameters = value;
+    }
+
+    internal override void UpdateParametersJson() => SetParameters(Parameters);
+}
+
 public abstract class SlideParameters
 {
     public int SchemaVersion { get; set; } = 1;
@@ -382,6 +396,13 @@ public sealed class JeopardySlideParameters : SlideParameters
 {
     public string Title { get; set; } = "Jeopardy Board";
     public List<JeopardyCategory> Categories { get; set; } = [];
+}
+
+public sealed class PantomimeSlideParameters : SlideParameters
+{
+    public string Category { get; set; } = string.Empty;
+    public List<string> Terms { get; set; } = [];
+    public int RoundDurationSeconds { get; set; } = 60;
 }
 
 public sealed class JeopardyCategory

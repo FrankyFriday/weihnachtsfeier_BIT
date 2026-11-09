@@ -80,6 +80,9 @@
                     case "jeopardy":
                         <JeopardyRenderer Event="Event" CurrentSlide="currentSlide" />
                         break;
+                    case "pantomime":
+                        <PantomimeCanvasView Parameters="currentSlide.Parameters" />
+                        break;
                     default:
                         <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
                         break;
@@ -153,6 +156,7 @@
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
         "jeopardy" => "Jeopardy",
+        "pantomime" => "Pantomime",
         _ => "Event"
     };
 }

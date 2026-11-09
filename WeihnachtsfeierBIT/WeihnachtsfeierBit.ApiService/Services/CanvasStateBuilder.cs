@@ -160,6 +160,11 @@ public static class CanvasStateBuilder
             return HitsterGameService.PublicParameters(parameters, teamParticipantIds);
         }
 
+        if (slideType.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
+        {
+            return PantomimeGameService.PublicParameters(parameters);
+        }
+
         var publicParameters = new Dictionary<string, JsonElement>();
         if (parameters.ValueKind == JsonValueKind.Object)
         {

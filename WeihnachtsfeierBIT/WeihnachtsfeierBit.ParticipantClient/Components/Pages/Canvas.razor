@@ -2,12 +2,15 @@
 @page "/canvas/{Code}"
 @layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
 @using System.Text.Json
+@using System.Text
 @using Microsoft.AspNetCore.SignalR.Client
+@using QRCoder
 @using WeihnachtsfeierBit.Framework
 @implements IAsyncDisposable
 @inject ProjectApiClient ProjectApiClient
 @inject IConfiguration Configuration
 @inject ILogger<Canvas> Logger
+@inject NavigationManager Navigation
 
 <PageTitle>@(_state?.ProjectName ?? "Beamer") | WeihnachtsfeierBIT</PageTitle>
 
@@ -16,6 +19,7 @@
     {
         <div class="canvas-message">Beameransicht wird geladen …</div>
     }
+
     else if (!string.IsNullOrEmpty(_errorMessage) && _state is null)
     {
         <div class="canvas-message canvas-error" role="alert">@_errorMessage</div>
@@ -35,6 +39,13 @@
                 <h1>WeihnachtsfeierBIT</h1>
             </div>
             <div class="canvas-connection">
+                @if (!string.IsNullOrEmpty(_qrCodeDataUri))
+                {
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: white; color: #1d2528; font-size: 12px; font-weight: 700;">
+                        <img src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" style="width: 72px; height: 72px;" />
+                        <span>Scannen &<br />mitspielen<br />Code: @Code</span>
+                    </div>
+                }
                 <span class="canvas-connection-dot @(_isConnected ? "connected" : "")"></span>
                 @_connectionStatus
             </div>
@@ -78,6 +89,10 @@
                     else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
                     {
                         <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
+                    }
+                    else if (activeEvent.SlideType.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <PantomimeCanvasView Parameters="activeEvent.Parameters" />
                     }
                     else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
                     {
@@ -177,6 +192,7 @@
     private bool _sessionEnded;
     private string _connectionStatus = "Verbinde …";
     private string? _errorMessage;
+    private string? _qrCodeDataUri;
 
     private TeamSummary[] _mappedTeams =>
         _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, "#105c4d", t.Points)).ToArray() ?? [];
@@ -200,6 +216,7 @@
 
         try
         {
+            UpdateQrCode();
             await ConnectAsync();
         }
         catch (HttpRequestException ex)
@@ -214,6 +231,15 @@
         {
             _isLoading = false;
         }
+    }
+
+    private void UpdateQrCode()
+    {
+        var target = Navigation.ToAbsoluteUri($"{Navigation.BaseUri}{Uri.EscapeDataString(Code)}").AbsoluteUri;
+        using var generator = new QRCodeGenerator();
+        using var data = generator.CreateQrCode(target, QRCodeGenerator.ECCLevel.M);
+        var svg = new SvgQRCode(data).GetGraphic(6);
+        _qrCodeDataUri = $"data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(svg))}";
     }
 
     private async Task ConnectAsync()
@@ -307,6 +333,7 @@
         "ranking" => "PUNKTSTAND",
         "hitster" => "HITSTER · SPOTIFY",
         "jeopardy" => "JEOPARDY",
+        "pantomime" => "PANTOMIME",
         _ => "LIVE-EVENT"
     };
 

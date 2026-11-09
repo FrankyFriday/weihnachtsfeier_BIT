@@ -115,6 +115,9 @@ public sealed class EditableSlide
 
     public string JeopardyTitle { get; set; } = "Jeopardy Board";
     public List<JeopardyCategoryModel> JeopardyCategories { get; set; } = [];
+    public string PantomimeCategory { get; set; } = string.Empty;
+    public string PantomimeTermsText { get; set; } = string.Empty;
+    public int PantomimeRoundDurationSeconds { get; set; } = 60;
 
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
@@ -211,6 +214,11 @@ public sealed class EditableSlide
                 JeopardyTitle = ReadString(parameters, "title") is { Length: > 0 } jeopardyTitle ? jeopardyTitle : "Bünting Jeopardy";
                 JeopardyCategories = ReadJeopardyCategories(parameters);
                 break;
+            case "pantomime":
+                PantomimeCategory = ReadString(parameters, "category");
+                PantomimeTermsText = string.Join(Environment.NewLine, ReadStringList(parameters, "terms"));
+                PantomimeRoundDurationSeconds = ReadNullableInt(parameters, "roundDurationSeconds") ?? 60;
+                break;
         }
 
         if (string.IsNullOrWhiteSpace(InternalName))
@@ -236,6 +244,7 @@ public sealed class EditableSlide
         "countdown" => "Timer",
         "point_award" => "Punktevergabe",
         "jeopardy" => "Jeopardy",
+        "pantomime" => "Pantomime",
         _ => "Slide"
     };
 
@@ -314,6 +323,7 @@ public sealed class EditableSlide
             "countdown" => !string.IsNullOrWhiteSpace(CountdownTitle) ? CountdownTitle : "Timer",
             "point_award" => !string.IsNullOrWhiteSpace(PointAwardTitle) ? PointAwardTitle : "Punktevergabe",
             "jeopardy" => !string.IsNullOrWhiteSpace(JeopardyTitle) ? JeopardyTitle : "Jeopardy",
+            "pantomime" => !string.IsNullOrWhiteSpace(PantomimeCategory) ? $"Pantomime · {PantomimeCategory}" : "Pantomime",
             _ => "Slide"
         };
     }
@@ -335,6 +345,7 @@ public sealed class EditableSlide
         "countdown" => "Neuer Timer",
         "point_award" => "Neue Punktevergabe",
         "jeopardy" => "Neues Jeopardy",
+        "pantomime" => "Pantomime",
         _ => "Neue Slide"
     };
 
@@ -550,6 +561,32 @@ public sealed class EditableSlide
                         targetSlideIds = clue.TargetSlideIds
                     })
                 });
+                break;
+
+            case "pantomime":
+                var terms = PantomimeTermsText
+                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(term => !string.IsNullOrWhiteSpace(term))
+                    .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+                if (string.IsNullOrWhiteSpace(PantomimeCategory) || PantomimeCategory.Trim().Length > 120)
+                {
+                    ErrorMessage = "Bitte eine Kategorie mit maximal 120 Zeichen eingeben.";
+                    return (default, ErrorMessage);
+                }
+                if (terms.Count is < 3 or > 100 || terms.Any(term => term.Length > 120))
+                {
+                    ErrorMessage = "Bitte 3 bis 100 Begriffe mit jeweils maximal 120 Zeichen eingeben.";
+                    return (default, ErrorMessage);
+                }
+                if (PantomimeRoundDurationSeconds is < 10 or > 600)
+                {
+                    ErrorMessage = "Die Rundendauer muss zwischen 10 und 600 Sekunden liegen.";
+                    return (default, ErrorMessage);
+                }
+                dict["category"] = PantomimeCategory.Trim();
+                dict["terms"] = terms;
+                dict["roundDurationSeconds"] = PantomimeRoundDurationSeconds;
                 break;
 
             default:
