@@ -34,20 +34,26 @@
     else if (_state is not null)
     {
         <header class="canvas-header">
-            <div>
+            <div class="canvas-brand">
                 <div class="canvas-eyebrow">LIVE · @_state.ProjectName</div>
                 <h1>WeihnachtsfeierBIT</h1>
             </div>
-            <div class="canvas-connection">
+            <div class="canvas-header-actions">
                 @if (!string.IsNullOrEmpty(_qrCodeDataUri))
                 {
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: white; color: #1d2528; font-size: 12px; font-weight: 700;">
-                        <img src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" style="width: 72px; height: 72px;" />
-                        <span>Scannen &<br />mitspielen<br />Code: @Code</span>
-                    </div>
+                    <aside class="canvas-join-card" aria-label="Session beitreten">
+                        <div class="canvas-join-copy">
+                            <span>MITMACHEN</span>
+                            <strong>QR-Code scannen</strong>
+                            <small>Session-Code: @Code</small>
+                        </div>
+                        <img class="canvas-join-qr" src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
+                    </aside>
                 }
-                <span class="canvas-connection-dot @(_isConnected ? "connected" : "")"></span>
-                @_connectionStatus
+                <div class="canvas-connection">
+                    <span class="canvas-connection-dot @(_isConnected ? "connected" : "")"></span>
+                    @_connectionStatus
+                </div>
             </div>
         </header>
 
