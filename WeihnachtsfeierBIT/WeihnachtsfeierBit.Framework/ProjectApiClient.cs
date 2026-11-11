@@ -454,15 +454,47 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         Guid eventId,
         Guid slideId,
         string action,
-        Guid? teamId = null,
-        Guid? performerId = null,
+        PantomimeAssignment[]? assignments = null,
+        int? roundDurationSeconds = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(
             HttpMethod.Post,
-            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/{Uri.EscapeDataString(action)}",
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/admin/{Uri.EscapeDataString(action)}",
             accessToken,
-            new { teamId, performerId });
+            new { assignments, roundDurationSeconds });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<PantomimePerformerData> GetPantomimeCurrentTermAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/current-term",
+            accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<PantomimePerformerData>(cancellationToken)
+            ?? throw new InvalidOperationException("Der aktuelle Pantomime-Begriff konnte nicht geladen werden.");
+    }
+
+    public async Task MarkPantomimeTermCorrectAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct",
+            accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -1113,7 +1145,19 @@ public sealed record EventState(
     Guid? ActiveTeamId = null,
     EventNavigationContext? NavigationContext = null);
 
-public sealed record PantomimeAdminData(string Category, string[] Terms, int RoundDurationSeconds, JsonElement State);
+public sealed record PantomimeAdminData(string Category, int TermCount, int RoundDurationSeconds, JsonElement State);
+
+public sealed record PantomimeAssignment(Guid TeamId, Guid PerformerId);
+
+public sealed record PantomimePerformerData(
+    string Category,
+    string TeamName,
+    string? Term,
+    bool IsRunning,
+    bool IsPaused,
+    bool IsEnded,
+    int RemainingSeconds,
+    int CorrectCount);
 
 public sealed record ProjectGameState(
     Guid ProjectId,

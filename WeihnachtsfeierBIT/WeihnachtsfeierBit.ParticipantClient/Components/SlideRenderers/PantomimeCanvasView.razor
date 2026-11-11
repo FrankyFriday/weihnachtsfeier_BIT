@@ -1,28 +1,37 @@
 @using System.Text.Json
 @implements IDisposable
 
-<div style="width: 100%; padding: 20px; box-sizing: border-box; text-align: center;">
+<div style="width: 100%; max-width: 1000px; margin: auto; padding: 20px; box-sizing: border-box; text-align: center;">
     <span style="font-size: 15px; font-weight: 800; letter-spacing: .12em; color: #64748b;">PANTOMIME · @ReadString(Parameters, "category")</span>
-    <h2 style="margin: 10px 0; font-size: clamp(30px, 5vw, 64px); font-weight: 900;">@ReadString(_state, "teamName")</h2>
-    @if (ReadBool(_state, "isRunning") || ReadBool(_state, "isPaused"))
+    @if (_isRunning || _isPaused || _isEnded)
     {
-        <p style="font-size: 24px; color: #475569; margin: 0;">Darsteller: @ReadString(_state, "performerName")</p>
-        <div style="font: 900 clamp(72px, 16vw, 180px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 12px 0;">
+        <div style="font: 900 clamp(58px, 14vw, 150px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 14px 0;">
             @FormatSeconds(_remainingSeconds)
         </div>
-        <div style="font-size: clamp(22px, 3vw, 34px); font-weight: 700;">@ReadInt(_state, "correctCount") Begriffe erraten</div>
-        @if (ReadBool(_state, "isPaused"))
+        @if (_isPaused)
         {
             <p style="font-size: 22px; color: #a16207;">PAUSE</p>
         }
-        else if (_remainingSeconds == 0)
+        else if (_isEnded || _remainingSeconds == 0)
         {
             <p style="font-size: 22px; color: #b91c1c;">Runde beendet</p>
         }
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 20px auto; text-align: left;">
+            @foreach (var team in TeamStates)
+            {
+                <div style="padding: 16px; background: white; border: 1px solid #dce5e2; border-radius: 12px;">
+                    <div style="font-size: 20px; font-weight: 800;">@ReadString(team, "teamName")</div>
+                    <div style="font-size: 14px; color: #64748b;">Darsteller: @ReadString(team, "performerName")</div>
+                    <div style="font-size: 18px; font-weight: 700; margin-top: 8px;">@ReadInt(team, "correctCount") Begriffe erraten</div>
+                </div>
+            }
+        </div>
     }
     else
     {
-        <p style="font-size: clamp(24px, 4vw, 46px); color: #475569;">Wählt eine darstellende Person. Die Runde startet gleich!</p>
+        <h2 style="margin: 10px 0; font-size: clamp(26px, 5vw, 48px); font-weight: 900;">Alle Teams starten gleichzeitig</h2>
+        <p style="font-size: clamp(20px, 3vw, 30px); color: #475569;">Wählt eine darstellende Person pro Team. Die Begriffe sind nur auf dem Gerät der jeweiligen Person sichtbar.</p>
     }
 </div>
 
@@ -33,6 +42,25 @@
     private int _remainingSeconds;
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _timerTask;
+
+    private bool _isRunning => ReadBool(_state, "isRunning");
+    private bool _isPaused => ReadBool(_state, "isPaused");
+    private bool _isEnded => ReadBool(_state, "isEnded");
+
+    private IEnumerable<JsonElement> TeamStates
+    {
+        get
+        {
+            if (_state.ValueKind == JsonValueKind.Object
+                && _state.TryGetProperty("teamStates", out var teamStates)
+                && teamStates.ValueKind == JsonValueKind.Array)
+            {
+                return teamStates.EnumerateArray().ToArray();
+            }
+
+            return [];
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -66,7 +94,7 @@
 
     private void UpdateRemaining()
     {
-        if (ReadBool(_state, "isRunning")
+        if (_isRunning
             && _state.TryGetProperty("deadlineUtc", out var deadlineValue)
             && deadlineValue.ValueKind == JsonValueKind.String
             && deadlineValue.TryGetDateTime(out var deadline))
@@ -75,7 +103,7 @@
         }
         else
         {
-            _remainingSeconds = ReadInt(_state, "remainingSeconds");
+            _remainingSeconds = Math.Max(0, ReadInt(_state, "remainingSeconds"));
         }
     }
 

@@ -28,7 +28,7 @@ Das System unterstützt 16 spezialisierte Folientypen:
 7. **Buzzer:** Schnelligkeits-Buzzer für das schnellste Team.
 8. **Ranking:** Live-Tabellenstand & zeitlicher Treppenstufen-Verlaufsgraph.
 9. **Announcement, Text, WordCloud, Slider, Rating, Ordering, Countdown:** Ankündigungen, Freitext, Wortwolken, Regler, Bewertungen, Sortierungen und Timer.
-10. **Pantomime:** Jedes Team erhält eine konfigurierbare Runde mit derselben Begriffsliste; ein ausgewähltes Teammitglied stellt die Begriffe dar. Jeder erratene Begriff zählt einen Punkt. Die Begriffe erscheinen nur im Admin-Spielbereich; der Beamer zeigt Team, darstellende Person, Restzeit und Fortschritt.
+10. **Pantomime:** Der Admin wählt pro Team eine darstellende Person und eine gemeinsame Rundendauer. Alle Teams starten gleichzeitig. Zufällig ausgegebene Begriffe werden innerhalb der Runde nicht wiederholt; nur die jeweils ausgewählte Person sieht ihren aktuellen Begriff auf dem eigenen Gerät und kann ihn als erraten bestätigen. Der Beamer und die übrigen Teilnehmergeräte zeigen keinen Begriff, sondern gemeinsame Restzeit, Teams, Darstellende und Fortschritt. Nach Zeitablauf werden keine weiteren Begriffe ausgegeben und der Endstand zeigt die erratenen Begriffe pro Team.
 
 Die Beameransicht zeigt während einer aktiven Sitzung einen QR-Code, der die Teilnehmerseite mit vorausgefülltem Session-Code öffnet.
 

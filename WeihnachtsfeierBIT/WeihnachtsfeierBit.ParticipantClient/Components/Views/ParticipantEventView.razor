@@ -81,7 +81,12 @@
                         <JeopardyRenderer Event="Event" CurrentSlide="currentSlide" />
                         break;
                     case "pantomime":
-                        <PantomimeCanvasView Parameters="currentSlide.Parameters" />
+                        <PantomimeParticipantView Parameters="currentSlide.Parameters"
+                                                  AccessToken="@AccessToken"
+                                                  ProjectId="@ProjectId"
+                                                  EventId="@Event.EventId"
+                                                  SlideId="@currentSlide.SlideId"
+                                                  ParticipantId="@ParticipantId" />
                         break;
                     default:
                         <FallbackRenderer Event="Event" CurrentSlide="currentSlide" />
