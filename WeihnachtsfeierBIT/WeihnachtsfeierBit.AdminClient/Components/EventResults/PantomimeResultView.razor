@@ -19,86 +19,85 @@
         <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;">
             <div>
                 <span class="mobile-eyebrow">PANTOMIME · @_data.Category</span>
-                <div style="font-size: 13px; color: #64748b;">@_data.Terms.Length Begriffe · @_data.RoundDurationSeconds Sekunden pro Runde</div>
+                <div style="font-size: 13px; color: #64748b;">@_data.TermCount eindeutige Begriffe im Pool · @_roundDurationSeconds Sekunden</div>
             </div>
             <div style="font: 800 36px/1 monospace; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d");">
                 @FormatSeconds(_remainingSeconds)
             </div>
         </div>
 
-        @if (CurrentTerm is string currentTerm)
+        @if (_isRunning || _isPaused || _isEnded)
         {
-            <div style="margin: 20px 0; padding: 20px; background: white; border-radius: 10px; text-align: center;">
-                <div style="font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Nur für die Spielleitung / darstellende Person</div>
-                <div style="font-size: 30px; font-weight: 900; color: #1d2528; margin-top: 8px;">@currentTerm</div>
-                <div style="font-size: 14px; color: #475569; margin-top: 8px;">@ReadString(_state, "teamName") · @ReadString(_state, "performerName")</div>
+            <div style="display: grid; gap: 8px; margin: 20px 0;">
+                @foreach (var team in _teams)
+                {
+                    var state = GetTeamState(team.Id);
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: white; border: 1px solid #dce5e2; border-radius: 10px;">
+                        <div>
+                            <strong>@team.DisplayName</strong>
+                            <div style="font-size: 13px; color: #64748b;">@ReadString(state, "performerName")</div>
+                        </div>
+                        <strong>@ReadInt(state, "correctCount") erraten</strong>
+                    </div>
+                }
             </div>
-        }
-        else if (_termIndex >= _data.Terms.Length)
-        {
-            <FrameworkNotice Message="Alle Begriffe sind gespielt. Die Runde ist abgeschlossen." Severity="success" />
-        }
-        else if (_isPaused)
-        {
-            <FrameworkNotice Message="Die Runde ist pausiert. Der aktuelle Begriff bleibt für die Spielleitung sichtbar." Severity="info" />
-        }
 
-        @if (_teams.Length > 0 && _teams.All(team => IsTeamCompleted(team.Id)))
-        {
-            <FrameworkNotice Message="Alle Teams haben ihre Runde gespielt." Severity="success" />
-        }
-
-        <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
-            <label style="display: grid; gap: 4px; min-width: 180px; flex: 1;">
-                <span style="font-size: 12px; font-weight: 700;">Team</span>
-                <select @bind="_selectedTeamId" class="form-select" disabled="@_isBusy">
-                    <option value="">Team auswählen</option>
-                    @foreach (var team in _teams)
-                    {
-                        <option value="@team.Id" disabled="@IsTeamCompleted(team.Id)">@team.DisplayName@(IsTeamCompleted(team.Id) ? " · Runde gespielt" : string.Empty)</option>
-                    }
-                </select>
-            </label>
-            <label style="display: grid; gap: 4px; min-width: 180px; flex: 1;">
-                <span style="font-size: 12px; font-weight: 700;">Darstellende Person</span>
-                <select @bind="_selectedPerformerId" class="form-select" disabled="@(_isBusy || !_selectedTeamId.HasValue)">
-                    <option value="">Person auswählen</option>
-                    @foreach (var participant in TeamParticipants)
-                    {
-                        <option value="@participant.Id">@(string.IsNullOrWhiteSpace(participant.Name) ? $"Person {participant.Number}" : participant.Name)</option>
-                    }
-                </select>
-            </label>
-            @if (!_isRunning && !_isPaused)
+            @if (_isPaused)
             {
-                <FrameworkButton Label="Runde starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_selectedTeamId.HasValue || !_selectedPerformerId.HasValue || (_selectedTeamId is Guid teamId && IsTeamCompleted(teamId)))" />
+                <FrameworkNotice Message="Die gemeinsame Runde ist pausiert." Severity="info" />
             }
-            else
+            else if (_isEnded)
             {
+                <FrameworkNotice Message="Die Runde ist beendet. Die angezeigte Anzahl erratener Begriffe ist der Endstand." Severity="success" />
+            }
+            else if (ReadInt(_state, "termsRemaining") == 0)
+            {
+                <FrameworkNotice Message="Alle Begriffe wurden bereits ausgegeben. Die Teams spielen bis zum Ende des gemeinsamen Timers weiter." Severity="info" />
+            }
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 @if (_isRunning)
                 {
-                    <FrameworkButton Label="Erraten (+1 Punkt)" Variant="primary" OnClick='() => RunActionAsync("correct")' Disabled="@_isBusy" />
-                    <FrameworkButton Label="Überspringen" Variant="secondary" OnClick='() => RunActionAsync("pass")' Disabled="@_isBusy" />
-                    <FrameworkButton Label="Pausieren" Variant="secondary" OnClick='() => RunActionAsync("pause")' Disabled="@_isBusy" />
+                    <FrameworkButton Label="Gemeinsam pausieren" Variant="secondary" OnClick='() => RunActionAsync("pause")' Disabled="@_isBusy" />
                 }
-                else
+                else if (_isPaused)
                 {
-                    <FrameworkButton Label="Fortsetzen" Variant="primary" OnClick='() => RunActionAsync("resume")' Disabled="@_isBusy" />
+                    <FrameworkButton Label="Gemeinsam fortsetzen" Variant="primary" OnClick='() => RunActionAsync("resume")' Disabled="@_isBusy" />
                 }
-                <FrameworkButton Label="Runde beenden" Variant="danger" OnClick='() => RunActionAsync("end")' Disabled="@_isBusy" />
-            }
-        </div>
+                @if (!_isEnded)
+                {
+                    <FrameworkButton Label="Runde beenden" Variant="danger" OnClick='() => RunActionAsync("end")' Disabled="@_isBusy" />
+                }
+            </div>
+        }
+        else
+        {
+            <div style="display: grid; gap: 10px; margin: 20px 0;">
+                @foreach (var team in _teams)
+                {
+                    <label style="display: grid; grid-template-columns: minmax(100px, 1fr) minmax(180px, 2fr); gap: 12px; align-items: center;">
+                        <strong>@team.DisplayName</strong>
+                        <select class="form-select" value="@GetSelectedPerformer(team.Id)" @onchange="args => SetSelectedPerformer(team.Id, args)" disabled="@_isBusy">
+                            <option value="">Darstellende Person auswählen</option>
+                            @foreach (var participant in TeamParticipants(team.Id))
+                            {
+                                <option value="@participant.Id">@(string.IsNullOrWhiteSpace(participant.Name) ? $"Person {participant.Number}" : participant.Name)</option>
+                            }
+                        </select>
+                    </label>
+                }
+                <label style="display: flex; gap: 12px; align-items: center;">
+                    <strong>Gemeinsame Rundendauer</strong>
+                    <FrameworkInputNumber Id="pantomime-round-duration" @bind-Value="_roundDurationSeconds" Min="10" Max="600" />
+                    <span>Sekunden</span>
+                </label>
+            </div>
+            <FrameworkButton Label="Alle Teams gleichzeitig starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_allPerformersSelected || _roundDurationSeconds is < 10 or > 600 || _data.TermCount == 0)" />
+        }
 
         @if (!string.IsNullOrWhiteSpace(_error))
         {
             <div style="margin-top: 12px;"><FrameworkNotice Message="@_error" Severity="error" /></div>
         }
-
-        <div style="margin-top: 12px; font-size: 14px; color: #475569;">
-            Erraten in dieser Runde: <strong>@ReadInt(_state, "correctCount")</strong>
-            · Noch offen: <strong>@Math.Max(0, _data.Terms.Length - _termIndex)</strong>
-            · Teams ohne Runde: <strong>@_teams.Count(team => !IsTeamCompleted(team.Id))</strong>
-        </div>
     }
 </div>
 
@@ -110,10 +109,8 @@
     private PantomimeAdminData? _data;
     private TeamSummary[] _teams = [];
     private ParticipantSummary[] _participants = [];
+    private readonly Dictionary<Guid, Guid> _selectedPerformers = [];
     private JsonElement _state;
-    private JsonElement _adminState;
-    private Guid? _selectedTeamId;
-    private Guid? _selectedPerformerId;
     private Guid _loadedEventId;
     private Guid _loadedSlideId;
     private string? _accessToken;
@@ -121,24 +118,21 @@
     private bool _isLoading = true;
     private bool _isBusy;
     private bool _endingExpiredRound;
+    private int _roundDurationSeconds = 60;
     private int _remainingSeconds;
     private CancellationTokenSource? _timerCancellation;
     private Task? _timerTask;
 
-    private IEnumerable<ParticipantSummary> TeamParticipants =>
-        _selectedTeamId is Guid teamId ? _participants.Where(participant => participant.TeamId == teamId) : [];
-
     private bool _isRunning => ReadBool(_state, "isRunning");
     private bool _isPaused => ReadBool(_state, "isPaused");
-    private int _termIndex => ReadInt(_state, "termIndex");
-    private string? CurrentTerm => _data is not null && _termIndex >= 0 && _termIndex < _data.Terms.Length &&
-        (_isRunning || _isPaused)
-            ? _data.Terms[_termIndex]
-            : null;
+    private bool _isEnded => ReadBool(_state, "isEnded");
+    private bool _allPerformersSelected => _teams.Length > 0
+        && _teams.All(team => _selectedPerformers.ContainsKey(team.Id)
+            && _participants.Any(participant => participant.Id == _selectedPerformers[team.Id] && participant.TeamId == team.Id));
 
     protected override async Task OnParametersSetAsync()
     {
-        ReadPublicState();
+        ReadLiveState();
         if (_loadedEventId == Event.EventId && _loadedSlideId == CurrentSlide.SlideId)
         {
             UpdateRemaining();
@@ -163,16 +157,15 @@
             var participantsTask = ProjectApiClient.GetParticipantsAsync(_accessToken, ProjectId);
             await Task.WhenAll(dataTask, teamsTask, participantsTask);
             _data = await dataTask;
-            _adminState = _data.State;
             _teams = await teamsTask;
             _participants = await participantsTask;
-            ReadPublicState();
+            _roundDurationSeconds = _data.RoundDurationSeconds;
             if (_state.ValueKind == JsonValueKind.Undefined)
             {
                 _state = _data.State;
             }
-            _selectedTeamId ??= ReadGuid(_state, "teamId");
-            _selectedPerformerId ??= ReadGuid(_state, "performerId");
+
+            RestoreAssignments(_state);
         }
         catch (Exception ex)
         {
@@ -193,16 +186,19 @@
 
     private async Task StartRoundAsync()
     {
-        if (_selectedTeamId is not Guid teamId || _selectedPerformerId is not Guid performerId)
+        if (!_allPerformersSelected || _data is null)
         {
-            _error = "Wähle ein Team und eine darstellende Person aus.";
+            _error = "Wähle für jedes Team eine darstellende Person aus.";
             return;
         }
 
-        await RunActionAsync("start", teamId, performerId);
+        var assignments = _teams
+            .Select(team => new PantomimeAssignment(team.Id, _selectedPerformers[team.Id]))
+            .ToArray();
+        await RunActionAsync("start", assignments);
     }
 
-    private async Task RunActionAsync(string action, Guid? teamId = null, Guid? performerId = null)
+    private async Task RunActionAsync(string action, PantomimeAssignment[]? assignments = null)
     {
         if (_isBusy || string.IsNullOrWhiteSpace(_accessToken))
         {
@@ -219,13 +215,11 @@
                 Event.EventId,
                 CurrentSlide.SlideId,
                 action,
-                teamId,
-                performerId);
+                assignments,
+                _roundDurationSeconds);
             _data = await ProjectApiClient.GetPantomimeAsync(_accessToken, ProjectId, Event.EventId, CurrentSlide.SlideId);
-            _adminState = _data.State;
-            _state = _adminState;
-            _selectedTeamId = ReadGuid(_state, "teamId") ?? _selectedTeamId;
-            _selectedPerformerId = ReadGuid(_state, "performerId") ?? _selectedPerformerId;
+            _state = _data.State;
+            RestoreAssignments(_state);
             UpdateRemaining();
         }
         catch (Exception ex)
@@ -260,7 +254,7 @@
         }
     }
 
-    private void ReadPublicState()
+    private void ReadLiveState()
     {
         if (CurrentSlide.Parameters.ValueKind == JsonValueKind.Object
             && CurrentSlide.Parameters.TryGetProperty("state", out var state)
@@ -268,6 +262,63 @@
         {
             _state = state;
         }
+    }
+
+    private void RestoreAssignments(JsonElement state)
+    {
+        if (state.ValueKind != JsonValueKind.Object
+            || !state.TryGetProperty("teamStates", out var teamStates)
+            || teamStates.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var teamState in teamStates.EnumerateArray())
+        {
+            var teamId = ReadGuid(teamState, "teamId");
+            var performerId = ReadGuid(teamState, "performerId");
+            if (teamId.HasValue && performerId.HasValue)
+            {
+                _selectedPerformers[teamId.Value] = performerId.Value;
+            }
+        }
+    }
+
+    private IEnumerable<ParticipantSummary> TeamParticipants(Guid teamId) =>
+        _participants.Where(participant => participant.TeamId == teamId);
+
+    private string GetSelectedPerformer(Guid teamId) =>
+        _selectedPerformers.TryGetValue(teamId, out var participantId) ? participantId.ToString() : string.Empty;
+
+    private void SetSelectedPerformer(Guid teamId, ChangeEventArgs args)
+    {
+        if (Guid.TryParse(args.Value?.ToString(), out var participantId)
+            && _participants.Any(participant => participant.Id == participantId && participant.TeamId == teamId))
+        {
+            _selectedPerformers[teamId] = participantId;
+        }
+        else
+        {
+            _selectedPerformers.Remove(teamId);
+        }
+    }
+
+    private JsonElement GetTeamState(Guid teamId)
+    {
+        if (_state.ValueKind == JsonValueKind.Object
+            && _state.TryGetProperty("teamStates", out var teamStates)
+            && teamStates.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var teamState in teamStates.EnumerateArray())
+            {
+                if (ReadGuid(teamState, "teamId") == teamId)
+                {
+                    return teamState;
+                }
+            }
+        }
+
+        return default;
     }
 
     private void UpdateRemaining()
@@ -298,13 +349,6 @@
     private static Guid? ReadGuid(JsonElement element, string property) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
             && Guid.TryParse(value.GetString(), out var result) ? result : null;
-
-    private bool IsTeamCompleted(Guid teamId) =>
-        _adminState.ValueKind == JsonValueKind.Object
-        && _adminState.TryGetProperty("completedTeamIds", out var completedTeamIds)
-        && completedTeamIds.ValueKind == JsonValueKind.Array
-        && completedTeamIds.EnumerateArray().Any(item =>
-            item.ValueKind == JsonValueKind.String && Guid.TryParse(item.GetString(), out var completedTeamId) && completedTeamId == teamId);
 
     private static DateTime? ReadDateTime(JsonElement element, string property) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String

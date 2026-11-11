@@ -83,9 +83,11 @@ Die Hitster-Steuerungsendpunkte (Start, aktuellen Song abrufen, aufdecken und zu
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin (`CanControlSession`) | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion einreichen. |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
-| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime` | Projektadmin (`CanControlSession`) | Pantomime-Begriffe und Laufzeitstatus für die Spielleitung abrufen. |
-| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/{action}` | Projektadmin (`CanControlSession`) | Pantomime-Runde starten, pausieren, fortsetzen, beenden, Begriff als erraten markieren oder überspringen. |
+| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime` | Projektadmin (`CanControlSession`) | Kategorie, Begriffanzahl, Rundendauer und nicht geheime Team-Ergebnisse abrufen. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/admin/{action}` | Projektadmin (`CanControlSession`) | Alle Teams mit je einer darstellenden Person und gemeinsamer Dauer starten; die gemeinsame Runde pausieren, fortsetzen oder beenden. |
+| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/current-term` | Aktive Teilnehmer-Sitzung | Den aktuellen Begriff nur für die in der Runde zugeordnete darstellende Person abrufen. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct` | Zugeordnete darstellende Person | Den eigenen aktuellen Begriff als erraten bestätigen und einen neuen eindeutigen Begriff anfordern. |
 
 SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. Bei Unterbrechungen, Pausierung oder Session-Ende empfangen alle verbundenen Clients in Echtzeit entsprechende Nachrichten und schalten Vollbild-Overlays frei.
 
-Pantomime-Begriffe werden aus Teilnehmer- und Beamerzuständen entfernt; nur der geschützte Admin-Endpunkt liefert die aktuelle Begriffsliste. Der QR-Code auf der Beamerseite führt zur Teilnehmeranmeldung mit vorausgefülltem Session-Code.
+Pantomime-Begriffe und interne Zuteilungsindizes werden aus Teilnehmer-, SignalR- und Beamerzuständen entfernt. Der private Begriff-Endpunkt prüft die aktive Teilnehmer-Sitzung gegen die serverseitige Team-/Darstellerzuordnung; die Bestätigungsaktion verwendet dieselbe Identität und akzeptiert keine clientseitige Teilnehmer-ID. Alle Teams verwenden eine gemeinsame Deadline. Begriffe werden während einer Runde ohne Wiederholung zugeteilt; wenn der Pool leer ist, warten die Teams ohne neuen Begriff bis zum Rundenende. Der QR-Code auf der Beamerseite führt zur Teilnehmeranmeldung mit vorausgefülltem Session-Code.

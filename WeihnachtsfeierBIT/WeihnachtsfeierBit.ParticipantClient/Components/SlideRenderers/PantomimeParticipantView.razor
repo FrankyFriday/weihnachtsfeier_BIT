@@ -1,0 +1,212 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@implements IAsyncDisposable
+
+@if (!_isPerformer)
+{
+    <PantomimeCanvasView Parameters="Parameters" />
+}
+else
+{
+    <div style="width: 100%; max-width: 760px; margin: auto; padding: 24px; box-sizing: border-box; text-align: center;">
+        <span style="font-size: 15px; font-weight: 800; letter-spacing: .12em; color: #64748b;">PANTOMIME · @(_privateData?.Category ?? ReadString(Parameters, "category"))</span>
+        <h2 style="margin: 10px 0; font-size: clamp(24px, 5vw, 42px); font-weight: 900;">@(_privateData?.TeamName ?? _teamName)</h2>
+        <div style="font: 900 clamp(56px, 15vw, 120px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 20px 0;">
+            @FormatSeconds(_remainingSeconds)
+        </div>
+
+        @if (_privateData?.IsPaused == true)
+        {
+            <FrameworkNotice Message="Die gemeinsame Runde ist pausiert." Severity="info" />
+        }
+        else if (_privateData?.IsEnded == true || (_privateData?.IsRunning == false && _remainingSeconds == 0))
+        {
+            <FrameworkNotice Message="@RoundResultMessage" Severity="success" />
+        }
+        else if (_privateData?.Term is string term)
+        {
+            <div style="margin: 20px 0; padding: 28px 20px; background: white; border: 2px solid #105c4d; border-radius: 16px; box-shadow: 0 8px 24px rgba(16, 92, 77, .12);">
+                <div style="font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Nur für dich</div>
+                <div style="font-size: clamp(28px, 7vw, 52px); font-weight: 900; color: #1d2528; margin-top: 8px;">@term</div>
+            </div>
+            <FrameworkButton Label="Erraten" Variant="primary" OnClick="MarkCorrectAsync" Busy="_isBusy" />
+        }
+        else
+        {
+            <FrameworkNotice Message="Alle Begriffe sind bereits ausgegeben. Warte, bis der gemeinsame Timer endet." Severity="info" />
+        }
+
+        <div style="margin-top: 16px; font-size: 14px; color: #475569;">
+            Von deinem Team erraten: <strong>@(_privateData?.CorrectCount ?? 0)</strong>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div style="margin-top: 12px;"><FrameworkNotice Message="@_error" Severity="error" /></div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public JsonElement Parameters { get; set; }
+    [Parameter] public string? AccessToken { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid EventId { get; set; }
+    [Parameter] public Guid SlideId { get; set; }
+    [Parameter] public Guid ParticipantId { get; set; }
+
+    private PantomimePerformerData? _privateData;
+    private bool _isPerformer;
+    private bool _isBusy;
+    private string? _error;
+    private int _remainingSeconds;
+    private string _teamName = string.Empty;
+    private string RoundResultMessage => $"Die Runde ist beendet. Dein Team hat {_privateData?.CorrectCount ?? 0} Begriffe erraten.";
+    private CancellationTokenSource? _pollCancellation;
+    private Task? _pollTask;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isPerformer = IsAssignedPerformer(Parameters, ParticipantId, out _teamName);
+        if (_isPerformer)
+        {
+            await RefreshPrivateDataAsync();
+            if (_pollTask is null)
+            {
+                _pollCancellation = new CancellationTokenSource();
+                _pollTask = PollPrivateDataAsync(_pollCancellation.Token);
+            }
+        }
+        else
+        {
+            _privateData = null;
+            _pollCancellation?.Cancel();
+            _pollTask = null;
+            _pollCancellation?.Dispose();
+            _pollCancellation = null;
+        }
+    }
+
+    private async Task PollPrivateDataAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshPrivateDataAsync(cancellationToken);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshPrivateDataAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(AccessToken) || !_isPerformer)
+        {
+            return;
+        }
+
+        try
+        {
+            _privateData = await ProjectApiClient.GetPantomimeCurrentTermAsync(
+                AccessToken,
+                ProjectId,
+                EventId,
+                SlideId,
+                cancellationToken);
+            _teamName = _privateData.TeamName;
+            _error = null;
+            UpdateRemaining();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task MarkCorrectAsync()
+    {
+        if (_isBusy || string.IsNullOrWhiteSpace(AccessToken) || _privateData?.Term is null)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+        try
+        {
+            await ProjectApiClient.MarkPantomimeTermCorrectAsync(AccessToken, ProjectId, EventId, SlideId);
+            await RefreshPrivateDataAsync();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static bool IsAssignedPerformer(JsonElement parameters, Guid participantId, out string teamName)
+    {
+        teamName = string.Empty;
+        if (parameters.ValueKind != JsonValueKind.Object
+            || !parameters.TryGetProperty("state", out var state)
+            || state.ValueKind != JsonValueKind.Object
+            || !state.TryGetProperty("teamStates", out var teamStates)
+            || teamStates.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var team in teamStates.EnumerateArray())
+        {
+            if (ReadGuid(team, "performerId") == participantId)
+            {
+                teamName = ReadString(team, "teamName");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void UpdateRemaining()
+    {
+        if (_privateData?.IsRunning == true
+            && _privateData.RemainingSeconds >= 0)
+        {
+            _remainingSeconds = _privateData.RemainingSeconds;
+        }
+        else
+        {
+            _remainingSeconds = Math.Max(0, _privateData?.RemainingSeconds ?? 0);
+        }
+    }
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static Guid? ReadGuid(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            && Guid.TryParse(value.GetString(), out var result) ? result : null;
+
+    private static string FormatSeconds(int seconds) => TimeSpan.FromSeconds(seconds).ToString(@"mm\:ss");
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollCancellation?.Cancel();
+        if (_pollTask is not null)
+        {
+            await _pollTask;
+        }
+        _pollCancellation?.Dispose();
+    }
+}

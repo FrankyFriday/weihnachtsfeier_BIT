@@ -1,298 +1,30 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
-using PantomimeAdminData = WeihnachtsfeierBit.Framework.PantomimeAdminData;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
 
 public static class SessionControlEndpoints
 {
-    private static readonly ConcurrentDictionary<(Guid EventId, Guid SlideId), SemaphoreSlim> PantomimeLocks = new();
-
     public static void Map(RouteGroupBuilder reader, RouteGroupBuilder admin)
     {
         reader.MapGet("/session/state", GetSessionStateAsync).WithName("GetSessionState");
+        PantomimeEndpoints.Map(reader, admin);
         HitsterEndpoints.Map(reader, admin);
         reader.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/responses", SubmitEventResponseAsync).WithName("SubmitEventResponse");
 
         admin.MapPost("/session/shows", StartShowInSessionAsync).WithName("StartShowInSession");
         admin.MapPut("/session/events/{eventId:guid}", UpdateSessionEventAsync).WithName("UpdateSessionEvent");
         admin.MapPut("/session/events/{eventId:guid}/slides/{slideId:guid}/state", SetSlideStateAsync).WithName("SetSlideState");
-        admin.MapGet("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime", GetPantomimeAsync).WithName("GetPantomime");
-        admin.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime/{action}", UpdatePantomimeAsync).WithName("UpdatePantomime");
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
         admin.MapPost("/session/toggle-pause", ToggleSessionPauseAsync).WithName("ToggleSessionPause");
-    }
-
-    public sealed record PantomimeActionRequest(Guid? TeamId, Guid? PerformerId);
-
-    private static async Task<IResult> GetPantomimeAsync(
-        Guid projectId,
-        Guid eventId,
-        Guid slideId,
-        HttpContext httpContext,
-        WeihnachtsfeierDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
-        if (!access.CanControlSession)
-        {
-            return Results.Forbid();
-        }
-
-        var gameEvent = await dbContext.GameInstanceEvents.AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == eventId && item.GameInstance.ProjektId == projectId, cancellationToken);
-        if (gameEvent is null)
-        {
-            return Results.NotFound();
-        }
-
-        var slide = FindPantomimeSlide(gameEvent.SlidesJson, slideId);
-        if (slide is null)
-        {
-            return Results.NotFound();
-        }
-
-        var parameters = slide["parameters"] as JsonObject ?? new JsonObject();
-        var terms = parameters["terms"]?.AsArray()
-            .Select(term => term?.GetValue<string>() ?? string.Empty)
-            .ToArray() ?? [];
-        return Results.Ok(new PantomimeAdminData(
-            parameters["category"]?.GetValue<string>() ?? string.Empty,
-            terms,
-            parameters["roundDurationSeconds"]?.GetValue<int>() ?? 60,
-            JsonSerializer.SerializeToElement(parameters["state"] ?? new JsonObject())));
-    }
-
-    private static async Task<IResult> UpdatePantomimeAsync(
-        Guid projectId,
-        Guid eventId,
-        Guid slideId,
-        string action,
-        PantomimeActionRequest request,
-        HttpContext httpContext,
-        WeihnachtsfeierDbContext dbContext,
-        IGameStateNotifier gameStateNotifier,
-        CancellationToken cancellationToken)
-    {
-        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
-        if (!access.CanControlSession)
-        {
-            return Results.Forbid();
-        }
-
-        if (action is not ("start" or "correct" or "pass" or "pause" or "resume" or "end"))
-        {
-            return Results.BadRequest(new ApiError("Unbekannte Pantomime-Aktion."));
-        }
-
-        var gameLock = PantomimeLocks.GetOrAdd((eventId, slideId), _ => new SemaphoreSlim(1, 1));
-        await gameLock.WaitAsync(cancellationToken);
-        try
-        {
-            var gameEvent = await dbContext.GameInstanceEvents
-                .FirstOrDefaultAsync(item => item.Id == eventId && item.GameInstance.ProjektId == projectId, cancellationToken);
-            if (gameEvent is null)
-            {
-                return Results.NotFound();
-            }
-
-            var slides = JsonNode.Parse(gameEvent.SlidesJson) as JsonArray;
-            var slide = slides is null ? null : FindPantomimeSlide(slides, slideId);
-            if (slide is null)
-            {
-                return Results.NotFound();
-            }
-
-            var parameters = slide["parameters"] as JsonObject ?? new JsonObject();
-            var terms = parameters["terms"]?.AsArray()
-                .Select(term => term?.GetValue<string>() ?? string.Empty)
-                .ToArray() ?? [];
-            if (terms.Length == 0)
-            {
-                return Results.BadRequest(new ApiError("Für diese Pantomime-Slide sind keine Begriffe hinterlegt."));
-            }
-
-            var state = parameters["state"] as JsonObject ?? new JsonObject();
-            var now = DateTime.UtcNow;
-            var isRunning = state["isRunning"]?.GetValue<bool>() ?? false;
-            var isPaused = state["isPaused"]?.GetValue<bool>() ?? false;
-            var termIndex = state["termIndex"]?.GetValue<int>() ?? 0;
-
-            switch (action)
-            {
-                case "start":
-                    if (isRunning || isPaused || request.TeamId is not Guid teamId || request.PerformerId is not Guid performerId)
-                    {
-                        return Results.Conflict(new ApiError("Wähle ein Team und eine darstellende Person für die neue Runde."));
-                    }
-
-                    var team = await dbContext.Teams.FirstOrDefaultAsync(
-                        item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
-                    var performer = await dbContext.Teilnehmer.FirstOrDefaultAsync(
-                        item => item.Id == performerId && item.ProjektId == projectId && item.TeamId == teamId, cancellationToken);
-                    if (team is null || performer is null)
-                    {
-                        return Results.BadRequest(new ApiError("Die darstellende Person muss zum ausgewählten Projekt-Team gehören."));
-                    }
-
-                    var completedTeamIds = state["completedTeamIds"] as JsonArray;
-                    if (completedTeamIds is null)
-                    {
-                        completedTeamIds = new JsonArray();
-                        state["completedTeamIds"] = completedTeamIds;
-                    }
-                    if (completedTeamIds.Any(item => Guid.TryParse(item?.GetValue<string>(), out var completedTeamId) && completedTeamId == teamId))
-                    {
-                        return Results.Conflict(new ApiError("Dieses Team hat seine Pantomime-Runde bereits gespielt."));
-                    }
-
-                    state["termIndex"] = 0;
-                    state["teamId"] = team.Id;
-                    state["teamName"] = team.DisplayName;
-                    state["performerId"] = performer.Id;
-                    state["performerName"] = string.IsNullOrWhiteSpace(performer.Name) ? $"Person {performer.Nummer}" : performer.Name;
-                    state["correctCount"] = 0;
-                    state["isPaused"] = false;
-                    state["isRunning"] = true;
-                    state["deadlineUtc"] = now.AddSeconds(parameters["roundDurationSeconds"]?.GetValue<int>() ?? 60);
-                    state["remainingSeconds"] = parameters["roundDurationSeconds"]?.GetValue<int>() ?? 60;
-                    break;
-                case "correct":
-                case "pass":
-                    if (!isRunning || termIndex >= terms.Length ||
-                        state["deadlineUtc"]?.GetValue<DateTime>() is not DateTime deadline || deadline <= now)
-                    {
-                        return Results.Conflict(new ApiError("Die Pantomime-Runde läuft nicht oder ist abgelaufen."));
-                    }
-                    if (action == "correct")
-                    {
-                        if (state["teamId"]?.GetValue<Guid>() is not Guid scoringTeamId)
-                        {
-                            return Results.Conflict(new ApiError("Für die Runde ist kein Team ausgewählt."));
-                        }
-
-                        var scoringTeam = await dbContext.Teams.FirstOrDefaultAsync(
-                            item => item.Id == scoringTeamId && item.ProjektId == projectId, cancellationToken);
-                        if (scoringTeam is null)
-                        {
-                            return Results.Conflict(new ApiError("Das Team der aktuellen Runde existiert nicht mehr."));
-                        }
-
-                        scoringTeam.Punkte = checked(scoringTeam.Punkte + 1);
-                        dbContext.TeamPointLogs.Add(new TeamPointLog
-                        {
-                            ProjektId = projectId,
-                            TeamId = scoringTeam.Id,
-                            DeltaPoints = 1,
-                            NewTotalPoints = scoringTeam.Punkte,
-                            Reason = "Pantomime-Begriff erraten",
-                            CreatedAtUtc = now
-                        });
-                        state["correctCount"] = (state["correctCount"]?.GetValue<int>() ?? 0) + 1;
-                    }
-
-                    termIndex++;
-                    state["termIndex"] = termIndex;
-                    if (termIndex >= terms.Length)
-                    {
-                        state["isRunning"] = false;
-                        state["isPaused"] = false;
-                        state["remainingSeconds"] = 0;
-                        MarkPantomimeTeamCompleted(state);
-                    }
-                    break;
-                case "pause":
-                    if (!isRunning || state["deadlineUtc"]?.GetValue<DateTime>() is not DateTime pauseDeadline)
-                    {
-                        return Results.Conflict(new ApiError("Es läuft keine Pantomime-Runde."));
-                    }
-                    state["remainingSeconds"] = Math.Max(0, (int)Math.Ceiling((pauseDeadline - now).TotalSeconds));
-                    if ((int)state["remainingSeconds"]! == 0)
-                    {
-                        return Results.Conflict(new ApiError("Die Pantomime-Runde ist abgelaufen."));
-                    }
-                    state["isRunning"] = false;
-                    state["isPaused"] = true;
-                    break;
-                case "resume":
-                    if (!isPaused)
-                    {
-                        return Results.Conflict(new ApiError("Die Pantomime-Runde ist nicht pausiert."));
-                    }
-                    var remainingSeconds = Math.Max(0, state["remainingSeconds"]?.GetValue<int>() ?? 0);
-                    if (remainingSeconds == 0)
-                    {
-                        state["isPaused"] = false;
-                        MarkPantomimeTeamCompleted(state);
-                    }
-                    else
-                    {
-                        state["deadlineUtc"] = now.AddSeconds(remainingSeconds);
-                        state["isPaused"] = false;
-                        state["isRunning"] = true;
-                    }
-                    break;
-                case "end":
-                    if (isRunning || isPaused)
-                    {
-                        MarkPantomimeTeamCompleted(state);
-                    }
-                    state["isRunning"] = false;
-                    state["isPaused"] = false;
-                    state["remainingSeconds"] = 0;
-                    break;
-            }
-
-            parameters["state"] = state;
-            slide["parameters"] = parameters;
-            gameEvent.SlidesJson = slides!.ToJsonString();
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
-            return Results.Ok();
-        }
-        finally
-        {
-            gameLock.Release();
-        }
-    }
-
-    private static JsonObject? FindPantomimeSlide(string slidesJson, Guid slideId) =>
-        JsonNode.Parse(slidesJson) is JsonArray slides ? FindPantomimeSlide(slides, slideId) : null;
-
-    private static JsonObject? FindPantomimeSlide(JsonArray slides, Guid slideId)
-    {
-        var slide = PantomimeGameService.FindSlide(slides, slideId);
-        return string.Equals(slide?["type"]?.GetValue<string>(), "pantomime", StringComparison.OrdinalIgnoreCase)
-            ? slide
-            : null;
-    }
-
-    private static void MarkPantomimeTeamCompleted(JsonObject state)
-    {
-        if (state["teamId"]?.GetValue<Guid>() is not Guid teamId)
-        {
-            return;
-        }
-
-        var completedTeamIds = state["completedTeamIds"] as JsonArray;
-        if (completedTeamIds is null)
-        {
-            completedTeamIds = new JsonArray();
-            state["completedTeamIds"] = completedTeamIds;
-        }
-        if (!completedTeamIds.Any(item => Guid.TryParse(item?.GetValue<string>(), out var completedTeamId) && completedTeamId == teamId))
-        {
-            completedTeamIds.Add(teamId.ToString());
-        }
     }
 
     private static bool IsValidPantomimeConfiguration(JsonElement parameters)
@@ -316,7 +48,9 @@ public static class SessionControlEndpoints
             .Where(term => term.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(term.GetString()))
             .Select(term => term.GetString()!.Trim())
             .ToArray();
-        return cleanTerms.Length is >= 3 and <= 100 && cleanTerms.All(term => term.Length <= 120);
+        return cleanTerms.Length is >= 3 and <= 100
+            && cleanTerms.All(term => term.Length <= 120)
+            && cleanTerms.Distinct(StringComparer.OrdinalIgnoreCase).Count() == cleanTerms.Length;
     }
 
 
@@ -587,7 +321,7 @@ public static class SessionControlEndpoints
         if (string.Equals(request.SlideType, "pantomime", StringComparison.OrdinalIgnoreCase)
             && !IsValidPantomimeConfiguration(request.Parameters))
         {
-            return Results.BadRequest(new ApiError("Pantomime benötigt eine Kategorie, 3–100 Begriffe (je maximal 120 Zeichen) und eine Rundendauer von 10 bis 600 Sekunden."));
+            return Results.BadRequest(new ApiError("Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen) und eine Rundendauer von 10 bis 600 Sekunden."));
         }
 
         var mode = string.Equals(request.Mode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";
