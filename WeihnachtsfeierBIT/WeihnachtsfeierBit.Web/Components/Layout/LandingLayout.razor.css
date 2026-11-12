@@ -1,0 +1,27 @@
+#blazor-error-ui {
+    position: fixed;
+    z-index: 1000;
+    right: 20px;
+    bottom: 20px;
+    left: 20px;
+    display: none;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 14px 18px;
+    border: 1px solid #e8c1bd;
+    border-radius: 12px;
+    background: #fff4f2;
+    box-shadow: 0 12px 32px rgba(31, 48, 41, .15);
+    color: #842d25;
+}
+
+#blazor-error-ui .reload,
+#blazor-error-ui .dismiss {
+    margin-left: 12px;
+    color: inherit;
+    font-weight: 700;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+}

@@ -1,0 +1,205 @@
+.join-page {
+    display: grid;
+    min-height: 100vh;
+    padding: 18px 22px;
+    background:
+        radial-gradient(ellipse at 50% 20%, rgba(221, 234, 219, .7), transparent 36rem),
+        #f7f8f4;
+    color: #1c332d;
+}
+
+.join-container {
+    width: min(440px, 100%);
+    margin: 0 auto;
+}
+
+.join-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 42px;
+}
+
+.join-brand,
+.join-admin-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.join-brand {
+    gap: 9px;
+    color: #214638;
+    font-size: 13px;
+    font-weight: 780;
+}
+
+.join-brand-mark {
+    color: #267052;
+    font-size: 22px;
+}
+
+.join-admin-link {
+    gap: 4px;
+    color: #66776e;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.join-admin-link:hover {
+    color: #1b6348;
+}
+
+.join-admin-link .material-symbols-outlined {
+    font-size: 15px;
+}
+
+.join-content {
+    width: 100%;
+    max-width: 380px;
+    margin: clamp(42px, 12vh, 108px) auto 0;
+    text-align: center;
+}
+
+.join-icon {
+    display: inline-grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    margin-bottom: 15px;
+    border: 1px solid #d5e5d7;
+    border-radius: 16px;
+    background: #eaf3e9;
+    color: #1e6a50;
+    font-size: 25px;
+}
+
+.join-content h1 {
+    margin: 0;
+    color: #1b382e;
+    font-size: clamp(28px, 7vw, 36px);
+    font-weight: 780;
+    letter-spacing: -.045em;
+    line-height: 1.15;
+}
+
+.join-description {
+    margin: 9px 0 22px;
+    color: #718078;
+    font-size: 13px;
+}
+
+.join-card {
+    border: 1px solid #e1e9df;
+    border-radius: 17px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 16px 42px rgba(32, 68, 51, .09);
+    text-align: left;
+}
+
+.join-card ::deep .framework-card-content {
+    padding: 22px;
+}
+
+.join-form {
+    display: grid;
+    gap: 10px;
+}
+
+.join-form label {
+    color: #334940;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.join-form ::deep .framework-input {
+    min-height: 52px;
+    padding: 10px 14px;
+    border-color: #d7e1d9;
+    border-radius: 10px;
+    background: #fbfcf9;
+    color: #173a30;
+    font-size: 19px;
+    font-weight: 750;
+    letter-spacing: .08em;
+    text-align: center;
+}
+
+.join-form ::deep .framework-input::placeholder {
+    color: #a0aea5;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .01em;
+}
+
+.join-form ::deep .framework-input:focus {
+    border-color: #48836d;
+    outline: 3px solid rgba(54, 129, 99, .14);
+}
+
+.join-form ::deep .join-submit {
+    width: 100%;
+    min-height: 48px;
+    justify-content: space-between;
+    margin-top: 3px;
+    padding: 10px 15px;
+    border-color: #1c674f;
+    border-radius: 10px;
+    background: #1c674f;
+    color: #fff;
+    font-size: 13px;
+    transition: background .16s ease;
+}
+
+.join-form ::deep .join-submit:not(:disabled):hover {
+    border-color: #15533e;
+    background: #15533e;
+}
+
+.join-form ::deep .join-submit:disabled {
+    border-color: #a8c0b2;
+    background: #a8c0b2;
+}
+
+.join-form ::deep .join-submit .material-symbols-outlined {
+    margin: 0;
+}
+
+.join-help {
+    margin: 12px 0 0;
+    color: #859087;
+    font-size: 11px;
+    text-align: center;
+}
+
+.join-error {
+    margin: 10px 0 0;
+    color: #a4322c;
+    font-size: 12px;
+    font-weight: 650;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .join-page {
+        padding: 14px 18px;
+    }
+
+    .join-content {
+        margin-top: clamp(36px, 10vh, 72px);
+    }
+
+    .join-description {
+        margin-bottom: 18px;
+    }
+
+    .join-card ::deep .framework-card-content {
+        padding: 18px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .join-form ::deep .join-submit {
+        transition: none;
+    }
+}

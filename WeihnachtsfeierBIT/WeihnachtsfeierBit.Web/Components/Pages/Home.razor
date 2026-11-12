@@ -1,82 +1,73 @@
-﻿@page "/"
-@inject TestEntryApiClient TestEntryApi
+@page "/"
+@layout WeihnachtsfeierBit.Web.Components.Layout.LandingLayout
+@inject NavigationManager Navigation
 
-<PageTitle>Datenbanktest</PageTitle>
+<PageTitle>Session beitreten | WeihnachtsfeierBIT</PageTitle>
 
-<h1>Datenbanktest</h1>
-<p class="text-secondary">Testeinträge werden direkt in PostgreSQL gespeichert.</p>
+<main class="join-page">
+    <div class="join-container">
+        <header class="join-header">
+            <a class="join-brand" href="/" aria-label="WeihnachtsfeierBIT Startseite">
+                <span class="join-brand-mark material-symbols-outlined" aria-hidden="true">celebration</span>
+                <span>WeihnachtsfeierBIT</span>
+            </a>
+            <a class="join-admin-link" href="/admin">Admin <span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+        </header>
 
-<form class="d-flex gap-2 mb-4" action="/test-entry-form" method="post">
-	<input class="form-control" type="text" name="name" aria-label="Name des Testeintrags" placeholder="Name des Eintrags" required />
-	<button class="btn btn-primary text-nowrap" type="submit">Eintrag speichern</button>
-</form>
+        <section class="join-content" aria-labelledby="join-title">
+            <span class="join-icon material-symbols-outlined" aria-hidden="true">sports_esports</span>
+            <h1 id="join-title">Session beitreten</h1>
+            <p class="join-description">Gib den Session-Code ein, um weiterzumachen.</p>
 
-@if (!string.IsNullOrEmpty(statusMessage))
-{
-	<p class="text-danger" role="alert">@statusMessage</p>
-}
-
-<div class="d-flex align-items-center justify-content-between mb-2">
-	<h2 class="h5 mb-0">Gespeicherte Einträge</h2>
-	<a class="btn btn-outline-secondary btn-sm" href="/">Aktualisieren</a>
-</div>
-
-@if (isLoading)
-{
-	<p class="text-secondary">Einträge werden geladen ...</p>
-}
-else if (entries.Length == 0)
-{
-	<p class="text-secondary">Noch keine Einträge vorhanden.</p>
-}
-else
-{
-	<div class="table-responsive">
-		<table class="table table-striped align-middle">
-			<thead>
-				<tr>
-					<th scope="col">ID</th>
-					<th scope="col">Name</th>
-					<th scope="col">Erstellt (UTC)</th>
-				</tr>
-			</thead>
-			<tbody>
-				@foreach (var entry in entries)
-				{
-					<tr @key="entry.Id">
-						<td>@entry.Id</td>
-						<td>@entry.Name</td>
-						<td>@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-					</tr>
-				}
-			</tbody>
-		</table>
-	</div>
-}
+            <Card Class="join-card">
+                <div class="join-card-content">
+                    <form class="join-form" @onsubmit="JoinSession" @onsubmit:preventDefault="true">
+                        <label for="session-code">Session-Code</label>
+                        <FrameworkInputText Id="session-code"
+                                           Value="@_sessionCode"
+                                           ValueChanged="UpdateSessionCode"
+                                           MaxLength="6"
+                                           Placeholder="6-stelliger Code"
+                                           autocomplete="off"
+                                           autocapitalize="characters"
+                                           spellcheck="false"
+                                           aria-describedby="session-code-help" />
+                        <FrameworkButton Label="Beitreten"
+                                         Type="submit"
+                                         Icon="arrow_forward"
+                                         Class="join-submit"
+                                         Disabled="@(_sessionCode.Length != 6)" />
+                    </form>
+                    <p id="session-code-help" class="join-help">Den Code bekommst du von der Spielleitung.</p>
+                    @if (!string.IsNullOrEmpty(_sessionCodeError))
+                    {
+                        <p class="join-error" role="alert">@_sessionCodeError</p>
+                    }
+                </div>
+            </Card>
+        </section>
+    </div>
+</main>
 
 @code {
-	private TestEntryDto[] entries = [];
-	private string? statusMessage;
-	private bool isLoading = true;
+    private string _sessionCode = string.Empty;
+    private string? _sessionCodeError;
 
-	protected override Task OnInitializedAsync() => LoadEntriesAsync();
+    private void UpdateSessionCode(string? value)
+    {
+        _sessionCode = value ?? string.Empty;
+        _sessionCodeError = null;
+    }
 
-	private async Task LoadEntriesAsync()
-	{
-		isLoading = true;
-		statusMessage = null;
+    private void JoinSession()
+    {
+        var code = _sessionCode.Trim().ToUpperInvariant();
+        if (code.Length != 6 || !code.All(char.IsLetterOrDigit))
+        {
+            _sessionCodeError = "Bitte gib einen gültigen 6-stelligen Session-Code ein.";
+            return;
+        }
 
-		try
-		{
-			entries = await TestEntryApi.GetEntriesAsync();
-		}
-		catch (HttpRequestException)
-		{
-			statusMessage = "Die API ist gerade nicht erreichbar. Bitte den Containerstatus prüfen.";
-		}
-		finally
-		{
-			isLoading = false;
-		}
-	}
+        Navigation.NavigateTo($"/play/{Uri.EscapeDataString(code)}", forceLoad: true);
+    }
 }
