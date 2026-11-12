@@ -434,6 +434,24 @@
     border-color: #197b67;
 }
 
+.participant-team-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.participant-team-filter label {
+    color: #394448;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.participant-team-filter .participant-team-select {
+    width: auto;
+    min-width: 150px;
+}
+
 .form-divider {
     border: 0;
     border-top: 1px solid #e7ecea;

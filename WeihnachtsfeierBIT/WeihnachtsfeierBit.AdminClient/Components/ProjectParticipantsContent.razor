@@ -42,16 +42,13 @@
     }
     else
     {
-        <div style="margin-bottom: 16px; display: flex; gap: 10px; align-items: center;">
-            <label for="team-filter" style="font-weight: 600; font-size: 13px;">Filter nach Team:</label>
-            <select id="team-filter" value="@_filterTeam" @onchange="OnFilterChanged" style="padding: 6px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
-                <option value="all">Alle Teilnehmer (@_participants.Length)</option>
-                <option value="unassigned">Ohne Team (@_participants.Count(p => p.TeamId == null))</option>
-                @foreach (var team in _teams)
-                {
-                    <option value="@team.Id.ToString()">@team.DisplayName (@_participants.Count(p => p.TeamId == team.Id))</option>
-                }
-            </select>
+        <div class="participant-team-filter">
+            <label for="team-filter">Filter nach Team</label>
+            <FrameworkSelect Id="team-filter"
+                             Value="@_filterTeam"
+                             ValueChanged="OnFilterChanged"
+                             Options="@TeamFilterOptions"
+                             Class="participant-team-select" />
         </div>
 
         <StandardDataTable Items="FilteredParticipants" Columns="_columns" KeySelector="ParticipantKey" />
@@ -72,15 +69,13 @@
             <label for="new-participant-name">Name (optional)</label>
             <input id="new-participant-name" @bind="_participantName" maxlength="120" placeholder="z. B. Max Mustermann" />
         </div>
-        <div class="form-group" style="margin-top: 12px;">
-            <label for="new-participant-team">Team (optional)</label>
-            <select id="new-participant-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
-                <option value="">Kein Team (unzugeordnet)</option>
-                @foreach (var team in _teams)
-                {
-                    <option value="@team.Id.ToString()">@team.DisplayName</option>
-                }
-            </select>
+        <div style="margin-top: 12px;">
+            <FrameworkSelect Id="new-participant-team"
+                             Label="Team (optional)"
+                             Placeholder="Kein Team (unzugeordnet)"
+                             Value="@_participantTeamIdString"
+                             ValueChanged="OnModalTeamSelected"
+                             Options="@TeamOptions" />
         </div>
         <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
@@ -103,15 +98,13 @@
             <label for="edit-participant-name">Name (optional)</label>
             <input id="edit-participant-name" @bind="_participantName" maxlength="120" />
         </div>
-        <div class="form-group" style="margin-top: 12px;">
-            <label for="edit-participant-team">Team (optional)</label>
-            <select id="edit-participant-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
-                <option value="">Kein Team (unzugeordnet)</option>
-                @foreach (var team in _teams)
-                {
-                    <option value="@team.Id.ToString()">@team.DisplayName</option>
-                }
-            </select>
+        <div style="margin-top: 12px;">
+            <FrameworkSelect Id="edit-participant-team"
+                             Label="Team (optional)"
+                             Placeholder="Kein Team (unzugeordnet)"
+                             Value="@_participantTeamIdString"
+                             ValueChanged="OnModalTeamSelected"
+                             Options="@TeamOptions" />
         </div>
         <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
@@ -126,27 +119,22 @@
         {
             <FrameworkNotice Message="@_modalError" />
         }
-        <div class="form-group">
-            <label for="gen-digits">Stellenzahl der Nummern</label>
-            <select id="gen-digits" @bind="_genDigits" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
-                <option value="2">2-stellig (10 bis 99)</option>
-                <option value="3">3-stellig (100 bis 999)</option>
-                <option value="4">4-stellig (1000 bis 9999)</option>
-            </select>
-        </div>
+        <FrameworkSelect Id="gen-digits"
+                         Label="Stellenzahl der Nummern"
+                         Value="@_genDigits.ToString()"
+                         ValueChanged="OnGenDigitsChanged"
+                         Options="@ParticipantDigitOptions" />
         <div class="form-group" style="margin-top: 12px;">
             <label for="gen-count">Anzahl neuer Teilnehmer</label>
             <input id="gen-count" type="number" min="1" max="500" @bind="_genCount" required />
         </div>
-        <div class="form-group" style="margin-top: 12px;">
-            <label for="gen-team">Direkt einem Team zuweisen (optional)</label>
-            <select id="gen-team" value="@_participantTeamIdString" @onchange="OnModalTeamSelected" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #cbd7d3;">
-                <option value="">Kein Team (unzugeordnet)</option>
-                @foreach (var team in _teams)
-                {
-                    <option value="@team.Id.ToString()">@team.DisplayName</option>
-                }
-            </select>
+        <div style="margin-top: 12px;">
+            <FrameworkSelect Id="gen-team"
+                             Label="Direkt einem Team zuweisen (optional)"
+                             Placeholder="Kein Team (unzugeordnet)"
+                             Value="@_participantTeamIdString"
+                             ValueChanged="OnModalTeamSelected"
+                             Options="@TeamOptions" />
         </div>
         <div class="framework-button-row" style="margin-top: 20px; justify-content: flex-end;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModals" />
@@ -208,6 +196,26 @@
     private int _genCount = 10;
     private bool _onlyUnassigned = true;
 
+    private static readonly FrameworkSelectOption[] ParticipantDigitOptions =
+    [
+        new("2", "2-stellig (10 bis 99)"),
+        new("3", "3-stellig (100 bis 999)"),
+        new("4", "4-stellig (1000 bis 9999)")
+    ];
+
+    private FrameworkSelectOption[] TeamOptions => _teams
+        .Select(team => new FrameworkSelectOption(team.Id.ToString(), team.DisplayName))
+        .ToArray();
+
+    private FrameworkSelectOption[] TeamFilterOptions =>
+    [
+        new("all", $"Alle Teilnehmer ({_participants.Length})"),
+        new("unassigned", $"Ohne Team ({_participants.Count(participant => participant.TeamId is null)})"),
+        .. _teams.Select(team => new FrameworkSelectOption(
+            team.Id.ToString(),
+            $"{team.DisplayName} ({_participants.Count(participant => participant.TeamId == team.Id)})"))
+    ];
+
     private ParticipantSummary[] FilteredParticipants => _filterTeam switch
     {
         "all" => _participants,
@@ -233,13 +241,13 @@
             [
                 new("Nummer", p => p.Number.ToString()),
                 new("Name", p => string.IsNullOrWhiteSpace(p.Name) ? "Unbenannt" : p.Name),
-                new("Team", p => @<select value="@(p.TeamId?.ToString() ?? "")" @onchange="(e) => OnRowTeamChangedAsync(p, e.Value?.ToString())" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd7d3;">
-                    <option value="">Kein Team</option>
-                    @foreach (var team in _teams)
-                    {
-                        <option value="@team.Id.ToString()">@team.DisplayName</option>
-                    }
-                </select>),
+                new("Team", p => @<FrameworkSelect Id="@($"participant-team-{p.Id}")"
+                    Value="@(p.TeamId?.ToString() ?? string.Empty)"
+                    ValueChanged="value => OnRowTeamChangedAsync(p, value)"
+                    Options="@TeamOptions"
+                    Placeholder="Kein Team"
+                    Class="participant-team-select"
+                    aria-label="@($"Team für Teilnehmer {p.Number}")" />),
                 new("Aktionen", p => @<div class="framework-button-row">
                     <FrameworkButton Label="Bearbeiten" Variant="secondary" OnClick="() => OpenEditModal(p)" />
                     <FrameworkButton Label="Löschen" Variant="danger" OnClick="() => DeleteParticipantAsync(p)" />
@@ -248,9 +256,21 @@
         });
     }
 
-    private void OnFilterChanged(ChangeEventArgs e) => _filterTeam = e.Value?.ToString() ?? "all";
+    private void OnFilterChanged(string? value) => _filterTeam = value ?? "all";
 
-    private void OnModalTeamSelected(ChangeEventArgs e) => _participantTeamIdString = e.Value?.ToString() ?? string.Empty;
+    private void OnModalTeamSelected(string? value) => _participantTeamIdString = value ?? string.Empty;
+
+    private void OnGenDigitsChanged(string? value)
+    {
+        if (int.TryParse(value, out var digits) && digits is >= 2 and <= 4)
+        {
+            _genDigits = digits;
+        }
+        else
+        {
+            _modalError = "Bitte wähle eine gültige Stellenzahl aus.";
+        }
+    }
 
     private void OpenCreateModal()
     {
