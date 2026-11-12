@@ -142,6 +142,7 @@ public static class ParticipantEndpoints
         }
 
         participant.Name = request.Name?.Trim();
+        participant.TeamId = team?.Id;
         participant.Team = team;
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
@@ -309,17 +310,32 @@ public static class ParticipantEndpoints
             return Results.Ok(new RandomizeTeamsResponse(0));
         }
 
-        var rng = Random.Shared;
-        int assignedCount = 0;
-        foreach (var p in participants)
+        var currentTeamCounts = new Dictionary<Guid, int>();
+        if (request.OnlyUnassigned)
         {
-            p.Team = teams[rng.Next(teams.Count)];
-            assignedCount++;
+            currentTeamCounts = await dbContext.Teilnehmer.AsNoTracking()
+                .Where(item => item.ProjektId == projectId && item.TeamId.HasValue)
+                .GroupBy(item => item.TeamId!.Value)
+                .Select(group => new { TeamId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(item => item.TeamId, item => item.Count, cancellationToken);
+        }
+
+        var assignments = ParticipantTeamAssignmentService.CreateBalancedAssignments(
+            participants.Select(participant => participant.Id).ToArray(),
+            teams.Select(team => team.Id).ToArray(),
+            currentTeamCounts,
+            Random.Shared);
+        var teamsById = teams.ToDictionary(team => team.Id);
+        foreach (var participant in participants)
+        {
+            var team = teamsById[assignments[participant.Id]];
+            participant.TeamId = team.Id;
+            participant.Team = team;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
-        return Results.Ok(new RandomizeTeamsResponse(assignedCount));
+        return Results.Ok(new RandomizeTeamsResponse(participants.Count));
     }
 }
