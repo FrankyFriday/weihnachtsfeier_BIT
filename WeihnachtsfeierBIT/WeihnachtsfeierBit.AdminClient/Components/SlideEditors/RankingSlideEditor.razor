@@ -8,9 +8,10 @@
         <FrameworkInputText Id="ranking-title" @bind-Value="Slide.RankingTitle" Placeholder="z. B. Zwischenstand nach Runde 1" />
     </FrameworkFormGroup>
 
-    <FrameworkFormGroup Label="Darstellungsart auf der Slide">
-        <FrameworkSelect Value="@Slide.RankingChartType" ValueChanged='v => Slide.RankingChartType = v ?? "bar_chart"' Options="_chartTypeOptions" />
-    </FrameworkFormGroup>
+    <FrameworkSelect Id="ranking-chart-type"
+                     Label="Darstellungsart auf der Slide"
+                     @bind-Value="Slide.RankingChartType"
+                     Options="_chartTypeOptions" />
 
     <FrameworkFormGroup Label="Top-X Begrenzung" HelpText="optional, z. B. 3 für Top 3; leer lassen für alle Teams" ForId="ranking-top-count">
         <FrameworkInputNumber Id="ranking-top-count" @bind-Value="Slide.RankingTopCount" Min="1" Max="50" Placeholder="z. B. 3 oder 5" />

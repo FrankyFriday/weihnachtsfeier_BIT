@@ -1,7 +1,7 @@
 @if (IsOpen)
 {
     <div class="framework-modal-backdrop" @onclick="HandleBackdropClick">
-        <div class="framework-modal-dialog" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
+        <div class="framework-modal-dialog @DialogClass" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
             <div class="framework-modal-header">
                 <h2 id="modal-heading">@Title</h2>
                 <button type="button" class="framework-modal-close" @onclick="CloseAsync" aria-label="Schließen">&times;</button>
@@ -16,6 +16,7 @@
 @code {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? DialogClass { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 

@@ -33,7 +33,7 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | Poll | Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
 | Announcement | Titel, Nachricht |
 | Quiz | Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
-| Ranking | Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation |
+| Ranking | Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation und Diagrammtyp (`bar_chart` oder `line_graph`) |
 | PointAward | Punktevergabe-Slide mit echtem vertikalem Säulendiagramm, automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges |
 | Hitster | Spotify-Integration, Song-Titel, Interpret, Veröffentlichungsjahr, Musikplayer-Steuerung |
 | Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |

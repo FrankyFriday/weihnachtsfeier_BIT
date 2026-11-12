@@ -313,6 +313,8 @@ public sealed class RankingSlideParameters : SlideParameters
     public int? TopCount { get; set; }
 
     public bool AnimatePodium { get; set; }
+
+    public string ChartType { get; set; } = "bar_chart";
 }
 
 public sealed class EstimationSlideParameters : SlideParameters

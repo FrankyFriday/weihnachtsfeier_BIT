@@ -1,6 +1,6 @@
-<div class="form-group checkbox-group @Class" style="@Style" @attributes="AdditionalAttributes">
+<div class="form-group checkbox-group framework-checkbox @Class" style="@Style" @attributes="AdditionalAttributes">
     <label>
-        <input type="checkbox" checked="@Value" disabled="@Disabled" @onchange="OnChange" />
+        <input class="framework-checkbox-input" type="checkbox" checked="@Value" disabled="@Disabled" @onchange="OnChange" />
         <span>
             @Label
             @if (!string.IsNullOrWhiteSpace(HelpText))

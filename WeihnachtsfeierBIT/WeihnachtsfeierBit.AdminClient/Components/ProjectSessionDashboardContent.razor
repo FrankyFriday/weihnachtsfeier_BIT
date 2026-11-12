@@ -69,26 +69,28 @@
 
         @if (_instance is not null)
         {
-            <!-- TABS BAR FOR RUNNING EVENTS / SHOWS -->
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 24px; position: relative; z-index: 50;">
-                <div style="display: flex; gap: 8px; overflow-x: auto; flex: 1; align-items: center; padding-right: 8px; scrollbar-width: thin;">
+            <div class="live-event-tabs">
+                <div class="live-event-tab-list">
                     @foreach (var tab in _tabs)
                     {
-                        <button type="button" @onclick="() => SelectTab(tab.Id)" style="padding: 8px 14px; border-radius: 6px; border: 1.5px solid @(tab.Id == _selectedTabId ? "#197b67" : "#dce5e2"); background: @(tab.Id == _selectedTabId ? "#197b67" : "#fff"); color: @(tab.Id == _selectedTabId ? "#fff" : "#1d2528"); font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; gap: 6px; align-items: center; box-shadow: @(tab.Id == _selectedTabId ? "0 2px 6px rgba(25, 123, 103, 0.25)" : "none");">
+                        <button type="button"
+                                class="live-event-tab @(tab.Id == _selectedTabId ? "is-active" : null)"
+                                aria-selected="@(tab.Id == _selectedTabId)"
+                                @onclick="() => SelectTab(tab.Id)">
                             @if (tab.IsBeamerActive)
                             {
-                                <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt" style="font-size: 18px;">present_to_all</span>
+                                <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt">present_to_all</span>
                             }
                             @if (!string.IsNullOrEmpty(tab.StatusIcon))
                             {
-                                <span class="material-symbols-outlined" style="font-size: 18px;">@tab.StatusIcon</span>
+                                <span class="material-symbols-outlined">@tab.StatusIcon</span>
                             }
                             <span>@tab.Title</span>
                         </button>
                     }
                 </div>
 
-                <div style="flex-shrink: 0; position: relative; z-index: 100;">
+                <div class="live-event-tab-actions">
                     <FrameworkContextMenu Label="Event" Icon="add" Variant="primary" AlignRight="true" Options="_addContentOptions" OnSelect="HandleAddContentSelect" Class="admin-add-event-btn" />
                 </div>
             </div>
@@ -402,53 +404,61 @@
 </FrameworkModal>
 
 <!-- EDIT EVENT CONFIGURATION MODAL -->
-<FrameworkModal IsOpen="@_isEditEventModalOpen" Title="Event-Konfiguration bearbeiten" OnClose="CloseEditEventModal">
+<FrameworkModal IsOpen="@_isEditEventModalOpen" Title="Event-Konfiguration bearbeiten" OnClose="CloseEditEventModal" DialogClass="session-config-modal">
     @if (_editingEvent is not null)
     {
-        <div style="display: grid; gap: 14px; max-height: 75vh; overflow-y: auto; padding-right: 4px;">
-            <FrameworkFormGroup Label="Event-Titel">
-                <FrameworkInputText @bind-Value="_editTitle" Placeholder="Titel eingeben..." />
-            </FrameworkFormGroup>
-
-            <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)">
-                <FrameworkInputText @bind-Value="_editSubtitle" Placeholder="z. B. Pause & Büfett eröffnet" />
-            </FrameworkFormGroup>
-
-            <FrameworkGrid Columns="1fr 1fr" Gap="12px">
-                <FrameworkFormGroup Label="Modus">
-                    <FrameworkSelect Value="@_editMode" ValueChanged='v => _editMode = v ?? "active"' Options="@_modeOptions" />
+        <div class="session-config-form">
+            <div class="session-config-grid">
+                <FrameworkFormGroup Label="Event-Titel">
+                    <FrameworkInputText @bind-Value="_editTitle" Placeholder="Titel eingeben..." />
                 </FrameworkFormGroup>
 
-                <FrameworkFormGroup Label="Folien-Steuerung">
-                    <FrameworkSelect Value="@_editNavMode" ValueChanged='v => _editNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                <FrameworkFormGroup Label="Untertitel (optional)">
+                    <FrameworkInputText @bind-Value="_editSubtitle" Placeholder="z. B. Pause & Büfett eröffnet" />
                 </FrameworkFormGroup>
-            </FrameworkGrid>
-
-            <FrameworkCheckbox @bind-Value="_editIsHidden" Label="Event vor Teilnehmern ausblenden" />
-
-            <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px;">
-                <FrameworkFormGroup Label="Geplante Startzeit (z. B. 19:30, leer für sofort)">
-                    <FrameworkInputText @bind-Value="_editScheduledTime" Placeholder="19:30" />
-                </FrameworkFormGroup>
-                <FrameworkCheckbox @bind-Value="_editAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
             </div>
 
-            <FrameworkDivider />
+            <div class="session-config-grid">
+                <FrameworkFormGroup Label="Modus" ForId="edit-event-mode">
+                    <FrameworkSelect Id="edit-event-mode" Value="@_editMode" ValueChanged='v => _editMode = v ?? "active"' Options="@_modeOptions" />
+                </FrameworkFormGroup>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #fff5f5; padding: 12px; border-radius: 8px; border: 1px solid #fecaca;">
-                <div>
-                    <strong style="color: #991b1b; font-size: 13px; display: block;">Gefahrenbereich</strong>
-                    <span style="color: #7f1d1d; font-size: 11px;">Schließt das Event und entfernt es aus den aktiven Tabs.</span>
+                <FrameworkFormGroup Label="Folien-Steuerung" ForId="edit-event-navigation">
+                    <FrameworkSelect Id="edit-event-navigation" Value="@_editNavMode" ValueChanged='v => _editNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                </FrameworkFormGroup>
+            </div>
+
+            <details class="event-settings-disclosure">
+                <summary>
+                    <span>Weitere Einstellungen</span>
+                    <small>Teilnehmeranzeige und Zeitplan</small>
+                </summary>
+                <div class="event-settings-content">
+                    <FrameworkCheckbox @bind-Value="_editIsHidden" Label="Event vor Teilnehmern ausblenden" />
+                    <FrameworkFormGroup Label="Geplante Startzeit (leer für sofort)" ForId="edit-event-scheduled-time">
+                        <FrameworkInputText Id="edit-event-scheduled-time" @bind-Value="_editScheduledTime" Placeholder="19:30" />
+                    </FrameworkFormGroup>
+                    <FrameworkCheckbox @bind-Value="_editAutoStart" Label="Automatisch zur geplanten Uhrzeit starten" />
                 </div>
-                <FrameworkButton Label="Event beenden" Variant="danger" OnClick="() => CloseEditingEventAsync()" />
-            </div>
+            </details>
+
+            <details class="event-settings-disclosure event-danger-disclosure">
+                <summary>
+                    <span>Event beenden</span>
+                    <small>Gefahrenbereich</small>
+                </summary>
+                <div class="event-settings-content event-danger-content">
+                    <p>Schließt das Event und entfernt es aus den aktiven Tabs.</p>
+                    <FrameworkButton Label="Event beenden" Variant="danger" OnClick="() => CloseEditingEventAsync()" />
+                </div>
+            </details>
 
             @if (!string.IsNullOrEmpty(_editModalError))
             {
                 <FrameworkNotice Message="@_editModalError" Severity="error" />
             }
 
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+            <div class="session-config-actions">
                 <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseEditEventModal" />
                 <FrameworkButton Label="Speichern" Variant="primary" OnClick="SaveEditedEventAsync" Busy="_isSavingEdit" />
             </div>
@@ -457,105 +467,121 @@
 </FrameworkModal>
 
 <!-- LINK SHOW MODAL -->
-<FrameworkModal IsOpen="@_isLinkShowModalOpen" Title="Show in Session starten" OnClose="CloseLinkShowModal">
+<FrameworkModal IsOpen="@_isLinkShowModalOpen" Title="Show in Session starten" OnClose="CloseLinkShowModal" DialogClass="session-config-modal">
     <div>
-        <p class="framework-help-text">Wähle eine verknüpfte Show aus, die gestartet werden soll:</p>
         @if (_projectShows.Length == 0)
         {
             <EmptyState Title="Keine Shows verknüpft" Description="Verknüpfe zuerst Shows mit diesem Projekt." />
         }
         else
         {
-            <div style="display: grid; gap: 12px; margin-top: 12px;">
-                <FrameworkFormGroup Label="Start-Modus">
-                    <FrameworkSelect Value="@_showStartMode" ValueChanged='v => _showStartMode = v ?? "active"' Options="@_modeOptions" />
-                </FrameworkFormGroup>
+            <div class="session-config-form">
+                <div class="session-config-grid">
+                    <FrameworkFormGroup Label="Start-Modus" ForId="show-start-mode">
+                        <FrameworkSelect Id="show-start-mode" Value="@_showStartMode" ValueChanged='v => _showStartMode = v ?? "active"' Options="@_modeOptions" />
+                    </FrameworkFormGroup>
+                </div>
 
-                <FrameworkFormGroup Label="Event-Titel überschreiben (optional)">
-                    <FrameworkInputText @bind-Value="_showTitleInput" Placeholder="Show-Titel anpassen..." />
-                </FrameworkFormGroup>
-
-                <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)">
-                    <FrameworkInputText @bind-Value="_showSubtitleInput" Placeholder="z. B. Pause & Büfett eröffnet" />
-                </FrameworkFormGroup>
-
-                <FrameworkFormGroup Label="Folien-Steuerung">
-                    <FrameworkSelect Value="@_showNavMode" ValueChanged='v => _showNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
-                </FrameworkFormGroup>
-
-                <FrameworkCheckbox @bind-Value="_showIsHidden" Label="Show vor Teilnehmern ausblenden" />
-
-                <FrameworkCheckbox @bind-Value="_showIsScheduled" Label="Show zeitlich planen" />
-                @if (_showIsScheduled)
-                {
-                    <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px;">
-                        <FrameworkFormGroup Label="Geplante Startzeit (z. B. 19:30)">
-                            <FrameworkInputText @bind-Value="_showScheduledTimeInput" Placeholder="19:30" />
+                <details class="event-settings-disclosure">
+                    <summary>
+                        <span>Weitere Einstellungen</span>
+                        <small>Titel, Anzeige und Zeitplan</small>
+                    </summary>
+                    <div class="event-settings-content">
+                        <FrameworkFormGroup Label="Event-Titel überschreiben (optional)">
+                            <FrameworkInputText @bind-Value="_showTitleInput" Placeholder="Show-Titel anpassen..." />
                         </FrameworkFormGroup>
-                        <FrameworkCheckbox @bind-Value="_showAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
-                    </div>
-                }
 
-                <FrameworkDivider />
+                        <FrameworkFormGroup Label="Untertitel (optional)">
+                            <FrameworkInputText @bind-Value="_showSubtitleInput" Placeholder="z. B. Pause & Büfett eröffnet" />
+                        </FrameworkFormGroup>
 
-                @foreach (var show in _projectShows)
-                {
-                    <div style="padding: 12px 16px; border: 1px solid #dce5e2; border-radius: 6px; background: #fff; display: flex; justify-content: space-between; align-items: center;">
-                        <strong>@show.Name</strong>
-                        <FrameworkButton Label="Show starten / einplanen" Variant="primary" OnClick="() => StartShowAndCloseModal(show.Id)" />
+                        <FrameworkFormGroup Label="Folien-Steuerung" ForId="show-navigation-mode">
+                            <FrameworkSelect Id="show-navigation-mode" Value="@_showNavMode" ValueChanged='v => _showNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                        </FrameworkFormGroup>
+
+                        <FrameworkCheckbox @bind-Value="_showIsHidden" Label="Show vor Teilnehmern ausblenden" />
+                        <FrameworkCheckbox @bind-Value="_showIsScheduled" Label="Show zeitlich planen" />
+                        @if (_showIsScheduled)
+                        {
+                            <div class="event-schedule-options">
+                                <FrameworkFormGroup Label="Geplante Startzeit" ForId="show-scheduled-time">
+                                    <FrameworkInputText Id="show-scheduled-time" @bind-Value="_showScheduledTimeInput" Placeholder="19:30" />
+                                </FrameworkFormGroup>
+                                <FrameworkCheckbox @bind-Value="_showAutoStart" Label="Automatisch zur geplanten Uhrzeit starten" />
+                            </div>
+                        }
                     </div>
-                }
+                </details>
+
+                <div class="show-start-list">
+                    <div class="event-config-section-heading">Verknüpfte Shows</div>
+                    @foreach (var show in _projectShows)
+                    {
+                        <div class="show-start-card">
+                            <strong title="@show.Name">@show.Name</strong>
+                            <FrameworkButton Label="Show starten / einplanen" Variant="primary" OnClick="() => StartShowAndCloseModal(show.Id)" />
+                        </div>
+                    }
+                </div>
             </div>
         }
     </div>
 </FrameworkModal>
 
-<!-- SPONTANES EVENT MODAL MIT SLIDE EDITOR & SCROLLING -->
-<FrameworkModal IsOpen="@_isSpontaneousModalOpen" Title="Spontanes Event erstellen" OnClose="CloseSpontaneousModal">
-    <div class="modal-form" style="max-height: 70vh; overflow-y: auto; padding-right: 6px;">
+<FrameworkModal IsOpen="@_isSpontaneousModalOpen" Title="Spontanes Event erstellen" OnClose="CloseSpontaneousModal" DialogClass="session-config-modal">
+    <div class="session-config-form">
         <FrameworkFormGroup Label="Event- bzw. Slide-Typ" ForId="modal-slide-type">
             <FrameworkSelect Id="modal-slide-type" Value="@_spontaneousType" ValueChanged="OnSpontaneousTypeChanged" Options="@_slideTypeOptions" />
         </FrameworkFormGroup>
 
-        <FrameworkFormGroup Label="Modus" ForId="modal-mode" Style="margin-top: 12px;">
-            <FrameworkSelect Id="modal-mode" Value="@_spontaneousMode" ValueChanged='v => _spontaneousMode = v ?? "active"' Options="@_modeOptions" />
-        </FrameworkFormGroup>
-
-        <FrameworkFormGroup Label="Event-Titel überschreiben (optional)" Style="margin-top: 12px;">
-            <FrameworkInputText @bind-Value="_spontaneousTitleInput" Placeholder="Titel überschreiben..." />
-        </FrameworkFormGroup>
-
-        <FrameworkFormGroup Label="Event-Unterschrift / Untertitel (optional)" Style="margin-top: 12px;">
-            <FrameworkInputText @bind-Value="_spontaneousSubtitleInput" Placeholder="z. B. Bitte Plätze einnehmen" />
-        </FrameworkFormGroup>
-
-        <FrameworkFormGroup Label="Folien-Steuerung" Style="margin-top: 12px;">
-            <FrameworkSelect Value="@_spontaneousNavMode" ValueChanged='v => _spontaneousNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
-        </FrameworkFormGroup>
-
-        <div style="margin-top: 12px;">
-            <FrameworkCheckbox @bind-Value="_spontaneousIsHidden" Label="Event vor Teilnehmern ausblenden" />
-        </div>
-
-        <div style="margin-top: 12px;">
-            <FrameworkCheckbox @bind-Value="_spontaneousIsScheduled" Label="Event zeitlich planen" />
-            @if (_spontaneousIsScheduled)
-            {
-                <div style="padding: 12px; background: #f8faf9; border-radius: 6px; border: 1px solid #dce5e2; display: grid; gap: 10px; margin-top: 8px;">
-                    <FrameworkFormGroup Label="Geplante Startzeit (z. B. 20:00)">
-                        <FrameworkInputText @bind-Value="_spontaneousScheduledTimeInput" Placeholder="20:00" />
+        <details class="event-settings-disclosure">
+            <summary>
+                <span>Event-Einstellungen</span>
+                <small>Modus, Titel und Zeitplan</small>
+            </summary>
+            <div class="event-settings-content">
+                <div class="session-config-grid">
+                    <FrameworkFormGroup Label="Modus" ForId="modal-mode">
+                        <FrameworkSelect Id="modal-mode" Value="@_spontaneousMode" ValueChanged='v => _spontaneousMode = v ?? "active"' Options="@_modeOptions" />
                     </FrameworkFormGroup>
-                    <FrameworkCheckbox @bind-Value="_spontaneousAutoStart" Label="Automatisch starten wenn Uhrzeit erreicht" />
+
+                    <FrameworkFormGroup Label="Folien-Steuerung" ForId="spontaneous-navigation-mode">
+                        <FrameworkSelect Id="spontaneous-navigation-mode" Value="@_spontaneousNavMode" ValueChanged='v => _spontaneousNavMode = v ?? "host_controlled"' Options="@_navModeOptions" />
+                    </FrameworkFormGroup>
+
+                    <FrameworkFormGroup Label="Event-Titel überschreiben (optional)">
+                        <FrameworkInputText @bind-Value="_spontaneousTitleInput" Placeholder="Titel überschreiben..." />
+                    </FrameworkFormGroup>
+
+                    <FrameworkFormGroup Label="Untertitel (optional)">
+                        <FrameworkInputText @bind-Value="_spontaneousSubtitleInput" Placeholder="z. B. Bitte Plätze einnehmen" />
+                    </FrameworkFormGroup>
                 </div>
-            }
-        </div>
 
-        <FrameworkDivider />
+                <FrameworkCheckbox @bind-Value="_spontaneousIsHidden" Label="Event vor Teilnehmern ausblenden" />
+                <FrameworkCheckbox @bind-Value="_spontaneousIsScheduled" Label="Event zeitlich planen" />
+                @if (_spontaneousIsScheduled)
+                {
+                    <div class="event-schedule-options">
+                        <FrameworkFormGroup Label="Geplante Startzeit" ForId="spontaneous-scheduled-time">
+                            <FrameworkInputText Id="spontaneous-scheduled-time" @bind-Value="_spontaneousScheduledTimeInput" Placeholder="20:00" />
+                        </FrameworkFormGroup>
+                        <FrameworkCheckbox @bind-Value="_spontaneousAutoStart" Label="Automatisch zur geplanten Uhrzeit starten" />
+                    </div>
+                }
+            </div>
+        </details>
 
-        <div style="margin-top: 16px;">
-            <FrameworkFormGroup Label="Interner Name / Titel" ForId="spontaneous-title">
-                <FrameworkInputText Id="spontaneous-title" @bind-Value="_spontaneousSlide.InternalName" Placeholder="Titel eingeben..." />
-            </FrameworkFormGroup>
+        <details class="event-settings-disclosure spontaneous-slide-disclosure" open>
+            <summary>
+                <span>Slide-Inhalt</span>
+                <small>Inhalt für den gewählten Typ konfigurieren</small>
+            </summary>
+            <div class="event-settings-content">
+                <FrameworkFormGroup Label="Interner Name / Titel" ForId="spontaneous-title">
+                    <FrameworkInputText Id="spontaneous-title" @bind-Value="_spontaneousSlide.InternalName" Placeholder="Titel eingeben..." />
+                </FrameworkFormGroup>
 
             @switch (_spontaneousType)
             {
@@ -605,16 +631,17 @@
                     <PantomimeSlideEditor Slide="_spontaneousSlide" />
                     break;
             }
-
-            @if (!string.IsNullOrEmpty(_modalError))
-            {
-                <FrameworkNotice Message="@_modalError" Severity="error" Style="margin-top: 12px;" />
-            }
-
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
-                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseSpontaneousModal" />
-                <FrameworkButton Label="Event erstellen & starten" Variant="primary" OnClick="CreateSpontaneousEventWithEditorAsync" />
             </div>
+        </details>
+
+        @if (!string.IsNullOrEmpty(_modalError))
+        {
+            <FrameworkNotice Message="@_modalError" Severity="error" />
+        }
+
+        <div class="session-config-actions">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseSpontaneousModal" />
+            <FrameworkButton Label="Event erstellen & starten" Variant="primary" OnClick="CreateSpontaneousEventWithEditorAsync" />
         </div>
     </div>
 </FrameworkModal>
