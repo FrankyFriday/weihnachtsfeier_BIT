@@ -22,15 +22,19 @@
         {
             <button @ref="_connectButton" class="framework-button framework-button-secondary" @onclick="ConnectSpotifyAsync" disabled="@(_busy || !_spotifyReady)">Spotify verbinden</button>
         }
-        @if (!GameStarted)
+        @if (CanControlHitster && !GameStarted)
         {
             <button class="framework-button framework-button-primary" @onclick="StartAsync" disabled="@_busy">Hitster starten</button>
         }
-        else if (!Finished)
+        else if (CanControlHitster && !Finished)
         {
             <button class="framework-button framework-button-secondary" @onclick="PlayCurrentAsync" disabled="@(_busy || !_spotifyConnected)">▶ Song abspielen</button>
             <button class="framework-button framework-button-secondary" @onclick="RevealAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "playing" || !HasVotes)">Abstimmung beenden & Jahr aufdecken</button>
             <button class="framework-button framework-button-primary" @onclick="NextAsync" disabled="@(_busy || ReadString(Game, "phase", "") != "revealed")">Nächster Song</button>
+        }
+        @if (!CanControlHitster)
+        {
+            <span>Hitster kann nur gesteuert werden, wenn das Event aktiv im Vordergrund läuft. Aktiviere das Event zuerst.</span>
         }
     </div>
 
@@ -113,6 +117,7 @@
     private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
     private bool GameStarted => ReadBool(Game, "started");
     private bool Finished => ReadBool(Game, "finished");
+    private bool CanControlHitster => Event.Status == "active" && Event.Mode == "active";
     private JsonElement VoteSummary => ReadObject(Game, "voteSummary");
     private bool HasVotes => ReadInt(VoteSummary, "submittedVotes") > 0;
 

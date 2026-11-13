@@ -1,5 +1,7 @@
 # Entwicklung und Betrieb
 
+Die vollständige Anleitung zum lokalen und produktiven Aufbau des WeihnachtsfeierBIT-Stacks inklusive Nginx Proxy Manager, Domains, Spotify-Konfiguration, Backups und Fehlersuche steht unter [Gesamtsystem aufsetzen und betreiben](system-setup.md).
+
 ## Vollständiges Update und Validierung
 
 Wenn Docker verfügbar ist und der lokale Stack gestartet werden soll, bevorzugt dieses Skript vom Repository-Root aus:
@@ -70,14 +72,14 @@ printf 'POSTGRES_PASSWORD=%s\nSPOTIFY_CLIENT_ID=%s\nSPOTIFY_REDIRECT_URI=%s\n' \
   '<Spotify-Client-ID>' \
   'https://<app-host>/admin/spotify-callback.html' > .env
 chmod 600 .env
-docker compose -f WeihnachtsfeierBIT/docker-compose.production.yml -p weihnachtsfeierbit up -d --build
+docker compose --env-file .env -f WeihnachtsfeierBIT/docker-compose.production.yml -p weihnachtsfeierbit up -d --build
 ```
 
 Das `.env` mit dem zufälligen Datenbankpasswort muss im Server-Checkout bleiben und darf nicht committet werden. Das PostgreSQL-Volume wird beim normalen Deployment beibehalten; `down --volumes` löscht die Produktionsdatenbank und ist zu vermeiden. Der API-Start wendet vorhandene EF-Migrationen automatisch an.
 
 Admin-, Teilnehmer- und Webfrontend persistieren ihre ASP.NET-Data-Protection-Keys jeweils in getrennten Docker-Volumes. Diese Volumes nicht löschen: Ohne die ursprünglichen Schlüssel können bestehende Cookies und Antiforgery-Tokens nach einem Container-Neubau nicht mehr entschlüsselt werden, wodurch Blazor-Verbindungen abbrechen können. Nach der erstmaligen Aktivierung dieser Volumes müssen Benutzer mit noch offenen alten Sitzungen die Seite neu laden und sich gegebenenfalls erneut anmelden.
 
-Für die Hitster-Slide `SPOTIFY_CLIENT_ID` und `SPOTIFY_REDIRECT_URI` in derselben `.env` setzen. Der Spotify-OAuth-Flow verwendet PKCE wie die Anwendung im Ordner `Hitster`; ein Client Secret wird nicht benötigt. Die Redirect-URI muss exakt im Spotify Developer Dashboard eingetragen sein und auf `/admin/spotify-callback.html` zeigen. Die Spielleitung benötigt Spotify Premium und die Wiedergabe läuft im Browser des Admin-Geräts.
+Für die Hitster-Slide `SPOTIFY_CLIENT_ID` und `SPOTIFY_REDIRECT_URI` in der `.env` des jeweils verwendeten Compose-Aufrufs setzen. Der Spotify-OAuth-Flow verwendet PKCE; ein Client Secret wird nicht benötigt. Die Redirect-URI muss exakt im Spotify Developer Dashboard eingetragen sein und auf `/admin/spotify-callback.html` zeigen. Die Spielleitung benötigt Spotify Premium und die Wiedergabe läuft im Browser des Admin-Geräts. Die lokalen und produktiven `.env`-Pfade sind in der [Systemaufbau-Anleitung](system-setup.md) aufgeführt.
 
 ### Automatisches Deployment
 
@@ -120,4 +122,4 @@ dotnet build WeihnachtsfeierBit.slnx
 - `GET /api/projects/{id}/teams` ohne Token sollte `401`, mit Teilnehmer-Token `200` liefern.
 - Ein Schreibzugriff mit Teilnehmer- statt Admin-Token sollte `403` liefern.
 - Die `/test-entries`-Routen existieren nur in Development.
-- Data-Protection-Keys des Adminclients liegen derzeit nicht in einem persistenten Volume. Nach Container-Neubau können Admin-Cookies ungültig sein; vor dauerhaftem Mehrinstanzbetrieb Key-Ring persistieren und schützen.
+- Datenbank- und Data-Protection-Volumes dürfen beim regulären Update nicht gelöscht werden. `docker compose down --volumes` entfernt sie; Backup-Befehle stehen in der [Systemaufbau-Anleitung](system-setup.md).

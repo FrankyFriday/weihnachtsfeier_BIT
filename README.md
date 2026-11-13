@@ -28,6 +28,7 @@ Im Admin-Panel werden zunächst Projekte angelegt. Shows sind globale, benannte 
 - [Datenmodell](docs/data-model.md)
 - [API und Berechtigungen](docs/api-and-auth.md)
 - [Entwicklung und Betrieb](docs/development-and-operations.md)
+- [Gesamtsystem aufsetzen und betreiben](docs/system-setup.md)
 - [Agent-Regeln](AGENTS.md)
 
-`Hitster/` ist ein unabhängiges Randprojekt. Es ist aktuell nicht in WeihnachtsfeierBIT integriert und kein Fokus dieser Dokumentation.
+Die Hitster-Slide verwendet eine beim API-Build eingebettete Playlist aus `Hitster/data/songs.json`. Die [Systemaufbau-Anleitung](docs/system-setup.md) beschreibt den WeihnachtsfeierBIT-Stack und dessen Hitster-Slide.
