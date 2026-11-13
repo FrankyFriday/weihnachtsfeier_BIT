@@ -66,6 +66,7 @@ public sealed class GameStateNotifier(
         var teams = await dbContext.Teams.AsNoTracking()
             .Where(t => t.ProjektId == projectId)
             .Include(t => t.Teilnehmer)
+                .ThenInclude(p => p.Berechtigung)
             .ToListAsync(cancellationToken);
         var teamParticipantIds = teams.ToDictionary(
             team => team.Id,
@@ -82,7 +83,11 @@ public sealed class GameStateNotifier(
             var team = orderedTeams[i];
             var members = team.Teilnehmer
                 .OrderBy(m => m.Nummer)
-                .Select(m => new ParticipantState(m.Id, m.Nummer, m.Name))
+                .Select(m => new ParticipantState(
+                    m.Id,
+                    m.Nummer,
+                    m.Name,
+                    new ParticipantPermissions(ParticipantPermissionKeys.ParsePermissionsJson(m.Berechtigung?.PermissionsJson))))
                 .ToArray();
 
             teamStates.Add(new TeamState(

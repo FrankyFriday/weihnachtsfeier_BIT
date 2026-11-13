@@ -9,5 +9,6 @@ public class Teilnehmer
     public Guid? TeamId { get; set; }
     public Team? Team { get; set; }
     public required Projekt Projekt { get; set; }
+    public TeilnehmerBerechtigung? Berechtigung { get; set; }
     public List<Sitzung> Sitzungen { get; set; } = [];
 }

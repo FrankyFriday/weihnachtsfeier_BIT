@@ -25,6 +25,9 @@ public static class SessionControlEndpoints
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
         admin.MapPost("/session/toggle-pause", ToggleSessionPauseAsync).WithName("ToggleSessionPause");
+        admin.MapPut("/session/events/{eventId:guid}/responses/{responseId:guid}", AdminUpdateResponseAsync).WithName("AdminUpdateResponse");
+        admin.MapDelete("/session/events/{eventId:guid}/responses/{responseId:guid}", AdminDeleteResponseAsync).WithName("AdminDeleteResponse");
+        admin.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/responses/override", AdminOverrideResponseAsync).WithName("AdminOverrideResponse");
     }
 
     private static bool IsValidPantomimeConfiguration(JsonElement parameters)
@@ -626,5 +629,101 @@ public static class SessionControlEndpoints
             "point_award" => "Punktevergabe",
             _ => "Spontanes Event"
         };
+    }
+
+    private static async Task<IResult> AdminUpdateResponseAsync(
+        Guid projectId,
+        Guid eventId,
+        Guid responseId,
+        AdminUpdateResponseRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession) return Results.BadRequest(new ApiError("Keine Berechtigung."));
+
+        var response = await dbContext.GameInstanceEventResponses
+            .FirstOrDefaultAsync(r => r.Id == responseId && r.GameInstanceEventId == eventId, cancellationToken);
+        if (response is null) return Results.NotFound();
+
+        response.ResponseJson = request.ResponseData.GetRawText();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> AdminDeleteResponseAsync(
+        Guid projectId,
+        Guid eventId,
+        Guid responseId,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession) return Results.BadRequest(new ApiError("Keine Berechtigung."));
+
+        var response = await dbContext.GameInstanceEventResponses
+            .FirstOrDefaultAsync(r => r.Id == responseId && r.GameInstanceEventId == eventId, cancellationToken);
+        if (response is null) return Results.NotFound();
+
+        dbContext.GameInstanceEventResponses.Remove(response);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> AdminOverrideResponseAsync(
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        AdminOverrideResponseRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession) return Results.BadRequest(new ApiError("Keine Berechtigung."));
+
+        var ev = await dbContext.GameInstanceEvents
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.GameInstance.ProjektId == projectId, cancellationToken);
+        if (ev is null) return Results.NotFound();
+
+        var participant = await dbContext.Teilnehmer
+            .FirstOrDefaultAsync(p => p.Id == request.ParticipantId && p.ProjektId == projectId, cancellationToken);
+        if (participant is null) return Results.NotFound(new ApiError("Teilnehmer nicht gefunden."));
+
+        var existing = await dbContext.GameInstanceEventResponses
+            .FirstOrDefaultAsync(r => r.GameInstanceEventId == eventId && r.SlideId == slideId && r.ParticipantId == request.ParticipantId, cancellationToken);
+
+        var now = DateTime.UtcNow;
+        if (existing is not null)
+        {
+            existing.ResponseJson = request.ResponseData.GetRawText();
+            existing.SubmittedAtUtc = now;
+        }
+        else
+        {
+            var newResp = new GameInstanceEventResponse
+            {
+                GameInstanceEventId = eventId,
+                SlideId = slideId,
+                ParticipantId = request.ParticipantId,
+                ResponseJson = request.ResponseData.GetRawText(),
+                SubmittedAtUtc = now
+            };
+            dbContext.GameInstanceEventResponses.Add(newResp);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
     }
 }

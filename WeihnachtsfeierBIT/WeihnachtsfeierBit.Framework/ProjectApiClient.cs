@@ -1004,6 +1004,40 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<ParticipantSummary> UpdateParticipantPermissionsAsync(
+        string accessToken, Guid projectId, Guid participantId, Dictionary<string, bool> permissions, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/{participantId}/permissions", accessToken, new { permissions });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSummary>(cancellationToken)
+            ?? new ParticipantSummary(participantId, 0, null, null);
+    }
+
+    public async Task AdminSubmitResponseAsync(
+        string accessToken, Guid projectId, Guid eventId, Guid slideId, Guid participantId, JsonElement responseData, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses/override", accessToken, new { participantId, responseData });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task AdminUpdateResponseAsync(
+        string accessToken, Guid projectId, Guid eventId, Guid responseId, JsonElement responseData, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/{eventId}/responses/{responseId}", accessToken, new { responseData });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task AdminDeleteResponseAsync(
+        string accessToken, Guid projectId, Guid eventId, Guid responseId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/session/events/{eventId}/responses/{responseId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path, string accessToken, object? content = null)
     {
         var request = new HttpRequestMessage(method, path);
@@ -1063,7 +1097,16 @@ public record ParticipantSessionResponse(
     string DisplayName,
     Guid? ParticipantId = null,
     Guid? TeamId = null);
-public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId);
+public sealed record ParticipantPermissions(Dictionary<string, bool> Values)
+{
+    public bool HasPermission(string key)
+    {
+        if (Values.TryGetValue(ParticipantPermissionKeys.IsMuted, out var muted) && muted) return false;
+        return !Values.TryGetValue(key, out var allowed) || allowed;
+    }
+}
+
+public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId, ParticipantPermissions? Permissions = null);
 public sealed record AdminAccessSessionSummary(
     Guid Id,
     Guid ProjektAdminId,
@@ -1095,7 +1138,7 @@ public sealed record SlideWriteRequest(string Type, int Position, JsonElement Pa
 public sealed record ReorderSlidesRequest(Guid[] SlideIds);
 public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
 public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
-public sealed record ParticipantState(Guid Id, int Number, string? Name);
+public sealed record ParticipantState(Guid Id, int Number, string? Name, ParticipantPermissions? Permissions = null);
 public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
 
 public sealed record EventSlideState(

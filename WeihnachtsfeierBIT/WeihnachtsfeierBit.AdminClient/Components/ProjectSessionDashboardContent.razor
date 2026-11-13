@@ -58,10 +58,13 @@
         {
             <FrameworkNotice Message="@ErrorMessage" Severity="error" />
         }
-        @if (!string.IsNullOrEmpty(_noticeMessage))
-        {
-            <FrameworkNotice Message="@_noticeMessage" Severity="success" />
-        }
+
+        <div class="regie-dashboard-layout">
+            <div class="regie-dashboard-main">
+                @if (!string.IsNullOrEmpty(_noticeMessage))
+                {
+                    <FrameworkNotice Message="@_noticeMessage" Severity="success" />
+                }
         @if (!string.IsNullOrEmpty(_actionError))
         {
             <FrameworkNotice Message="@_actionError" Severity="error" />
@@ -157,6 +160,7 @@
                                     <FrameworkButton Label="Auf Beamer anzeigen" Variant="secondary" OnClick="() => SetCanvasEvent(ev.EventId)" />
                                 }
 
+                                <FrameworkButton Label="Live-Regie & Moderation" Variant="secondary" OnClick="ToggleRegieSidebar" />
                                 <FrameworkIconButton Icon="settings" Title="Event-Konfiguration bearbeiten" OnClick="() => OpenEditEventModal(ev)" />
                             </div>
                         </div>
@@ -242,37 +246,37 @@
                                     <AnnouncementResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
                                 case "poll":
-                                    <PollResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <PollResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "quiz":
-                                    <QuizResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <QuizResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "ranking":
                                     <RankingResultView Event="ev" CurrentSlide="currentSlide" />
                                     break;
                                 case "estimation":
-                                    <EstimationResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <EstimationResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "buzzer":
-                                    <BuzzerResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <BuzzerResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "hitster":
                                     <HitsterResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "text":
-                                    <TextResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <TextResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "word_cloud":
-                                    <WordCloudResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <WordCloudResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "slider":
-                                    <SliderResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <SliderResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "rating":
-                                    <RatingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <RatingResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "ordering":
-                                    <OrderingResultView Event="ev" CurrentSlide="currentSlide" />
+                                    <OrderingResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                                     break;
                                 case "countdown":
                                     <CountdownResultView Event="ev" CurrentSlide="currentSlide" ProjectId="ProjectId" />
@@ -328,8 +332,110 @@
                 }
             </div>
         }
+            </div> <!-- end regie-dashboard-main -->
+
+            <!-- DOCKED / FLOATING REGIE SIDEBAR -->
+            @if (_isRegieSidebarOpen)
+            {
+                @if (!_isRegieSidebarPinned)
+                {
+                    <div class="regie-drawer-backdrop" @onclick="ToggleRegieSidebar"></div>
+                }
+                <div class="regie-sidebar @(_isRegieSidebarPinned ? "pinned" : "floating")">
+                    <div class="regie-sidebar-header">
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <button type="button" class="btn-tab @(_regieActiveTab == "emulator" ? "active" : "")" @onclick='() => _regieActiveTab = "emulator"'>
+                                <span class="material-symbols-outlined" style="font-size: 18px;">smartphone</span>
+                                <span>Emulator</span>
+                            </button>
+                            <button type="button" class="btn-tab @(_regieActiveTab == "participants" ? "active" : "")" @onclick='() => _regieActiveTab = "participants"'>
+                                <span class="material-symbols-outlined" style="font-size: 18px;">group</span>
+                                <span>Teilnehmer</span>
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <button type="button" class="btn-icon-small" title="@(_isRegieSidebarPinned ? "Lösen" : "Dauerhaft andocken")" @onclick="ToggleRegiePin">
+                                <span class="material-symbols-outlined" style="font-size: 18px; color: @(_isRegieSidebarPinned ? "#105c4d" : "#64748b");">push_pin</span>
+                            </button>
+                            <button type="button" class="btn-icon-small" title="Schließen" @onclick="ToggleRegieSidebar">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (_regieActiveTab == "emulator")
+                    {
+                        <div class="regie-sidebar-body">
+                            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+                                <label style="font-size: 12px; font-weight: 700; color: #475569;">Simulierter Teilnehmer:</label>
+                                <select class="framework-select" value="@(_selectedEmulatorParticipant?.Id.ToString() ?? "")" @onchange="OnEmulatorParticipantSelected">
+                                    @if (_participants.Length == 0)
+                                    {
+                                        <option value="">Keine Teilnehmer vorhanden</option>
+                                    }
+                                    @foreach (var p in _participants.OrderBy(p => p.Number))
+                                    {
+                                        <option value="@p.Id">#@p.Number @(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")</option>
+                                    }
+                                </select>
+                            </div>
+
+                            @if (_selectedEmulatorParticipant is not null && _instance is not null)
+                            {
+                                <div class="phone-frame-container">
+                                    <iframe key="@($"{_selectedEmulatorParticipant.Id}_{_emulatorTicks}")"
+                                            src="@($"/play/{_instance.AccessCode}?number={_selectedEmulatorParticipant.Number}&_t={_emulatorTicks}")"
+                                            class="phone-frame-iframe"
+                                            title="Teilnehmer-Handy Emulator"></iframe>
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="text-align: center; color: #64748b; padding: 40px 16px;">
+                                    <span class="material-symbols-outlined" style="font-size: 48px; color: #cbd5e1; margin-bottom: 8px;">smartphone</span>
+                                    <p style="margin: 0; font-size: 13px;">Wähle einen Teilnehmer aus der Liste, um sein Handy live zu simulieren.</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="regie-sidebar-body">
+                            <FrameworkInputText @bind-Value="_regieSearchQuery" Placeholder="Teilnehmer suchen (#12 oder Name)..." />
+                            <div style="display: flex; gap: 6px; margin: 8px 0;">
+                                <button type="button" class="btn-chip @(_regieFilter == "all" ? "active" : "")" @onclick='() => _regieFilter = "all"'>Alle (@FilteredParticipants.Count)</button>
+                                <button type="button" class="btn-chip @(_regieFilter == "muted" ? "active" : "")" @onclick='() => _regieFilter = "muted"'>Gesperrt</button>
+                            </div>
+                            <div class="regie-participant-list">
+                                @foreach (var p in FilteredParticipants)
+                                {
+                                    var team = _teams.FirstOrDefault(t => t.Id == p.TeamId);
+                                    <div class="regie-participant-item">
+                                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                            <strong style="font-size: 13px; min-width: 28px;">#@p.Number</strong>
+                                            <span style="font-size: 13px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">@(string.IsNullOrWhiteSpace(p.Name) ? "Teilnehmer" : p.Name)</span>
+                                            @if (team is not null)
+                                            {
+                                                <span class="team-dot" style="background-color: @team.Color;" title="@team.DisplayName"></span>
+                                            }
+                                        </div>
+                                        <div style="display: flex; gap: 4px;">
+                                            <button type="button" class="btn-icon-small" title="Handy-Emulator öffnen" @onclick="() => SelectAndEmulate(p)">
+                                                <span class="material-symbols-outlined" style="font-size: 18px;">smartphone</span>
+                                            </button>
+                                            <button type="button" class="btn-icon-small" title="Berechtigungen verwalten" @onclick="() => OpenPermissionsModal(p)">
+                                                <span class="material-symbols-outlined" style="font-size: 18px;">security</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div> <!-- end regie-dashboard-layout -->
     }
-</FrameworkPage>
 
 <!-- AWARD / DEDUCT POINTS MODAL -->
 <FrameworkModal IsOpen="@_isAwardPointsModalOpen" Title="Punkte vergeben oder abziehen" OnClose="CloseAwardPointsModal">
@@ -677,6 +783,36 @@
     }
 </FrameworkModal>
 
+<!-- PARTICIPANT PERMISSIONS MODAL -->
+<FrameworkModal IsOpen="_isPermissionsModalOpen" Title="@($"Berechtigungen für #{_permissionsParticipant?.Number} {(_permissionsParticipant?.Name ?? "")}")" OnClose="ClosePermissionsModal">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="margin: 0; font-size: 13px; color: #64748b;">
+            Schalte Berechtigungen für diesen Teilnehmer gezielt frei oder stumme schädliche Aktionen.
+        </p>
+
+        @foreach (var kvp in ParticipantPermissionKeys.Metadata)
+        {
+            var key = kvp.Key;
+            var (label, category) = kvp.Value;
+            var isChecked = _permissionsValues.TryGetValue(key, out var val) ? val : true;
+
+            <FrameworkCheckbox Value="isChecked" ValueChanged="v => OnPermissionToggled(key, v)" Label="@label" HelpText="@($"Kategorie: {category}")" />
+        }
+
+        @if (!string.IsNullOrEmpty(_permissionsModalError))
+        {
+            <FrameworkNotice Message="@_permissionsModalError" Severity="error" />
+        }
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="ClosePermissionsModal" />
+            <FrameworkButton Label="Berechtigungen speichern" Variant="primary" OnClick="SaveParticipantPermissionsAsync" Busy="_isSavingPermissions" />
+        </div>
+    </div>
+</FrameworkModal>
+
+</FrameworkPage>
+
 @code {
     [Parameter] public Guid ProjectId { get; set; }
 
@@ -797,6 +933,126 @@
         new("self_paced", "Selbstständig (Teilnehmer blättern selbst)")
     ];
 
+    private ParticipantSummary[] _participants = [];
+    private bool _isRegieSidebarOpen;
+    private bool _isRegieSidebarPinned;
+    private string _regieActiveTab = "emulator";
+    private string _regieSearchQuery = string.Empty;
+    private string _regieFilter = "all";
+
+    private ParticipantSummary? _selectedEmulatorParticipant;
+    private long _emulatorTicks = DateTime.UtcNow.Ticks;
+
+    private bool _isPermissionsModalOpen;
+    private ParticipantSummary? _permissionsParticipant;
+    private Dictionary<string, bool> _permissionsValues = [];
+    private bool _isSavingPermissions;
+    private string? _permissionsModalError;
+
+    private List<ParticipantSummary> FilteredParticipants
+    {
+        get
+        {
+            var list = _participants.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_regieSearchQuery))
+            {
+                var q = _regieSearchQuery.Trim().ToLowerInvariant();
+                list = list.Where(p => p.Number.ToString().Contains(q) || (p.Name is not null && p.Name.ToLowerInvariant().Contains(q)));
+            }
+            if (_regieFilter == "muted")
+            {
+                list = list.Where(p => p.Permissions is not null && p.Permissions.HasPermission(ParticipantPermissionKeys.IsMuted) == false);
+            }
+            return list.OrderBy(p => p.Number).ToList();
+        }
+    }
+
+    private void ToggleRegieSidebar()
+    {
+        _isRegieSidebarOpen = !_isRegieSidebarOpen;
+        if (_isRegieSidebarOpen && _selectedEmulatorParticipant is null && _participants.Length > 0)
+        {
+            _selectedEmulatorParticipant = _participants[0];
+            _emulatorTicks = DateTime.UtcNow.Ticks;
+        }
+    }
+
+    private void ToggleRegiePin() => _isRegieSidebarPinned = !_isRegieSidebarPinned;
+
+    private void SelectAndEmulate(ParticipantSummary p)
+    {
+        _selectedEmulatorParticipant = p;
+        _emulatorTicks = DateTime.UtcNow.Ticks;
+        _regieActiveTab = "emulator";
+        _isRegieSidebarOpen = true;
+    }
+
+    private void OnEmulatorParticipantSelected(ChangeEventArgs e)
+    {
+        if (e.Value is string val && Guid.TryParse(val, out var parsedId))
+        {
+            var match = _participants.FirstOrDefault(p => p.Id == parsedId);
+            if (match is not null)
+            {
+                _selectedEmulatorParticipant = match;
+                _emulatorTicks = DateTime.UtcNow.Ticks;
+            }
+        }
+    }
+
+    private void OpenPermissionsModal(ParticipantSummary p)
+    {
+        _permissionsParticipant = p;
+        _permissionsValues = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in ParticipantPermissionKeys.DefaultPermissions())
+        {
+            _permissionsValues[kvp.Key] = kvp.Value;
+        }
+
+        if (p.Permissions?.Values is not null)
+        {
+            foreach (var kvp in p.Permissions.Values)
+            {
+                _permissionsValues[kvp.Key] = kvp.Value;
+            }
+        }
+
+        _permissionsModalError = null;
+        _isPermissionsModalOpen = true;
+    }
+
+    private void ClosePermissionsModal() => _isPermissionsModalOpen = false;
+
+    private void OnPermissionToggled(string key, bool value)
+    {
+        _permissionsValues[key] = value;
+    }
+
+    private async Task SaveParticipantPermissionsAsync()
+    {
+        if (_permissionsParticipant is null) return;
+        _isSavingPermissions = true;
+        _permissionsModalError = null;
+
+        try
+        {
+            await RunAuthenticatedAsync(async token =>
+            {
+                await ProjectApiClient.UpdateParticipantPermissionsAsync(token, ProjectId, _permissionsParticipant.Id, _permissionsValues);
+                _isPermissionsModalOpen = false;
+                await LoadDataAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            _permissionsModalError = ex.Message;
+        }
+        finally
+        {
+            _isSavingPermissions = false;
+        }
+    }
+
     protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
     {
         await ConnectSignalRAsync(token);
@@ -860,12 +1116,14 @@
             var instanceTask = ProjectApiClient.GetActiveGameInstanceAsync(token, ProjectId);
             var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
             var showsTask = ProjectApiClient.GetShowsAsync(token, ProjectId);
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
 
-            await Task.WhenAll(instanceTask, teamsTask, showsTask);
+            await Task.WhenAll(instanceTask, teamsTask, showsTask, participantsTask);
 
             _instance = await instanceTask;
             _teams = await teamsTask;
             _projectShows = await showsTask;
+            _participants = await participantsTask;
 
             if (_teams.Length > 0 && _awardTeamId == Guid.Empty)
             {

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
@@ -16,6 +17,7 @@ public static class ParticipantEndpoints
         admin.MapPost("/participants/randomize-teams", RandomizeTeamsAsync).WithName("RandomizeTeams");
         admin.MapPut("/participants/{participantId:guid}", UpdateParticipantAsync).WithName("UpdateParticipant");
         admin.MapDelete("/participants/{participantId:guid}", DeleteParticipantAsync).WithName("DeleteParticipant");
+        admin.MapPut("/participants/{participantId:guid}/permissions", UpdateParticipantPermissionsAsync).WithName("UpdateParticipantPermissions");
     }
 
     private static async Task<IResult> GetParticipantsAsync(
@@ -24,9 +26,15 @@ public static class ParticipantEndpoints
         CancellationToken cancellationToken)
     {
         var participants = await dbContext.Teilnehmer.AsNoTracking()
+            .Include(item => item.Berechtigung)
             .Where(item => item.ProjektId == projectId)
             .OrderBy(item => item.Nummer)
-            .Select(item => new ParticipantResponse(item.Id, item.Nummer, item.Name, item.Team == null ? null : item.Team.Id))
+            .Select(item => new ParticipantResponse(
+                item.Id,
+                item.Nummer,
+                item.Name,
+                item.Team == null ? null : item.Team.Id,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(item.Berechtigung == null ? null : item.Berechtigung.PermissionsJson)))
             .ToListAsync(cancellationToken);
         return Results.Ok(participants);
     }
@@ -337,5 +345,53 @@ public static class ParticipantEndpoints
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.Ok(new RandomizeTeamsResponse(participants.Count));
+    }
+
+    private static async Task<IResult> UpdateParticipantPermissionsAsync(
+        Guid projectId,
+        Guid participantId,
+        UpdateParticipantPermissionsRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanManageParticipants && !access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Teilnehmerberechtigungen zu verwalten."));
+        }
+
+        var participant = await dbContext.Teilnehmer
+            .Include(t => t.Berechtigung)
+            .FirstOrDefaultAsync(item => item.Id == participantId && item.ProjektId == projectId, cancellationToken);
+
+        if (participant is null) return Results.NotFound();
+
+        var json = JsonSerializer.Serialize(request.Permissions);
+        if (participant.Berechtigung is null)
+        {
+            participant.Berechtigung = new TeilnehmerBerechtigung
+            {
+                TeilnehmerId = participant.Id,
+                PermissionsJson = json
+            };
+            dbContext.TeilnehmerBerechtigungen.Add(participant.Berechtigung);
+        }
+        else
+        {
+            participant.Berechtigung.PermissionsJson = json;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        var parsedPerms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(json);
+        return Results.Ok(new ParticipantResponse(
+            participant.Id,
+            participant.Nummer,
+            participant.Name,
+            participant.TeamId,
+            parsedPerms));
     }
 }
