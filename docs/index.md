@@ -1,6 +1,6 @@
 # Dokumentation
 
-Diese Dokumentation beschreibt ausschließlich **WeihnachtsfeierBIT**. Sie trennt den überprüfbaren Implementierungsstand von der Produktvision. `Hitster/` ist ein unabhängiges Randprojekt und derzeit nicht im Fokus.
+Die Fachseiten beschreiben **WeihnachtsfeierBIT** und trennen den überprüfbaren Implementierungsstand von der Produktvision. Die [Systemaufbau-Anleitung](system-setup.md) beschreibt den Docker-Betrieb von WeihnachtsfeierBIT samt Nginx Proxy Manager und integrierter Hitster-Slide. Deren Playlist wird beim API-Build aus `Hitster/data/songs.json` eingebettet.
 
 ## Einstieg
 
@@ -9,6 +9,7 @@ Diese Dokumentation beschreibt ausschließlich **WeihnachtsfeierBIT**. Sie trenn
 - [Datenmodell](data-model.md): Entities, Beziehungen, Sessions und Slide-JSONB
 - [API und Berechtigungen](api-and-auth.md): Endpunkte, Authentifizierung und Zugriffsmatrix
 - [Entwicklung und Betrieb](development-and-operations.md): Docker, Migrationen, DataGrip und Diagnose
+- [Gesamtsystem aufsetzen und betreiben](system-setup.md): Voraussetzungen, Konfiguration, Docker, NPM, Updates, Backups und Fehlerbehebung
 - [Repository-Anweisungen für Agents](../AGENTS.md): kurze verbindliche Regeln für Änderungen
 
 ## Quellen der Wahrheit
