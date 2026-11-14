@@ -19,8 +19,7 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
     private SessionDashboardState _state = null!;
     private ModerationSidebar? _moderationSidebar;
 
-    private bool _isRegieSidebarOpen;
-    private bool _isRegieSidebarPinned;
+    private bool _isRegieDrawerOpen;
 
     private bool _isAwardPointsModalOpen;
     private Guid _awardDefaultTeamId;
@@ -154,8 +153,13 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
 
     private void ClosePermissionsModal() => _isPermissionsModalOpen = false;
 
-    private void ToggleRegieSidebar() => _isRegieSidebarOpen = !_isRegieSidebarOpen;
-    private void ToggleRegiePin() => _isRegieSidebarPinned = !_isRegieSidebarPinned;
+    private async Task ToggleRegieSidebar()
+    {
+        if (_moderationSidebar is not null)
+        {
+            await _moderationSidebar.ToggleCompartment("emulator");
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {

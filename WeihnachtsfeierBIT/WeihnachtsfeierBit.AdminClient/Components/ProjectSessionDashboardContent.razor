@@ -22,7 +22,7 @@
             <FrameworkNotice Message="@ErrorMessage" Severity="error" />
         }
 
-        <div class="regie-dashboard-layout">
+        <div class="regie-dashboard-layout @(_isRegieDrawerOpen ? "drawer-open" : "")">
             <div class="regie-dashboard-main">
                 @if (!string.IsNullOrEmpty(_state.NoticeMessage))
                 {
@@ -67,14 +67,11 @@
             </div>
 
             <ModerationSidebar @ref="_moderationSidebar"
-                               IsOpen="_isRegieSidebarOpen"
-                               IsPinned="_isRegieSidebarPinned"
                                Participants="_state.Participants"
                                Teams="_state.Teams"
                                Instance="_state.Instance"
-                               OnToggleSidebar="ToggleRegieSidebar"
-                               OnTogglePin="ToggleRegiePin"
-                               OnOpenPermissions="OpenPermissionsModal" />
+                               OnOpenPermissions="OpenPermissionsModal"
+                               OnDrawerStateChanged="state => _isRegieDrawerOpen = state" />
         </div>
 
         <!-- MODALS -->

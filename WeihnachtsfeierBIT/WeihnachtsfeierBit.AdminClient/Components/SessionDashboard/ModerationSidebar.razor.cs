@@ -5,17 +5,16 @@ namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard;
 
 public partial class ModerationSidebar : ComponentBase
 {
-    [Parameter] public bool IsOpen { get; set; }
-    [Parameter] public bool IsPinned { get; set; }
     [Parameter] public ParticipantSummary[] Participants { get; set; } = [];
     [Parameter] public TeamSummary[] Teams { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
 
-    [Parameter] public EventCallback OnToggleSidebar { get; set; }
-    [Parameter] public EventCallback OnTogglePin { get; set; }
     [Parameter] public EventCallback<ParticipantSummary> OnOpenPermissions { get; set; }
+    [Parameter] public EventCallback<bool> OnDrawerStateChanged { get; set; }
 
-    private string _regieActiveTab = "emulator";
+    private bool _isDrawerOpen;
+    private string _activeCompartment = "emulator";
+
     private string _regieSearchQuery = string.Empty;
     private string _regieFilter = "all";
 
@@ -24,18 +23,40 @@ public partial class ModerationSidebar : ComponentBase
 
     protected override void OnParametersSet()
     {
-        if (IsOpen && _selectedEmulatorParticipant is null && Participants.Length > 0)
+        if (_selectedEmulatorParticipant is null && Participants.Length > 0)
         {
             _selectedEmulatorParticipant = Participants[0];
             _emulatorTicks = DateTime.UtcNow.Ticks;
         }
     }
 
-    public void SelectAndEmulate(ParticipantSummary p)
+    public async Task ToggleCompartment(string compartment)
+    {
+        if (_isDrawerOpen && _activeCompartment == compartment)
+        {
+            _isDrawerOpen = false;
+        }
+        else
+        {
+            _activeCompartment = compartment;
+            _isDrawerOpen = true;
+        }
+        await OnDrawerStateChanged.InvokeAsync(_isDrawerOpen);
+    }
+
+    public async Task CloseDrawer()
+    {
+        _isDrawerOpen = false;
+        await OnDrawerStateChanged.InvokeAsync(false);
+    }
+
+    public async Task SelectAndEmulate(ParticipantSummary p)
     {
         _selectedEmulatorParticipant = p;
         _emulatorTicks = DateTime.UtcNow.Ticks;
-        _regieActiveTab = "emulator";
+        _activeCompartment = "emulator";
+        _isDrawerOpen = true;
+        await OnDrawerStateChanged.InvokeAsync(true);
     }
 
     private void OnEmulatorParticipantSelected(ChangeEventArgs e)

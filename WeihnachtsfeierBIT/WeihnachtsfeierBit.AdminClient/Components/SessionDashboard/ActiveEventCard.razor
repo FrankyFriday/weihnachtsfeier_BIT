@@ -80,7 +80,7 @@
                         var isActive = slideIndex == Event.CurrentSlideIndex;
 
                         <div @onclick="() => OnStepEventSlideTo.InvokeAsync(slideIndex)"
-                             style="min-width: 140px; max-width: 160px; height: 105px; padding: 10px; border-radius: 8px; border: 2px solid @(isActive ? "#197b67" : "#cbd7d3"); background: @(isActive ? "#e8f3ef" : "#ffffff"); cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; box-shadow: @(isActive ? "0 4px 12px rgba(25, 123, 103, 0.2)" : "0 2px 4px rgba(0,0,0,0.03)"); transition: all 0.15s ease;">
+                             style="min-width: 130px; max-width: 150px; height: 82px; padding: 8px 10px; border-radius: 8px; border: 2px solid @(isActive ? "#197b67" : "#cbd7d3"); background: @(isActive ? "#e8f3ef" : "#ffffff"); cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; box-shadow: @(isActive ? "0 4px 12px rgba(25, 123, 103, 0.2)" : "0 2px 4px rgba(0,0,0,0.03)"); transition: all 0.15s ease;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-size: 12px; font-weight: 800; color: @(isActive ? "#105c4d" : "#657276");">#@(slideIndex + 1)</span>
                                 <FrameworkBadge Text="@slide.Type.ToUpperInvariant()" Variant="@slide.Type" />
