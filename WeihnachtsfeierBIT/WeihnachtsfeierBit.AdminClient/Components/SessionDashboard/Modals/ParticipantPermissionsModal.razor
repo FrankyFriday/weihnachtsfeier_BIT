@@ -1,0 +1,29 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="@($"Berechtigungen für #{Participant?.Number} {(Participant?.Name ?? "")}")" OnClose="OnClose">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="margin: 0; font-size: 13px; color: #64748b;">
+            Schalte Berechtigungen für diesen Teilnehmer gezielt frei oder stumme schädliche Aktionen.
+        </p>
+
+        @foreach (var kvp in ParticipantPermissionKeys.Metadata)
+        {
+            var key = kvp.Key;
+            var (label, category) = kvp.Value;
+            var isChecked = _permissionsValues.TryGetValue(key, out var val) ? val : true;
+
+            <FrameworkCheckbox Value="isChecked" ValueChanged="v => OnPermissionToggled(key, v)" Label="@label" HelpText="@($"Kategorie: {category}")" />
+        }
+
+        @if (!string.IsNullOrEmpty(_permissionsModalError))
+        {
+            <FrameworkNotice Message="@_permissionsModalError" Severity="error" />
+        }
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnClose" />
+            <FrameworkButton Label="Berechtigungen speichern" Variant="primary" OnClick="SaveParticipantPermissionsAsync" Busy="_isSavingPermissions" />
+        </div>
+    </div>
+</FrameworkModal>

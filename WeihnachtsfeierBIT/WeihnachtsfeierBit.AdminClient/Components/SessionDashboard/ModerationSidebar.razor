@@ -1,0 +1,102 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard
+@using WeihnachtsfeierBit.Framework
+
+@if (IsOpen)
+{
+    @if (!IsPinned)
+    {
+        <div class="regie-drawer-backdrop" @onclick="OnToggleSidebar"></div>
+    }
+    <div class="regie-sidebar @(IsPinned ? "pinned" : "floating")">
+        <div class="regie-sidebar-header">
+            <div style="display: flex; gap: 4px; align-items: center;">
+                <button type="button" class="btn-tab @(_regieActiveTab == "emulator" ? "active" : "")" @onclick='() => _regieActiveTab = "emulator"'>
+                    <span class="material-symbols-outlined" style="font-size: 18px;">smartphone</span>
+                    <span>Emulator</span>
+                </button>
+                <button type="button" class="btn-tab @(_regieActiveTab == "participants" ? "active" : "")" @onclick='() => _regieActiveTab = "participants"'>
+                    <span class="material-symbols-outlined" style="font-size: 18px;">group</span>
+                    <span>Teilnehmer</span>
+                </button>
+            </div>
+            <div style="display: flex; gap: 4px; align-items: center;">
+                <button type="button" class="btn-icon-small" title="@(IsPinned ? "Lösen" : "Dauerhaft andocken")" @onclick="OnTogglePin">
+                    <span class="material-symbols-outlined" style="font-size: 18px; color: @(IsPinned ? "#105c4d" : "#64748b");">push_pin</span>
+                </button>
+                <button type="button" class="btn-icon-small" title="Schließen" @onclick="OnToggleSidebar">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+                </button>
+            </div>
+        </div>
+
+        @if (_regieActiveTab == "emulator")
+        {
+            <div class="regie-sidebar-body">
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+                    <label style="font-size: 12px; font-weight: 700; color: #475569;">Simulierter Teilnehmer:</label>
+                    <select class="framework-select" value="@(_selectedEmulatorParticipant?.Id.ToString() ?? "")" @onchange="OnEmulatorParticipantSelected">
+                        @if (Participants.Length == 0)
+                        {
+                            <option value="">Keine Teilnehmer vorhanden</option>
+                        }
+                        @foreach (var p in Participants.OrderBy(p => p.Number))
+                        {
+                            <option value="@p.Id">#@p.Number @(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_selectedEmulatorParticipant is not null && Instance is not null)
+                {
+                    <div class="phone-frame-container">
+                        <iframe key="@($"{_selectedEmulatorParticipant.Id}_{_emulatorTicks}")"
+                                src="@($"/play/{Instance.AccessCode}?number={_selectedEmulatorParticipant.Number}&_t={_emulatorTicks}")"
+                                class="phone-frame-iframe"
+                                title="Teilnehmer-Handy Emulator"></iframe>
+                    </div>
+                }
+                else
+                {
+                    <div style="text-align: center; color: #64748b; padding: 40px 16px;">
+                        <span class="material-symbols-outlined" style="font-size: 48px; color: #cbd5e1; margin-bottom: 8px;">smartphone</span>
+                        <p style="margin: 0; font-size: 13px;">Wähle einen Teilnehmer aus der Liste, um sein Handy live zu simulieren.</p>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="regie-sidebar-body">
+                <FrameworkInputText @bind-Value="_regieSearchQuery" Placeholder="Teilnehmer suchen (#12 oder Name)..." />
+                <div style="display: flex; gap: 6px; margin: 8px 0;">
+                    <button type="button" class="btn-chip @(_regieFilter == "all" ? "active" : "")" @onclick='() => _regieFilter = "all"'>Alle (@FilteredParticipants.Count)</button>
+                    <button type="button" class="btn-chip @(_regieFilter == "muted" ? "active" : "")" @onclick='() => _regieFilter = "muted"'>Gesperrt</button>
+                </div>
+                <div class="regie-participant-list">
+                    @foreach (var p in FilteredParticipants)
+                    {
+                        var team = Teams.FirstOrDefault(t => t.Id == p.TeamId);
+                        <div class="regie-participant-item">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                <strong style="font-size: 13px; min-width: 28px;">#@p.Number</strong>
+                                <span style="font-size: 13px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">@(string.IsNullOrWhiteSpace(p.Name) ? "Teilnehmer" : p.Name)</span>
+                                @if (team is not null)
+                                {
+                                    <span class="team-dot" style="background-color: @team.Color;" title="@team.DisplayName"></span>
+                                }
+                            </div>
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn-icon-small" title="Handy-Emulator öffnen" @onclick="() => SelectAndEmulate(p)">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">smartphone</span>
+                                </button>
+                                <button type="button" class="btn-icon-small" title="Berechtigungen verwalten" @onclick="() => OnOpenPermissions.InvokeAsync(p)">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">security</span>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}

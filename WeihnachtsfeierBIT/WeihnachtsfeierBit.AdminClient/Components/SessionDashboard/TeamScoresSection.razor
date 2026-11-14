@@ -1,0 +1,36 @@
+@using WeihnachtsfeierBit.Framework
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px 0;">
+    <h3 style="margin: 0; font-size: 17px; color: #1d2528;">Team-Punktestände</h3>
+    <FrameworkIconButton Icon="history" Title="Punkte-Logbuch öffnen" OnClick="OnOpenPointLogModal" />
+</div>
+
+@if (Teams.Length == 0)
+{
+    <EmptyState Title="Noch keine Teams angelegt" Description="Lege zuerst Teams im Projekt an." />
+}
+else
+{
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        @foreach (var team in Teams)
+        {
+            var tid = team.Id;
+            <button type="button"
+                    @onclick="() => OnOpenAwardPointsForTeam.InvokeAsync(tid)"
+                    @key="team.Id"
+                    style="padding: 8px 14px; border-radius: 8px; border: 1.5px solid #dce5e2; border-left: 5px solid @team.Color; background: #ffffff; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02);"
+                    title="Klick zum Punkte verbuchen">
+                <strong style="font-size: 14px; color: #1d2528;">@team.DisplayName</strong>
+                <span style="font-size: 14px; font-weight: 800; color: #105c4d; background: #e8f3ef; padding: 2px 8px; border-radius: 6px;">
+                    @team.Points Pkt.
+                </span>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnOpenAwardPointsForTeam { get; set; }
+    [Parameter] public EventCallback OnOpenPointLogModal { get; set; }
+}

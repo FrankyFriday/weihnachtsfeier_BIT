@@ -1,0 +1,37 @@
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Models
+
+<div class="live-event-tabs">
+    <div class="live-event-tab-list">
+        @foreach (var tab in Tabs)
+        {
+            var selected = tab.Id == SelectedTabId;
+            <button type="button"
+                    class="live-event-tab @(selected ? "is-active" : null)"
+                    aria-selected="@selected"
+                    @onclick="() => OnSelectTab.InvokeAsync(tab.Id)">
+                @if (tab.IsBeamerActive)
+                {
+                    <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt">present_to_all</span>
+                }
+                @if (!string.IsNullOrEmpty(tab.StatusIcon))
+                {
+                    <span class="material-symbols-outlined">@tab.StatusIcon</span>
+                }
+                <span>@tab.Title</span>
+            </button>
+        }
+    </div>
+
+    <div class="live-event-tab-actions">
+        <FrameworkContextMenu Label="Inhalt hinzufügen" Icon="add" Variant="primary" AlignRight="true" Options="AddContentOptions" OnSelect="OnAddContentSelect" Class="admin-add-event-btn" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<TabItem> Tabs { get; set; } = [];
+    [Parameter] public string? SelectedTabId { get; set; }
+    [Parameter] public EventCallback<string> OnSelectTab { get; set; }
+    [Parameter] public FrameworkDropdownOption[] AddContentOptions { get; set; } = [];
+    [Parameter] public EventCallback<string> OnAddContentSelect { get; set; }
+}

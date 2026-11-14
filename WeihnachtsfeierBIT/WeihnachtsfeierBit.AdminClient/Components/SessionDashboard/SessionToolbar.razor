@@ -1,0 +1,52 @@
+@using Microsoft.AspNetCore.SignalR.Client
+@using WeihnachtsfeierBit.Framework
+
+<div class="overview-toolbar">
+    <div>
+        @if (Instance is not null)
+        {
+            <PageHeading Eyebrow="LIVE PLAY-SESSION" Title="@($"Code: {Instance.AccessCode}")" Description="Play-Session ist aktiv! Teilnehmer können sich mit diesem Code anmelden." />
+        }
+        else
+        {
+            <PageHeading Eyebrow="PLAY-SESSION" Title="Keine Session gestartet" Description="Starte eine Session, damit sich deine Teilnehmer per 6-stelligem Code anmelden können." />
+        }
+    </div>
+
+    <div class="framework-button-row" style="align-items: center;">
+        <FrameworkConnectionStatus HubConnection="HubConnection" ShowLabel="true" />
+        @if (Instance is not null)
+        {
+            @if (!string.IsNullOrEmpty(CanvasUrl))
+            {
+                <a class="framework-button framework-button-primary"
+                   href="@CanvasUrl"
+                   target="_blank"
+                   rel="noopener"
+                   style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">present_to_all</span>
+                    <span>Beamer öffnen</span>
+                </a>
+            }
+            <FrameworkContextMenu AlignRight="true" Options="SessionOptions" OnSelect="OnSessionOptionSelect">
+                <TriggerTemplate>
+                    <FrameworkIconButton Icon="more_vert" Title="Session-Optionen" />
+                </TriggerTemplate>
+            </FrameworkContextMenu>
+        }
+        else
+        {
+            <FrameworkButton Label="Session jetzt starten" Variant="primary" OnClick="OnStartSession" Busy="IsProcessing" Disabled="IsProcessing" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public GameInstanceSummary? Instance { get; set; }
+    [Parameter] public HubConnection? HubConnection { get; set; }
+    [Parameter] public string? CanvasUrl { get; set; }
+    [Parameter] public FrameworkDropdownOption[] SessionOptions { get; set; } = [];
+    [Parameter] public EventCallback<string> OnSessionOptionSelect { get; set; }
+    [Parameter] public EventCallback OnStartSession { get; set; }
+    [Parameter] public bool IsProcessing { get; set; }
+}

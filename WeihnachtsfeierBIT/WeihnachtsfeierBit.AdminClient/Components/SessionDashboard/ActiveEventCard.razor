@@ -1,0 +1,236 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Components.EventResults
+
+<Card Class="settings-card" Style="margin-bottom: 24px;">
+    <ChildContent>
+        <!-- CLEAN FOCUSED CARD HEADER -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <div>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap;">
+                    <h2 style="margin: 0; font-size: 18px; color: #1d2528;">@Event.Title</h2>
+                    <FrameworkBadge Text="@(Event.Mode == "active" ? "Aktiv (Vordergrund)" : "Passiv (Menü)")" Variant="@(Event.Mode == "active" ? "primary" : "secondary")" />
+                    @if (Event.IsHidden)
+                    {
+                        <FrameworkBadge Text="Ausgeblendet" Variant="warning" />
+                    }
+                    @if (Event.NavigationMode == "self_paced")
+                    {
+                        <FrameworkBadge Text="Selbstständig" Variant="secondary" />
+                    }
+                    @if (Event.Status == "scheduled")
+                    {
+                        <FrameworkBadge Text="@($"Geplant ({(Event.ScheduledStartUtc.HasValue ? Event.ScheduledStartUtc.Value.ToLocalTime().ToString("HH:mm") + " Uhr" : "")})")" Variant="secondary" />
+                    }
+                    @if (IsBeamer)
+                    {
+                        <FrameworkBadge Text="Beamer Aktiv" Variant="primary" />
+                    }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Event.Subtitle))
+                {
+                    <span style="font-size: 13px; color: #105c4d; font-weight: 700; display: block; margin-bottom: 2px;">@Event.Subtitle</span>
+                }
+                <p style="margin: 0; font-size: 12px; color: #657276;">
+                    @(IsMultiSlide ? $"Show ({Event.Slides.Length} Folien)" : "Spontanes Event") &bull; Gestartet um @Event.StartedAtUtc.ToLocalTime().ToString("HH:mm") Uhr
+                </p>
+            </div>
+
+            <!-- PRIMARY ACTIONS -->
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                @if (Event.Status == "scheduled")
+                {
+                    <FrameworkButton Label="Jetzt starten" Variant="primary" OnClick="() => OnStartScheduledEventNow.InvokeAsync(Event)" />
+                }
+
+                @if (IsMultiSlide && Event.NavigationMode == "host_controlled")
+                {
+                    <FrameworkButton Label="◄ Vorige" Variant="secondary" OnClick="() => OnStepEventSlide.InvokeAsync(-1)" Disabled="@(Event.CurrentSlideIndex == 0)" />
+                    <FrameworkButton Label="Nächste ►" Variant="primary" OnClick="() => OnStepEventSlide.InvokeAsync(1)" Disabled="@(Event.CurrentSlideIndex >= Event.Slides.Length - 1)" />
+                }
+
+                @if (IsBeamer)
+                {
+                    <FrameworkButton Label="Beamer trennen" Variant="secondary" OnClick="() => OnSetCanvasEvent.InvokeAsync(null)" />
+                }
+                else
+                {
+                    <FrameworkButton Label="Auf Beamer anzeigen" Variant="secondary" OnClick="() => OnSetCanvasEvent.InvokeAsync(Event.EventId)" />
+                }
+
+                <FrameworkButton Label="Live-Regie & Moderation" Variant="secondary" OnClick="OnToggleRegieSidebar" />
+                <FrameworkIconButton Icon="settings" Title="Event-Konfiguration bearbeiten" OnClick="OnOpenEditEventModal" />
+            </div>
+        </div>
+
+        @if (IsMultiSlide)
+        {
+            <!-- HORIZONTAL SLIDE SORTER STRIP -->
+            <div style="margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 700; font-size: 12px; color: #556265; letter-spacing: 0.5px; text-transform: uppercase;">Folien-Übersicht (Klick zum Springen)</span>
+                    <span style="font-size: 13px; font-weight: 600; color: #105c4d;">Slide @(Event.CurrentSlideIndex + 1) von @Event.Slides.Length</span>
+                </div>
+
+                <div style="display: flex; gap: 12px; overflow-x: auto; padding: 12px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #f8faf9; scrollbar-width: thin;">
+                    @for (int i = 0; i < Event.Slides.Length; i++)
+                    {
+                        var slideIndex = i;
+                        var slide = Event.Slides[slideIndex];
+                        var isActive = slideIndex == Event.CurrentSlideIndex;
+
+                        <div @onclick="() => OnStepEventSlideTo.InvokeAsync(slideIndex)"
+                             style="min-width: 140px; max-width: 160px; height: 105px; padding: 10px; border-radius: 8px; border: 2px solid @(isActive ? "#197b67" : "#cbd7d3"); background: @(isActive ? "#e8f3ef" : "#ffffff"); cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; box-shadow: @(isActive ? "0 4px 12px rgba(25, 123, 103, 0.2)" : "0 2px 4px rgba(0,0,0,0.03)"); transition: all 0.15s ease;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 12px; font-weight: 800; color: @(isActive ? "#105c4d" : "#657276");">#@(slideIndex + 1)</span>
+                                <FrameworkBadge Text="@slide.Type.ToUpperInvariant()" Variant="@slide.Type" />
+                            </div>
+                            <strong style="font-size: 13px; color: #1d2528; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 4px;">
+                                @GetSlideTitle(slide)
+                            </strong>
+                            @if (isActive)
+                            {
+                                <span style="font-size: 10px; font-weight: 800; color: #197b67; text-transform: uppercase;">▶ LIVE AKTIV</span>
+                            }
+                            else
+                            {
+                                <span style="font-size: 10px; color: #889698;">Klick zum Springen</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Event.NavigationContext is { } navContext)
+        {
+            var hasNextInSeq = navContext.SequenceSlideIndices is not null && navContext.CurrentSequenceIndex < navContext.SequenceSlideIndices.Length - 1;
+            var seqLabel = navContext.SequenceSlideIndices is not null && navContext.SequenceSlideIndices.Length > 0
+                ? $"Sequenz-Folie {navContext.CurrentSequenceIndex + 1} von {navContext.SequenceSlideIndices.Length}"
+                : "Unter-Sequenz aktiv";
+
+            <div style="padding: 12px 16px; margin-top: 16px; margin-bottom: 8px; border-radius: 8px; background: #f0fdf4; border: 1.5px solid #16a34a; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <div>
+                        <strong style="color: #15803d; font-size: 14px;">@(string.IsNullOrEmpty(navContext.ContextTitle) ? "Aktive Unter-Sequenz" : navContext.ContextTitle)</strong>
+                        <span style="font-size: 13px; color: #16a34a; margin-left: 6px;">• @seqLabel</span>
+                        @if (!string.IsNullOrEmpty(navContext.ActiveTeamName))
+                        {
+                            <span style="font-size: 13px; color: #16a34a; margin-left: 6px;">• Am Zug: <strong>@navContext.ActiveTeamName</strong></span>
+                        }
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    @if (hasNextInSeq)
+                    {
+                        <FrameworkButton Label="Nächste Sequenz-Folie ►" Variant="primary" OnClick="() => OnStepSequenceNext.InvokeAsync(navContext)" />
+                    }
+                    else
+                    {
+                        <FrameworkButton Label="Sequenz abschließen & Zurück ►" Variant="primary" OnClick="OnReturnToJeopardyBoard" />
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- EMBEDDED RESULT VIEW FOR CURRENT SLIDE -->
+        @if (Event.Slides.Length > Event.CurrentSlideIndex)
+        {
+            var currentSlide = Event.Slides[Event.CurrentSlideIndex];
+            <FrameworkDivider />
+            @switch (currentSlide.Type.ToLowerInvariant())
+            {
+                case "announcement":
+                    <AnnouncementResultView Event="Event" CurrentSlide="currentSlide" />
+                    break;
+                case "poll":
+                    <PollResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "quiz":
+                    <QuizResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "ranking":
+                    <RankingResultView Event="Event" CurrentSlide="currentSlide" />
+                    break;
+                case "estimation":
+                    <EstimationResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "buzzer":
+                    <BuzzerResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "hitster":
+                    <HitsterResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "text":
+                    <TextResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "word_cloud":
+                    <WordCloudResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "slider":
+                    <SliderResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "rating":
+                    <RatingResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "ordering":
+                    <OrderingResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "countdown":
+                    <CountdownResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "point_award":
+                    <PointAwardResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "jeopardy":
+                    <JeopardyResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                case "pantomime":
+                    <PantomimeResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                    break;
+                default:
+                    <FallbackResultView Event="Event" CurrentSlide="currentSlide" />
+                    break;
+            }
+        }
+    </ChildContent>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public Guid? ActiveCanvasEventId { get; set; }
+
+    [Parameter] public EventCallback<int> OnStepEventSlide { get; set; }
+    [Parameter] public EventCallback<int> OnStepEventSlideTo { get; set; }
+    [Parameter] public EventCallback<EventNavigationContext> OnStepSequenceNext { get; set; }
+    [Parameter] public EventCallback OnReturnToJeopardyBoard { get; set; }
+    [Parameter] public EventCallback<Guid?> OnSetCanvasEvent { get; set; }
+    [Parameter] public EventCallback OnToggleRegieSidebar { get; set; }
+    [Parameter] public EventCallback OnOpenEditEventModal { get; set; }
+    [Parameter] public EventCallback<EventState> OnStartScheduledEventNow { get; set; }
+
+    private bool IsBeamer => ActiveCanvasEventId.HasValue && Event.EventId == ActiveCanvasEventId.Value;
+    private bool IsMultiSlide => Event.Slides.Length > 1;
+
+    private static string GetSlideTitle(EventSlideState slide)
+    {
+        if (slide.Parameters.ValueKind == JsonValueKind.Object)
+        {
+            if (slide.Parameters.TryGetProperty("internalName", out var inProp) && inProp.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(inProp.GetString()))
+            {
+                return inProp.GetString()!;
+            }
+            if (slide.Parameters.TryGetProperty("question", out var qProp) && qProp.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(qProp.GetString()))
+            {
+                return qProp.GetString()!;
+            }
+            if (slide.Parameters.TryGetProperty("title", out var tProp) && tProp.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(tProp.GetString()))
+            {
+                return tProp.GetString()!;
+            }
+        }
+
+        return slide.Type.ToUpperInvariant();
+    }
+}
