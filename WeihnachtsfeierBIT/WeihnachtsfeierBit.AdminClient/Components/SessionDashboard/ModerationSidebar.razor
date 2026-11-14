@@ -16,6 +16,13 @@
             @onclick='() => ToggleCompartment("participants")'>
         <span class="material-symbols-outlined">group</span>
     </button>
+
+    <button type="button"
+            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "leaderboard" ? "active" : "")"
+            title="Punkte & Rangliste"
+            @onclick='() => ToggleCompartment("leaderboard")'>
+        <span class="material-symbols-outlined">leaderboard</span>
+    </button>
 </div>
 
 <!-- COMPARTMENT DRAWER PANEL -->
@@ -23,10 +30,10 @@
     <div class="regie-sidebar-header">
         <div style="display: flex; gap: 8px; align-items: center;">
             <span class="material-symbols-outlined" style="color: #105c4d;">
-                @(_activeCompartment == "emulator" ? "smartphone" : "group")
+                @(_activeCompartment == "emulator" ? "smartphone" : _activeCompartment == "participants" ? "group" : "leaderboard")
             </span>
             <strong style="font-size: 14px; color: #1d2528;">
-                @(_activeCompartment == "emulator" ? "Handy-Emulator" : "Teilnehmer & Rechte")
+                @(_activeCompartment == "emulator" ? "Handy-Emulator" : _activeCompartment == "participants" ? "Teilnehmer & Rechte" : "Punkte & Rangliste")
             </strong>
         </div>
         <button type="button" class="btn-icon-small" title="Schließen" @onclick="CloseDrawer">
@@ -69,7 +76,7 @@
             }
         </div>
     }
-    else
+    else if (_activeCompartment == "participants")
     {
         <div class="regie-sidebar-body">
             <FrameworkInputText @bind-Value="_regieSearchQuery" Placeholder="Teilnehmer suchen (#12 oder Name)..." />
@@ -98,6 +105,87 @@
                                 <span class="material-symbols-outlined" style="font-size: 18px;">security</span>
                             </button>
                         </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="regie-sidebar-body" style="gap: 12px; display: flex; flex-direction: column; height: 100%; min-height: 0;">
+            <!-- ZWISCHENSTAND QUICK START DROPDOWN LINK -->
+            <div style="position: relative; display: inline-block; flex-shrink: 0;">
+                <button type="button" class="btn-chip" @onclick="ToggleZwischenstandDropdown" style="background: #e8f3ef; color: #105c4d; border-color: #105c4d; font-weight: 700; width: 100%; justify-content: center; display: flex; align-items: center; gap: 4px;">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">trending_up</span>
+                    <span>Zwischenstand-Event starten ▾</span>
+                </button>
+                @if (_isZwischenstandDropdownOpen)
+                {
+                    <div style="position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1.5px solid #dce5e2; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; padding: 4px;">
+                        <button type="button" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #1d2528; border-radius: 4px; display: flex; align-items: center; gap: 6px;" @onclick='() => StartZwischenstandEventAsync("active")' title="Sofort auf Beamer & Handys anzeigen">
+                            <span class="material-symbols-outlined" style="font-size: 16px; color: #105c4d;">play_arrow</span>
+                            <span>Als aktives Event (Aktiv)</span>
+                        </button>
+                        <button type="button" style="width: 100%; text-align: left; padding: 8px 12px; background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #1d2528; border-radius: 4px; display: flex; align-items: center; gap: 6px;" @onclick='() => StartZwischenstandEventAsync("passive")' title="Als passives Menü-Event starten">
+                            <span class="material-symbols-outlined" style="font-size: 16px; color: #105c4d;">visibility</span>
+                            <span>Als passives Event (Passiv)</span>
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <!-- ZEITVERLAUF-GRAPH USING FRAMEWORKCHART (LINE_GRAPH) -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; flex-shrink: 0;">
+                <FrameworkChart ChartType="line_graph" Teams="Teams" PointLogs="PointLogs" />
+            </div>
+
+            <!-- TEAM SCORE LIST WITH MODAL TRIGGER BUTTON -->
+            <div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
+                <span style="font-size: 12px; font-weight: 700; color: #475569;">Team-Punktestände</span>
+                @foreach (var team in Teams.OrderByDescending(t => t.Points))
+                {
+                    var tid = team.Id;
+                    <div style="padding: 8px 10px; border: 1.5px solid #dce5e2; border-left: 5px solid @team.Color; border-radius: 8px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="font-size: 13px; color: #1d2528; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@team.DisplayName</strong>
+                            <span style="font-size: 13px; font-weight: 800; color: #105c4d;">@team.Points Pkt.</span>
+                        </div>
+                        <button type="button" class="btn-chip active" style="padding: 4px 10px; font-size: 11px;" @onclick="() => OnOpenAwardPoints.InvokeAsync(tid)">
+                            Punkte anpassen
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <!-- RECENT POINT LOGS LIST TAKING ALL REMAINING SPACE -->
+            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 150px; margin-top: 2px;">
+                <span style="font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0;">Verlauf-Einträge</span>
+                @if (PointLogs.Length == 0)
+                {
+                    <p style="font-size: 11px; color: #94a3b8; margin: 0;">Keine Einträge.</p>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-right: 2px;">
+                        @foreach (var log in PointLogs.OrderByDescending(l => l.CreatedAtUtc))
+                        {
+                            <div style="padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0;">
+                                <div style="min-width: 0; flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                                        <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @log.TeamColor; display: inline-block;"></span>
+                                        <strong style="font-size: 12px; color: #1d2528;">@log.TeamName</strong>
+                                        <span style="font-size: 10px; color: #94a3b8;">@log.CreatedAtUtc.ToLocalTime().ToString("HH:mm") Uhr</span>
+                                    </div>
+                                    <span style="font-size: 11px; color: #64748b; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@log.Reason</span>
+                                </div>
+                                <div style="text-align: right; flex-shrink: 0;">
+                                    <span style="font-size: 12px; font-weight: 800; color: @(log.DeltaPoints >= 0 ? "#166534" : "#991b1b"); display: block;">
+                                        @(log.DeltaPoints >= 0 ? $"+{log.DeltaPoints}" : log.DeltaPoints.ToString())
+                                    </span>
+                                    <span style="font-size: 10px; color: #94a3b8;">= @log.NewTotalPoints</span>
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
             </div>

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using WeihnachtsfeierBit.Framework;
 
@@ -5,12 +6,19 @@ namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard;
 
 public partial class ModerationSidebar : ComponentBase
 {
+    [Inject] public ProjectApiClient ProjectApiClient { get; set; } = null!;
+
     [Parameter] public ParticipantSummary[] Participants { get; set; } = [];
     [Parameter] public TeamSummary[] Teams { get; set; } = [];
+    [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
 
     [Parameter] public EventCallback<ParticipantSummary> OnOpenPermissions { get; set; }
     [Parameter] public EventCallback<bool> OnDrawerStateChanged { get; set; }
+    [Parameter] public EventCallback<Guid> OnOpenAwardPoints { get; set; }
+    [Parameter] public EventCallback OnEventCreated { get; set; }
+    [Parameter] public Func<Func<string, Task>, Task>? RunAuthenticated { get; set; }
 
     private bool _isDrawerOpen;
     private string _activeCompartment = "emulator";
@@ -20,6 +28,8 @@ public partial class ModerationSidebar : ComponentBase
 
     private ParticipantSummary? _selectedEmulatorParticipant;
     private long _emulatorTicks = DateTime.UtcNow.Ticks;
+
+    private bool _isZwischenstandDropdownOpen;
 
     protected override void OnParametersSet()
     {
@@ -57,6 +67,41 @@ public partial class ModerationSidebar : ComponentBase
         _activeCompartment = "emulator";
         _isDrawerOpen = true;
         await OnDrawerStateChanged.InvokeAsync(true);
+    }
+
+    private void ToggleZwischenstandDropdown() => _isZwischenstandDropdownOpen = !_isZwischenstandDropdownOpen;
+
+    private async Task StartZwischenstandEventAsync(string mode)
+    {
+        _isZwischenstandDropdownOpen = false;
+        var parameters = JsonSerializer.SerializeToElement(new
+        {
+            internalName = "Zwischenstand (Verlauf)",
+            title = "Zwischenstand",
+            chartType = "line_graph",
+            animatePodium = false
+        });
+
+        if (RunAuthenticated is not null)
+        {
+            await RunAuthenticated(async token =>
+            {
+                await ProjectApiClient.CreateSpontaneousEventAsync(
+                    token,
+                    ProjectId,
+                    "ranking",
+                    mode,
+                    parameters,
+                    title: "Zwischenstand",
+                    subtitle: "Aktueller Punktestand",
+                    navigationMode: "host_controlled",
+                    isHidden: false,
+                    scheduledStartUtc: null,
+                    autoStartOnSchedule: true);
+
+                await OnEventCreated.InvokeAsync();
+            });
+        }
     }
 
     private void OnEmulatorParticipantSelected(ChangeEventArgs e)

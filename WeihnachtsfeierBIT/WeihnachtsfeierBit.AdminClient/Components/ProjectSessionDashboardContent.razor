@@ -2,7 +2,7 @@
 @inherits AuthenticatedComponentBase
 @implements IAsyncDisposable
 
-<FrameworkPage>
+<FrameworkPage IsFluid="true">
     @if (_state.IsLoading)
     {
         <FrameworkLoading Message="Session-Dashboard wird geladen ..." />
@@ -15,7 +15,8 @@
                         SessionOptions="_sessionOptions"
                         OnSessionOptionSelect="HandleSessionOptionSelect"
                         OnStartSession="OpenStartSessionModal"
-                        IsProcessing="_state.IsProcessing" />
+                        IsProcessing="_state.IsProcessing"
+                        IsDrawerOpen="_isRegieDrawerOpen" />
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
@@ -61,16 +62,18 @@
                     }
                 }
 
-                <TeamScoresSection Teams="_state.Teams"
-                                   OnOpenAwardPointsForTeam="OpenAwardPointsForTeam"
-                                   OnOpenPointLogModal="OpenPointLogModal" />
+
             </div>
 
             <ModerationSidebar @ref="_moderationSidebar"
                                Participants="_state.Participants"
                                Teams="_state.Teams"
                                Instance="_state.Instance"
+                               PointLogs="_state.PointLogs"
+                               ProjectId="ProjectId"
+                               RunAuthenticated="RunAuthenticatedAsync"
                                OnOpenPermissions="OpenPermissionsModal"
+                               OnOpenAwardPoints="OpenAwardPointsForTeam"
                                OnDrawerStateChanged="state => _isRegieDrawerOpen = state" />
         </div>
 

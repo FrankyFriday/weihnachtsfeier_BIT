@@ -1,7 +1,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using WeihnachtsfeierBit.Framework
 
-<div class="overview-toolbar">
+<div class="overview-toolbar @(IsDrawerOpen ? "drawer-open" : "")">
     <div>
         @if (Instance is not null)
         {
@@ -49,4 +49,5 @@
     [Parameter] public EventCallback<string> OnSessionOptionSelect { get; set; }
     [Parameter] public EventCallback OnStartSession { get; set; }
     [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public bool IsDrawerOpen { get; set; }
 }

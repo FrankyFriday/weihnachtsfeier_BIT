@@ -23,6 +23,7 @@ public class SessionDashboardState : IAsyncDisposable
     public TeamSummary[] Teams { get; private set; } = [];
     public ProjectShow[] ProjectShows { get; private set; } = [];
     public ParticipantSummary[] Participants { get; private set; } = [];
+    public TeamPointLogDto[] PointLogs { get; private set; } = [];
 
     public ProjectGameState? SessionState { get; private set; }
     public Guid? ActiveCanvasEventId { get; private set; }
@@ -131,13 +132,15 @@ public class SessionDashboardState : IAsyncDisposable
             var teamsTask = _apiClient.GetTeamsAsync(token, ProjectId);
             var showsTask = _apiClient.GetShowsAsync(token, ProjectId);
             var participantsTask = _apiClient.GetParticipantsAsync(token, ProjectId);
+            var pointLogsTask = _apiClient.GetPointLogsAsync(token, ProjectId);
 
-            await Task.WhenAll(instanceTask, teamsTask, showsTask, participantsTask);
+            await Task.WhenAll(instanceTask, teamsTask, showsTask, participantsTask, pointLogsTask);
 
             Instance = await instanceTask;
             Teams = await teamsTask;
             ProjectShows = await showsTask;
             Participants = await participantsTask;
+            PointLogs = await pointLogsTask;
 
             if (Instance is not null)
             {
@@ -146,6 +149,16 @@ public class SessionDashboardState : IAsyncDisposable
                 await BuildTabsAsync();
             }
         });
+    }
+
+    public async Task AwardTeamPointsAsync(Guid teamId, int delta, string reason)
+    {
+        await _runAuthenticated(async token =>
+        {
+            await _apiClient.AwardTeamPointsAsync(token, ProjectId, teamId, delta, reason);
+            await LoadDataInternalAsync();
+        });
+        NotifyStateChanged();
     }
 
     private Task BuildTabsAsync()

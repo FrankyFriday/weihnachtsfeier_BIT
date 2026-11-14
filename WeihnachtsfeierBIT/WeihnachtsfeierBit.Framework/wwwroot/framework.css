@@ -56,6 +56,20 @@
     padding: 42px 36px 56px;
 }
 
+.framework-page.is-fluid {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 32px 70px 40px 40px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    .framework-page.is-fluid {
+        padding: 16px !important;
+    }
+}
+
 .framework-page-heading {
     display: grid;
     gap: 6px;
