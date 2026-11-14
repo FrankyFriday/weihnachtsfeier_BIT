@@ -2,18 +2,64 @@
 @using WeihnachtsfeierBit.Framework
 
 <FrameworkModal IsOpen="IsOpen" Title="@($"Berechtigungen für #{Participant?.Number} {(Participant?.Name ?? "")}")" OnClose="OnClose">
-    <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; flex-direction: column; gap: 16px; max-height: 70vh; overflow-y: auto; padding-right: 4px;">
         <p style="margin: 0; font-size: 13px; color: #64748b;">
-            Schalte Berechtigungen für diesen Teilnehmer gezielt frei oder stumme schädliche Aktionen.
+            Stelle ein, ob dieser Teilnehmer den Projekt-Standard übernehmen soll oder ob das Recht manuell erzwungen wird.
         </p>
 
+        <!-- GLOBAL PROJECT DEFAULTS SECTION -->
+        <details class="event-settings-disclosure">
+            <summary>
+                <span>Globale Projekt-Standardrechte</span>
+                <small>Für alle Teilnehmer im Projekt</small>
+            </summary>
+            <div class="event-settings-content">
+                @foreach (var kvp in ParticipantPermissionKeys.Metadata)
+                {
+                    var key = kvp.Key;
+                    var (label, category) = kvp.Value;
+                    var isGlobalOn = _globalPermissions.TryGetValue(key, out var gVal) && gVal;
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e2e8f0;">
+                        <div>
+                            <strong style="font-size: 13px; display: block; color: #1d2528;">@label</strong>
+                            <span style="font-size: 11px; color: #64748b;">Kategorie: @category</span>
+                        </div>
+                        <FrameworkCheckbox Value="isGlobalOn" ValueChanged="v => OnGlobalPermissionToggled(key, v)" Label="Standard An" />
+                    </div>
+                }
+                <FrameworkButton Label="Globale Standards speichern" Variant="secondary" OnClick="SaveGlobalPermissionsAsync" Busy="_isSavingGlobal" />
+            </div>
+        </details>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 4px 0;" />
+
+        <!-- PARTICIPANT 3-STATE PERMISSIONS -->
         @foreach (var kvp in ParticipantPermissionKeys.Metadata)
         {
             var key = kvp.Key;
             var (label, category) = kvp.Value;
-            var isChecked = _permissionsValues.TryGetValue(key, out var val) ? val : true;
+            var val = _permissionsValues.TryGetValue(key, out var pVal) ? pVal : null;
 
-            <FrameworkCheckbox Value="isChecked" ValueChanged="v => OnPermissionToggled(key, v)" Label="@label" HelpText="@($"Kategorie: {category}")" />
+            <div style="padding: 10px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 13px; color: #1d2528; display: block;">@label</strong>
+                        <span style="font-size: 11px; color: #64748b;">Kategorie: @category</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-chip @(!val.HasValue ? "active" : "")" @onclick="() => SetPermissionState(key, null)">
+                        Global übernehmen
+                    </button>
+                    <button type="button" class="btn-chip @(val == true ? "active" : "")" @onclick="() => SetPermissionState(key, true)" style="color: @(val == true ? "#fff" : "#166534"); background: @(val == true ? "#166534" : "#f0fdf4");">
+                        An (Erzwungen)
+                    </button>
+                    <button type="button" class="btn-chip @(val == false ? "active" : "")" @onclick="() => SetPermissionState(key, false)" style="color: @(val == false ? "#fff" : "#991b1b"); background: @(val == false ? "#991b1b" : "#fef2f2");">
+                        Aus (Sperre)
+                    </button>
+                </div>
+            </div>
         }
 
         @if (!string.IsNullOrEmpty(_permissionsModalError))
@@ -21,7 +67,7 @@
             <FrameworkNotice Message="@_permissionsModalError" Severity="error" />
         }
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; position: sticky; bottom: 0; background: #fff; padding-top: 8px;">
             <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnClose" />
             <FrameworkButton Label="Berechtigungen speichern" Variant="primary" OnClick="SaveParticipantPermissionsAsync" Busy="_isSavingPermissions" />
         </div>

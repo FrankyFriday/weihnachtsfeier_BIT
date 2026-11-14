@@ -82,6 +82,9 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasForeignKey(slide => slide.ShowId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        var projekte = modelBuilder.Entity<Projekt>();
+        projekte.Property(p => p.PermissionsJson).HasColumnType("jsonb");
+
         var sitzungen = modelBuilder.Entity<Sitzung>();
         sitzungen.Property(sitzung => sitzung.TokenHash)
             .HasMaxLength(64)

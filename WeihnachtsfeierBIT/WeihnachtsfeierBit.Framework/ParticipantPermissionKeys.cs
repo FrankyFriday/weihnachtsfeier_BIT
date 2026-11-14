@@ -20,7 +20,7 @@ public static class ParticipantPermissionKeys
         [CanVoteTeamNames] = ("Teamnamen abstimmen", "Teamevents"),
         [CanSuggestSongs] = ("Musikwünsche einreichen", "Musik-Jukebox"),
         [CanVoteSongs] = ("Musikwünsche abstimmen", "Musik-Jukebox"),
-        [IsMuted] = ("Teilnehmer komplett stummschalten", "Sicherheit")
+        [IsMuted] = ("Sprechrecht & Interaktion erlaubt", "Teilnahme")
     };
 
     public static Dictionary<string, bool> DefaultPermissions() => new(StringComparer.OrdinalIgnoreCase)
@@ -31,7 +31,7 @@ public static class ParticipantPermissionKeys
         [CanVoteTeamNames] = true,
         [CanSuggestSongs] = true,
         [CanVoteSongs] = true,
-        [IsMuted] = false
+        [IsMuted] = true
     };
 
     public static Dictionary<string, bool> ParsePermissionsJson(string? json)
@@ -56,5 +56,48 @@ public static class ParticipantPermissionKeys
         }
 
         return dict;
+    }
+
+    public static Dictionary<string, bool?> ParseNullablePermissionsJson(string? json)
+    {
+        var dict = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(json)) return dict;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.True) dict[prop.Name] = true;
+                    else if (prop.Value.ValueKind == JsonValueKind.False) dict[prop.Name] = false;
+                    else if (prop.Value.ValueKind == JsonValueKind.Null) dict[prop.Name] = null;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return dict;
+    }
+
+    public static Dictionary<string, bool> ResolveEffectivePermissions(string? globalJson, string? participantJson)
+    {
+        var defaults = DefaultPermissions();
+        var globals = ParseNullablePermissionsJson(globalJson);
+        var overrides = ParseNullablePermissionsJson(participantJson);
+
+        var effective = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in Metadata.Keys)
+        {
+            bool fallback = defaults.TryGetValue(key, out var d) && d;
+            bool globalVal = globals.TryGetValue(key, out var g) && g.HasValue ? g.Value : fallback;
+            bool effectiveVal = overrides.TryGetValue(key, out var o) && o.HasValue ? o.Value : globalVal;
+            effective[key] = effectiveVal;
+        }
+
+        return effective;
     }
 }

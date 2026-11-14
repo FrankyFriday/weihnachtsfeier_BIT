@@ -33,7 +33,7 @@ public partial class ModerationSidebar : ComponentBase
 
     protected override void OnParametersSet()
     {
-        if (_selectedEmulatorParticipant is null && Participants.Length > 0)
+        if (_selectedEmulatorParticipant is null && Participants is not null && Participants.Length > 0)
         {
             _selectedEmulatorParticipant = Participants[0];
             _emulatorTicks = DateTime.UtcNow.Ticks;
@@ -104,11 +104,16 @@ public partial class ModerationSidebar : ComponentBase
         }
     }
 
-    private void OnEmulatorParticipantSelected(ChangeEventArgs e)
+    private FrameworkSelectOption[] ParticipantSelectOptions => Participants?
+        .OrderBy(p => p.Number)
+        .Select(p => new FrameworkSelectOption(p.Id.ToString(), $"#{p.Number} {(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")}".Trim()))
+        .ToArray() ?? [];
+
+    private void OnEmulatorParticipantSelectChanged(string? val)
     {
-        if (e.Value is string val && Guid.TryParse(val, out var parsedId))
+        if (val is not null && Guid.TryParse(val, out var parsedId))
         {
-            var match = Participants.FirstOrDefault(p => p.Id == parsedId);
+            var match = Participants?.FirstOrDefault(p => p.Id == parsedId);
             if (match is not null)
             {
                 _selectedEmulatorParticipant = match;
@@ -117,19 +122,46 @@ public partial class ModerationSidebar : ComponentBase
         }
     }
 
-    private List<ParticipantSummary> FilteredParticipants
+    private void SetRegieFilter(string filter)
+    {
+        _regieFilter = filter;
+    }
+
+    private int TotalFilteredCount
     {
         get
         {
-            var list = Participants.AsEnumerable();
+            var list = Participants?.AsEnumerable() ?? Enumerable.Empty<ParticipantSummary>();
             if (!string.IsNullOrWhiteSpace(_regieSearchQuery))
             {
                 var q = _regieSearchQuery.Trim().ToLowerInvariant();
                 list = list.Where(p => p.Number.ToString().Contains(q) || (p.Name is not null && p.Name.ToLowerInvariant().Contains(q)));
             }
-            if (_regieFilter == "muted")
+            return list.Count();
+        }
+    }
+
+    private List<ParticipantSummary> FilteredParticipants
+    {
+        get
+        {
+            var list = Participants?.AsEnumerable() ?? Enumerable.Empty<ParticipantSummary>();
+            if (!string.IsNullOrWhiteSpace(_regieSearchQuery))
             {
-                list = list.Where(p => p.Permissions is not null && p.Permissions.HasPermission(ParticipantPermissionKeys.IsMuted) == false);
+                var q = _regieSearchQuery.Trim().ToLowerInvariant();
+                list = list.Where(p => p.Number.ToString().Contains(q) || (p.Name is not null && p.Name.ToLowerInvariant().Contains(q)));
+            }
+            if (_regieFilter == "modified")
+            {
+                list = list.Where(p => p.PermissionOverrides is not null && p.PermissionOverrides.Values.Any(v => v == true || v == false));
+            }
+            else if (_regieFilter == "plus")
+            {
+                list = list.Where(p => p.PermissionOverrides is not null && p.PermissionOverrides.Values.Any(v => v == true));
+            }
+            else if (_regieFilter == "minus")
+            {
+                list = list.Where(p => p.PermissionOverrides is not null && p.PermissionOverrides.Values.Any(v => v == false));
             }
             return list.OrderBy(p => p.Number).ToList();
         }

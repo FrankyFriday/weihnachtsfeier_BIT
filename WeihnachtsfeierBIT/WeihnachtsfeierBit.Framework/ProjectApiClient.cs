@@ -1004,8 +1004,28 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<Dictionary<string, bool?>> GetProjectGlobalPermissionsAsync(
+        string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/permissions/global", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<Dictionary<string, bool?>>(cancellationToken)
+            ?? new Dictionary<string, bool?>();
+    }
+
+    public async Task<Dictionary<string, bool?>> UpdateProjectGlobalPermissionsAsync(
+        string accessToken, Guid projectId, Dictionary<string, bool?> permissions, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/permissions/global", accessToken, new { permissions });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<Dictionary<string, bool?>>(cancellationToken)
+            ?? permissions;
+    }
+
     public async Task<ParticipantSummary> UpdateParticipantPermissionsAsync(
-        string accessToken, Guid projectId, Guid participantId, Dictionary<string, bool> permissions, CancellationToken cancellationToken = default)
+        string accessToken, Guid projectId, Guid participantId, Dictionary<string, bool?> permissions, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/participants/{participantId}/permissions", accessToken, new { permissions });
         using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -1101,12 +1121,15 @@ public sealed record ParticipantPermissions(Dictionary<string, bool> Values)
 {
     public bool HasPermission(string key)
     {
-        if (Values.TryGetValue(ParticipantPermissionKeys.IsMuted, out var muted) && muted) return false;
+        if (key == ParticipantPermissionKeys.IsMuted)
+        {
+            return Values.TryGetValue(ParticipantPermissionKeys.IsMuted, out var val) ? val : true;
+        }
         return !Values.TryGetValue(key, out var allowed) || allowed;
     }
 }
 
-public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId, ParticipantPermissions? Permissions = null);
+public sealed record ParticipantSummary(Guid Id, int Number, string? Name, Guid? TeamId, ParticipantPermissions? Permissions = null, Dictionary<string, bool?>? PermissionOverrides = null);
 public sealed record AdminAccessSessionSummary(
     Guid Id,
     Guid ProjektAdminId,

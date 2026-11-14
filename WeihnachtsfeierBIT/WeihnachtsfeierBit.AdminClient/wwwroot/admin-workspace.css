@@ -1067,9 +1067,11 @@
 
 .phone-frame-container {
     width: 100%;
-    max-width: 340px;
+    max-width: 360px;
     margin: 0 auto;
-    height: 560px;
+    height: calc(100vh - 200px);
+    max-height: 820px;
+    min-height: 540px;
     border: 10px solid #1e293b;
     border-radius: 32px;
     overflow: hidden;

@@ -375,6 +375,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PermissionsJson")
+                        .HasColumnType("jsonb");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ErstellerAdminId");

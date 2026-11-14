@@ -15,35 +15,73 @@ public partial class ParticipantPermissionsModal : ComponentBase
     [Parameter] public EventCallback OnPermissionsSaved { get; set; }
     [Parameter] public Func<Func<string, Task>, Task>? RunAuthenticated { get; set; }
 
-    private Dictionary<string, bool> _permissionsValues = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, bool?> _permissionsValues = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, bool> _globalPermissions = new(StringComparer.OrdinalIgnoreCase);
     private bool _isSavingPermissions;
+    private bool _isSavingGlobal;
     private string? _permissionsModalError;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (IsOpen && Participant is not null)
+        if (IsOpen && RunAuthenticated is not null)
         {
-            _permissionsValues = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            foreach (var kvp in ParticipantPermissionKeys.DefaultPermissions())
+            await RunAuthenticated(async token =>
             {
-                _permissionsValues[kvp.Key] = kvp.Value;
-            }
-
-            if (Participant.Permissions?.Values is not null)
-            {
-                foreach (var kvp in Participant.Permissions.Values)
+                var globalDict = await ProjectApiClient.GetProjectGlobalPermissionsAsync(token, ProjectId);
+                _globalPermissions = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kvp in ParticipantPermissionKeys.DefaultPermissions())
                 {
-                    _permissionsValues[kvp.Key] = kvp.Value;
+                    _globalPermissions[kvp.Key] = globalDict.TryGetValue(kvp.Key, out var val) && val.HasValue ? val.Value : kvp.Value;
+                }
+            });
+
+            if (Participant is not null)
+            {
+                _permissionsValues = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
+                if (Participant.PermissionOverrides is not null)
+                {
+                    foreach (var kvp in Participant.PermissionOverrides)
+                    {
+                        _permissionsValues[kvp.Key] = kvp.Value;
+                    }
                 }
             }
-
-            _permissionsModalError = null;
         }
     }
 
-    private void OnPermissionToggled(string key, bool value)
+    private void SetPermissionState(string key, bool? state)
     {
-        _permissionsValues[key] = value;
+        _permissionsValues[key] = state;
+    }
+
+    private void OnGlobalPermissionToggled(string key, bool value)
+    {
+        _globalPermissions[key] = value;
+    }
+
+    private async Task SaveGlobalPermissionsAsync()
+    {
+        _isSavingGlobal = true;
+        try
+        {
+            if (RunAuthenticated is not null)
+            {
+                await RunAuthenticated(async token =>
+                {
+                    Dictionary<string, bool?> req = _globalPermissions.ToDictionary(k => k.Key, k => (bool?)k.Value, StringComparer.OrdinalIgnoreCase);
+                    await ProjectApiClient.UpdateProjectGlobalPermissionsAsync(token, ProjectId, req);
+                    await OnPermissionsSaved.InvokeAsync();
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _permissionsModalError = ex.Message;
+        }
+        finally
+        {
+            _isSavingGlobal = false;
+        }
     }
 
     private async Task SaveParticipantPermissionsAsync()

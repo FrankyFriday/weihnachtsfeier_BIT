@@ -46,16 +46,10 @@
         <div class="regie-sidebar-body">
             <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
                 <label style="font-size: 12px; font-weight: 700; color: #475569;">Simulierter Teilnehmer:</label>
-                <select class="framework-select" value="@(_selectedEmulatorParticipant?.Id.ToString() ?? "")" @onchange="OnEmulatorParticipantSelected">
-                    @if (Participants.Length == 0)
-                    {
-                        <option value="">Keine Teilnehmer vorhanden</option>
-                    }
-                    @foreach (var p in Participants.OrderBy(p => p.Number))
-                    {
-                        <option value="@p.Id">#@p.Number @(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")</option>
-                    }
-                </select>
+                <FrameworkSelect Value="@(_selectedEmulatorParticipant?.Id.ToString() ?? "")"
+                                 ValueChanged="OnEmulatorParticipantSelectChanged"
+                                 Options="ParticipantSelectOptions"
+                                 Placeholder="Teilnehmer auswählen..." />
             </div>
 
             @if (_selectedEmulatorParticipant is not null && Instance is not null)
@@ -80,14 +74,16 @@
     {
         <div class="regie-sidebar-body">
             <FrameworkInputText @bind-Value="_regieSearchQuery" Placeholder="Teilnehmer suchen (#12 oder Name)..." />
-            <div style="display: flex; gap: 6px; margin: 8px 0;">
-                <button type="button" class="btn-chip @(_regieFilter == "all" ? "active" : "")" @onclick='() => _regieFilter = "all"'>Alle (@FilteredParticipants.Count)</button>
-                <button type="button" class="btn-chip @(_regieFilter == "muted" ? "active" : "")" @onclick='() => _regieFilter = "muted"'>Gesperrt</button>
+            <div style="display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap;">
+                <button type="button" class="btn-chip @(_regieFilter == "all" ? "active" : "")" @onclick='() => SetRegieFilter("all")' style="font-size: 11px; padding: 3px 8px;">Alle (@TotalFilteredCount)</button>
+                <button type="button" class="btn-chip @(_regieFilter == "modified" ? "active" : "")" @onclick='() => SetRegieFilter("modified")' style="font-size: 11px; padding: 3px 8px;">Abweichend</button>
+                <button type="button" class="btn-chip @(_regieFilter == "plus" ? "active" : "")" @onclick='() => SetRegieFilter("plus")' style="font-size: 11px; padding: 3px 8px;">+ Rechte</button>
+                <button type="button" class="btn-chip @(_regieFilter == "minus" ? "active" : "")" @onclick='() => SetRegieFilter("minus")' style="font-size: 11px; padding: 3px 8px;">- Rechte</button>
             </div>
             <div class="regie-participant-list">
                 @foreach (var p in FilteredParticipants)
                 {
-                    var team = Teams.FirstOrDefault(t => t.Id == p.TeamId);
+                    var team = Teams?.FirstOrDefault(t => t.Id == p.TeamId);
                     <div class="regie-participant-item">
                         <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
                             <strong style="font-size: 13px; min-width: 28px;">#@p.Number</strong>
@@ -95,6 +91,24 @@
                             @if (team is not null)
                             {
                                 <span class="team-dot" style="background-color: @team.Color;" title="@team.DisplayName"></span>
+                            }
+                            @if (p.PermissionOverrides is not null)
+                            {
+                                int plus = p.PermissionOverrides.Values.Count(v => v == true);
+                                int minus = p.PermissionOverrides.Values.Count(v => v == false);
+                                if (plus > 0 || minus > 0)
+                                {
+                                    <span style="display: inline-flex; gap: 3px; font-size: 10px; font-weight: 700;">
+                                        @if (plus > 0)
+                                        {
+                                            <span style="color: #166534; background: #f0fdf4; padding: 1px 4px; border-radius: 4px;" title="Zusätzliche Rechte">@($"+{plus}")</span>
+                                        }
+                                        @if (minus > 0)
+                                        {
+                                            <span style="color: #991b1b; background: #fef2f2; padding: 1px 4px; border-radius: 4px;" title="Entzogene Rechte">@($"-{minus}")</span>
+                                        }
+                                    </span>
+                                }
                             }
                         </div>
                         <div style="display: flex; gap: 4px;">
@@ -142,25 +156,28 @@
             <!-- TEAM SCORE LIST WITH MODAL TRIGGER BUTTON -->
             <div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
                 <span style="font-size: 12px; font-weight: 700; color: #475569;">Team-Punktestände</span>
-                @foreach (var team in Teams.OrderByDescending(t => t.Points))
+                @if (Teams is not null)
                 {
-                    var tid = team.Id;
-                    <div style="padding: 8px 10px; border: 1.5px solid #dce5e2; border-left: 5px solid @team.Color; border-radius: 8px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                        <div style="min-width: 0; flex: 1;">
-                            <strong style="font-size: 13px; color: #1d2528; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@team.DisplayName</strong>
-                            <span style="font-size: 13px; font-weight: 800; color: #105c4d;">@team.Points Pkt.</span>
+                    @foreach (var team in Teams.OrderByDescending(t => t.Points))
+                    {
+                        var tid = team.Id;
+                        <div style="padding: 8px 10px; border: 1.5px solid #dce5e2; border-left: 5px solid @team.Color; border-radius: 8px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <div style="min-width: 0; flex: 1;">
+                                <strong style="font-size: 13px; color: #1d2528; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@team.DisplayName</strong>
+                                <span style="font-size: 13px; font-weight: 800; color: #105c4d;">@team.Points Pkt.</span>
+                            </div>
+                            <button type="button" class="btn-chip active" style="padding: 4px 10px; font-size: 11px;" @onclick="() => OnOpenAwardPoints.InvokeAsync(tid)">
+                                Punkte anpassen
+                            </button>
                         </div>
-                        <button type="button" class="btn-chip active" style="padding: 4px 10px; font-size: 11px;" @onclick="() => OnOpenAwardPoints.InvokeAsync(tid)">
-                            Punkte anpassen
-                        </button>
-                    </div>
+                    }
                 }
             </div>
 
             <!-- RECENT POINT LOGS LIST TAKING ALL REMAINING SPACE -->
             <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 150px; margin-top: 2px;">
                 <span style="font-size: 12px; font-weight: 700; color: #475569; flex-shrink: 0;">Verlauf-Einträge</span>
-                @if (PointLogs.Length == 0)
+                @if (PointLogs is null || PointLogs.Length == 0)
                 {
                     <p style="font-size: 11px; color: #94a3b8; margin: 0;">Keine Einträge.</p>
                 }

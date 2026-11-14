@@ -21,8 +21,9 @@ public sealed record ProjectOverviewResponse(
     ProjectPermissionsDto Permissions);
 public sealed record CreateProjectRequest(string Name);
 public sealed record RenameProjectRequest(string Name);
-public sealed record ParticipantResponse(Guid Id, int Number, string? Name, Guid? TeamId, Dictionary<string, bool>? Permissions = null);
-public sealed record UpdateParticipantPermissionsRequest(Dictionary<string, bool> Permissions);
+public sealed record ParticipantResponse(Guid Id, int Number, string? Name, Guid? TeamId, Dictionary<string, bool>? Permissions = null, Dictionary<string, bool?>? PermissionOverrides = null);
+public sealed record UpdateParticipantPermissionsRequest(Dictionary<string, bool?> Permissions);
+public sealed record UpdateProjectGlobalPermissionsRequest(Dictionary<string, bool?> Permissions);
 public sealed record AdminUpdateResponseRequest(JsonElement ResponseData);
 public sealed record AdminOverrideResponseRequest(Guid ParticipantId, JsonElement ResponseData);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);

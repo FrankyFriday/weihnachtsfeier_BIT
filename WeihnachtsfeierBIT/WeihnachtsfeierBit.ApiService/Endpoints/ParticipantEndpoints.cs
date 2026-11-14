@@ -25,18 +25,26 @@ public static class ParticipantEndpoints
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        var project = await dbContext.Projekte.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
+        var globalJson = project?.PermissionsJson;
+
         var participants = await dbContext.Teilnehmer.AsNoTracking()
             .Include(item => item.Berechtigung)
             .Where(item => item.ProjektId == projectId)
             .OrderBy(item => item.Nummer)
-            .Select(item => new ParticipantResponse(
-                item.Id,
-                item.Nummer,
-                item.Name,
-                item.Team == null ? null : item.Team.Id,
-                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(item.Berechtigung == null ? null : item.Berechtigung.PermissionsJson)))
             .ToListAsync(cancellationToken);
-        return Results.Ok(participants);
+
+        var response = participants.Select(item => new ParticipantResponse(
+            item.Id,
+            item.Nummer,
+            item.Name,
+            item.TeamId,
+            WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ResolveEffectivePermissions(globalJson, item.Berechtigung?.PermissionsJson),
+            WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParseNullablePermissionsJson(item.Berechtigung?.PermissionsJson)
+        )).ToList();
+
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> CreateParticipantAsync(
@@ -386,12 +394,15 @@ public static class ParticipantEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
-        var parsedPerms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(json);
+        var project = await dbContext.Projekte.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
+        var effective = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ResolveEffectivePermissions(project?.PermissionsJson, json);
+
         return Results.Ok(new ParticipantResponse(
             participant.Id,
             participant.Nummer,
             participant.Name,
             participant.TeamId,
-            parsedPerms));
+            effective,
+            WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParseNullablePermissionsJson(json)));
     }
 }
