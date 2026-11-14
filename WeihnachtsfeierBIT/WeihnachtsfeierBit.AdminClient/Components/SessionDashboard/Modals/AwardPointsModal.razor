@@ -1,0 +1,28 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="Punkte vergeben oder abziehen" OnClose="OnClose">
+    <div style="display: grid; gap: 14px;">
+        <FrameworkFormGroup Label="Team auswählen">
+            <FrameworkSelect Value="@_awardTeamId.ToString()" ValueChanged="v => Guid.TryParse(v, out _awardTeamId)" Options="@TeamSelectOptions" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Punkteänderung (positiv oder negativ)" HelpText="z. B. 10 für Bonus oder -5 für Abzug">
+            <FrameworkInputText Value="@_awardDeltaPoints.ToString()" ValueChanged="v => int.TryParse(v, out _awardDeltaPoints)" Type="number" />
+        </FrameworkFormGroup>
+
+        <FrameworkFormGroup Label="Begründung / Ursache">
+            <FrameworkInputText @bind-Value="_awardReason" Placeholder="z. B. Bonus Quiz-Runde 1 oder Schnelligkeitsbonus" />
+        </FrameworkFormGroup>
+
+        @if (!string.IsNullOrEmpty(_awardModalError))
+        {
+            <FrameworkNotice Message="@_awardModalError" Severity="error" />
+        }
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnClose" />
+            <FrameworkButton Label="Punkte verbuchen" Variant="primary" OnClick="SubmitAwardPointsAsync" Busy="_isSubmittingAward" />
+        </div>
+    </div>
+</FrameworkModal>

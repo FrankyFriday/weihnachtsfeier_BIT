@@ -1,7 +1,8 @@
-<main class="framework-page">
+<main class="framework-page @(IsFluid ? "is-fluid" : null)">
     @ChildContent
 </main>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsFluid { get; set; }
 }

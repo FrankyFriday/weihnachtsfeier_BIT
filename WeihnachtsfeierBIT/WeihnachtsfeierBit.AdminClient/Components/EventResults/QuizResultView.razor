@@ -1,5 +1,8 @@
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div style="margin-top: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -27,7 +30,12 @@
                             Gewählt: <strong>@resp.AnswerText</strong>
                         </div>
                     </div>
-                    <FrameworkBadge Text="@(resp.IsCorrect ? "Richtig" : "Falsch")" Variant="@(resp.IsCorrect ? "primary" : "danger")" />
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <FrameworkBadge Text="@(resp.IsCorrect ? "Richtig" : "Falsch")" Variant="@(resp.IsCorrect ? "primary" : "danger")" />
+                        <button type="button" class="btn-icon-small" title="Antwort löschen" @onclick="() => DeleteResponseAsync(resp.ResponseId)">
+                            <span class="material-symbols-outlined" style="font-size: 18px; color: #dc2626;">delete</span>
+                        </button>
+                    </div>
                 </div>
             }
         </div>
@@ -37,6 +45,7 @@
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
 
     private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
     private int TotalAnswers => SlideResponses.Count();
@@ -64,13 +73,23 @@
                 bool isCorrect = CorrectIndices.Contains(ansIdx);
                 string ansText = ansIdx >= 0 && ansIdx < Answers.Count ? Answers[ansIdx] : "Keine Antwort";
 
-                result.Add(new ParticipantQuizAnswer(r.ParticipantNumber, r.ParticipantName, r.TeamName, ansText, isCorrect));
+                result.Add(new ParticipantQuizAnswer(r.Id, r.ParticipantNumber, r.ParticipantName, r.TeamName, ansText, isCorrect));
             }
             return result;
         }
     }
 
-    private sealed record ParticipantQuizAnswer(int ParticipantNumber, string? ParticipantName, string? TeamName, string AnswerText, bool IsCorrect);
+    private async Task DeleteResponseAsync(Guid responseId)
+    {
+        var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var token = auth.User.FindFirst("api_access_token")?.Value;
+        if (!string.IsNullOrEmpty(token) && ProjectId != Guid.Empty)
+        {
+            await ProjectApiClient.AdminDeleteResponseAsync(token, ProjectId, Event.EventId, responseId);
+        }
+    }
+
+    private sealed record ParticipantQuizAnswer(Guid ResponseId, int ParticipantNumber, string? ParticipantName, string? TeamName, string AnswerText, bool IsCorrect);
 
     private static List<string> ReadStringList(JsonElement elem, string prop)
     {

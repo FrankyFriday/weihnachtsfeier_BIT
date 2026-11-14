@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
 
@@ -17,7 +19,9 @@ public static class ProjectEndpoints
 
         reader.MapGet("", GetProjectAsync).WithName("GetProject");
         reader.MapGet("/overview", GetProjectOverviewAsync).WithName("GetProjectOverview");
+        reader.MapGet("/permissions/global", GetGlobalPermissionsAsync).WithName("GetGlobalPermissions");
         admin.MapPut("", UpdateProjectAsync).WithName("UpdateProject");
+        admin.MapPut("/permissions/global", UpdateGlobalPermissionsAsync).WithName("UpdateGlobalPermissions");
         admin.MapDelete("", DeleteProjectAsync).WithName("DeleteProject");
 
         reader.MapGet("/participants/me", GetCurrentParticipantAsync).WithName("GetCurrentParticipant");
@@ -188,5 +192,48 @@ public static class ProjectEndpoints
             .Select(team => new TeamResponse(team.Id, team.DisplayName, team.Color, team.Punkte))
             .ToListAsync(cancellationToken);
         return Results.Ok(teams);
+    }
+
+    private static async Task<IResult> GetGlobalPermissionsAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var project = await dbContext.Projekte.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
+        if (project is null) return Results.NotFound();
+
+        var perms = ParticipantPermissionKeys.ParseNullablePermissionsJson(project.PermissionsJson);
+        var dict = new Dictionary<string, bool?>();
+        foreach (var key in ParticipantPermissionKeys.Metadata.Keys)
+        {
+            dict[key] = perms.TryGetValue(key, out var val) ? val : null;
+        }
+
+        return Results.Ok(dict);
+    }
+
+    private static async Task<IResult> UpdateGlobalPermissionsAsync(
+        Guid projectId,
+        UpdateProjectGlobalPermissionsRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanEditProjectSettings)
+        {
+            return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Du hast keine Berechtigung, die Projekteinstellungen zu bearbeiten."));
+        }
+
+        var project = await dbContext.Projekte.FindAsync([projectId], cancellationToken);
+        if (project is null) return Results.NotFound();
+
+        project.PermissionsJson = JsonSerializer.Serialize(request.Permissions);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok(request.Permissions);
     }
 }

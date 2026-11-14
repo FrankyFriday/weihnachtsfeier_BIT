@@ -1,0 +1,62 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="Event-Konfiguration bearbeiten" OnClose="OnClose">
+    @if (EditingEvent is not null)
+    {
+        <div class="session-config-form">
+            <div class="session-config-grid">
+                <FrameworkFormGroup Label="Event-Titel" ForId="edit-event-title">
+                    <FrameworkInputText Id="edit-event-title" @bind-Value="_editTitle" Placeholder="Titel eingeben..." />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Untertitel (optional)" ForId="edit-event-subtitle">
+                    <FrameworkInputText Id="edit-event-subtitle" @bind-Value="_editSubtitle" Placeholder="z. B. Bitte Plätze einnehmen" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Modus" ForId="edit-event-mode">
+                    <FrameworkSelect Id="edit-event-mode" Value="@_editMode" ValueChanged='v => _editMode = v ?? "active"' Options="ModeOptions" />
+                </FrameworkFormGroup>
+
+                <FrameworkFormGroup Label="Folien-Steuerung" ForId="edit-event-navigation">
+                    <FrameworkSelect Id="edit-event-navigation" Value="@_editNavMode" ValueChanged='v => _editNavMode = v ?? "host_controlled"' Options="NavModeOptions" />
+                </FrameworkFormGroup>
+            </div>
+
+            <details class="event-settings-disclosure">
+                <summary>
+                    <span>Weitere Einstellungen</span>
+                    <small>Teilnehmeranzeige und Zeitplan</small>
+                </summary>
+                <div class="event-settings-content">
+                    <FrameworkCheckbox @bind-Value="_editIsHidden" Label="Event vor Teilnehmern ausblenden" />
+                    <FrameworkFormGroup Label="Geplante Startzeit (leer für sofort)" ForId="edit-event-scheduled-time">
+                        <FrameworkInputText Id="edit-event-scheduled-time" @bind-Value="_editScheduledTime" Placeholder="19:30" />
+                    </FrameworkFormGroup>
+                    <FrameworkCheckbox @bind-Value="_editAutoStart" Label="Automatisch zur geplanten Uhrzeit starten" />
+                </div>
+            </details>
+
+            <details class="event-settings-disclosure event-danger-disclosure">
+                <summary>
+                    <span>Event beenden</span>
+                    <small>Gefahrenbereich</small>
+                </summary>
+                <div class="event-settings-content event-danger-content">
+                    <p>Schließt das Event und entfernt es aus den aktiven Tabs.</p>
+                    <FrameworkButton Label="Event beenden" Variant="danger" OnClick="CloseEditingEventAsync" />
+                </div>
+            </details>
+
+            @if (!string.IsNullOrEmpty(_editModalError))
+            {
+                <FrameworkNotice Message="@_editModalError" Severity="error" />
+            }
+
+            <div class="session-config-actions">
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnClose" />
+                <FrameworkButton Label="Speichern" Variant="primary" OnClick="SaveEditedEventAsync" Busy="_isSavingEdit" />
+            </div>
+        </div>
+    }
+</FrameworkModal>

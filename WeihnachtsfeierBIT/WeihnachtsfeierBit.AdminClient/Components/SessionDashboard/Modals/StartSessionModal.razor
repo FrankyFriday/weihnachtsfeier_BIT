@@ -1,0 +1,24 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="Play-Session starten" OnClose="OnClose">
+    <div class="modal-form">
+        <p style="margin: 0 0 14px 0; color: #64748b; font-size: 13px;">Starte die Live-Play-Session für dieses Projekt, damit sich deine Gäste per 6-stelligem Code anmelden können.</p>
+
+        <FrameworkFormGroup Label="Optionaler Wunsch-Code (6 Ziffern)" ForId="preferred-code">
+            <FrameworkInputText Id="preferred-code" @bind-Value="_preferredCodeInput" MaxLength="6" Placeholder="z. B. 123456" />
+        </FrameworkFormGroup>
+
+        <p class="framework-help-text" style="margin-top: 6px;">Lasse das Feld leer, um automatisch einen zufälligen 6-stelligen Code zu generieren.</p>
+
+        @if (!string.IsNullOrEmpty(_startSessionError))
+        {
+            <FrameworkNotice Message="@_startSessionError" Severity="error" Style="margin-top: 12px;" />
+        }
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="OnClose" Disabled="_isProcessing" />
+            <FrameworkButton Label="Session starten" Variant="primary" OnClick="ConfirmStartSessionAsync" Busy="_isProcessing" Disabled="_isProcessing" />
+        </div>
+    </div>
+</FrameworkModal>

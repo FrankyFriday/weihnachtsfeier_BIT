@@ -1,0 +1,35 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="Punkte-Logbuch" OnClose="OnClose">
+    <div style="max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+        @if (_pointLogs.Length == 0)
+        {
+            <EmptyState Title="Keine Punkte-Einträge" Description="Es wurden bisher noch keine Punkte-Gutschriften oder -Abzüge verbucht." />
+        }
+        else
+        {
+            <div style="display: grid; gap: 8px;">
+                @foreach (var log in _pointLogs)
+                {
+                    <div style="padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 8px; background: #ffffff; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background-color: @log.TeamColor; display: inline-block;"></span>
+                                <strong style="font-size: 14px; color: #1d2528;">@log.TeamName</strong>
+                                <span style="font-size: 11px; color: #64748b;">@log.CreatedAtUtc.ToLocalTime().ToString("dd.MM. HH:mm") Uhr</span>
+                            </div>
+                            <span style="font-size: 12px; color: #475569; display: block;">@log.Reason</span>
+                        </div>
+                        <div style="text-align: right; flex-shrink: 0;">
+                            <span style="font-size: 14px; font-weight: 800; color: @(log.DeltaPoints >= 0 ? "#166534" : "#991b1b"); display: block;">
+                                @(log.DeltaPoints >= 0 ? $"+{log.DeltaPoints}" : log.DeltaPoints.ToString()) Pkt.
+                            </span>
+                            <span style="font-size: 11px; color: #64748b;">Stand: @log.NewTotalPoints Pkt.</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</FrameworkModal>

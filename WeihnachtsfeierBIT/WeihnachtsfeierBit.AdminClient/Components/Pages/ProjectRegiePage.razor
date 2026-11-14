@@ -1,0 +1,204 @@
+@page "/projects/{ProjectId:guid}/regie"
+@namespace WeihnachtsfeierBit.AdminClient.Components.Pages
+@inherits AuthenticatedComponentBase
+@inject NavigationManager Navigation
+
+<FrameworkPage>
+    @if (IsLoading)
+    {
+        <FrameworkLoading Message="Regie & Moderation wird geladen ..." />
+    }
+    else
+    {
+        <div class="overview-toolbar">
+            <PageHeading Eyebrow="LIVE-REGIE" Title="Moderation & Emulator" Description="Simuliere Teilnehmer-Handys oder verwalte Rechte live per Smartphone." />
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+        }
+
+        <Card Class="settings-card">
+            <ChildContent>
+                <div style="display: flex; gap: 8px; border-bottom: 2px solid #dce5e2; padding-bottom: 12px; margin-bottom: 16px;">
+                    <button type="button" class="btn-tab @(_activeTab == "emulator" ? "active" : "")" @onclick='() => _activeTab = "emulator"'>
+                        <span class="material-symbols-outlined" style="font-size: 18px;">smartphone</span>
+                        <span>Handy-Emulator</span>
+                    </button>
+                    <button type="button" class="btn-tab @(_activeTab == "participants" ? "active" : "")" @onclick='() => _activeTab = "participants"'>
+                        <span class="material-symbols-outlined" style="font-size: 18px;">group</span>
+                        <span>Teilnehmer & Rechte</span>
+                    </button>
+                </div>
+
+                @if (_activeTab == "emulator")
+                {
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 13px; font-weight: 700; color: #475569;">Simulierter Teilnehmer:</label>
+                            <select class="framework-select" value="@(_selectedParticipant?.Id.ToString() ?? "")" @onchange="OnParticipantSelected">
+                                @if (_participants.Length == 0)
+                                {
+                                    <option value="">Keine Teilnehmer vorhanden</option>
+                                }
+                                @foreach (var p in _participants.OrderBy(p => p.Number))
+                                {
+                                    <option value="@p.Id">#@p.Number @(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")</option>
+                                }
+                            </select>
+                        </div>
+
+                        @if (_selectedParticipant is not null && _instance is not null)
+                        {
+                            <div class="phone-frame-container" style="height: 520px; max-width: 320px;">
+                                <iframe key="@($"{_selectedParticipant.Id}_{_emulatorTicks}")"
+                                        src="@($"/play/{_instance.AccessCode}?number={_selectedParticipant.Number}&_t={_emulatorTicks}")"
+                                        class="phone-frame-iframe"
+                                        title="Teilnehmer-Handy Emulator"></iframe>
+                            </div>
+                        }
+                        else
+                        {
+                            <EmptyState Title="Keine aktive Session" Description="Starte zuerst eine Session im Dashboard, um Handys live zu simulieren." />
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <FrameworkInputText @bind-Value="_searchQuery" Placeholder="Teilnehmer suchen (#12 oder Name)..." />
+                        <div style="display: flex; gap: 6px; margin: 4px 0;">
+                            <button type="button" class="btn-chip @(_filter == "all" ? "active" : "")" @onclick='() => _filter = "all"'>Alle (@FilteredParticipants.Count)</button>
+                            <button type="button" class="btn-chip @(_filter == "muted" ? "active" : "")" @onclick='() => _filter = "muted"'>Gesperrt</button>
+                        </div>
+                        <div class="regie-participant-list">
+                            @foreach (var p in FilteredParticipants)
+                            {
+                                var team = _teams.FirstOrDefault(t => t.Id == p.TeamId);
+                                <div class="regie-participant-item">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                        <strong style="font-size: 14px; min-width: 28px;">#@p.Number</strong>
+                                        <span style="font-size: 14px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">@(string.IsNullOrWhiteSpace(p.Name) ? "Teilnehmer" : p.Name)</span>
+                                        @if (team is not null)
+                                        {
+                                            <span class="team-dot" style="background-color: @team.Color;" title="@team.DisplayName"></span>
+                                        }
+                                    </div>
+                                    <div style="display: flex; gap: 6px;">
+                                        <button type="button" class="btn-icon-small" title="Handy-Emulator öffnen" @onclick="() => SelectAndEmulate(p)">
+                                            <span class="material-symbols-outlined" style="font-size: 20px;">smartphone</span>
+                                        </button>
+                                        <button type="button" class="btn-icon-small" title="Berechtigungen verwalten" @onclick="() => OpenPermissionsModal(p)">
+                                            <span class="material-symbols-outlined" style="font-size: 20px;">security</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </Card>
+
+        <!-- PARTICIPANT PERMISSIONS MODAL -->
+        <ParticipantPermissionsModal IsOpen="_isPermissionsModalOpen"
+                                     ProjectId="ProjectId"
+                                     Participant="_permissionsParticipant"
+                                     OnClose="ClosePermissionsModal"
+                                     OnPermissionsSaved="LoadDataAsync"
+                                     RunAuthenticated="RunAuthenticatedAsync" />
+    }
+</FrameworkPage>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private GameInstanceSummary? _instance;
+    private ParticipantSummary[] _participants = [];
+    private TeamSummary[] _teams = [];
+
+    private string _activeTab = "emulator";
+    private string _searchQuery = string.Empty;
+    private string _filter = "all";
+
+    private ParticipantSummary? _selectedParticipant;
+    private long _emulatorTicks = DateTime.UtcNow.Ticks;
+
+    private bool _isPermissionsModalOpen;
+    private ParticipantSummary? _permissionsParticipant;
+
+    protected override async Task OnParametersSetAsync() => await LoadAuthenticatedAsync(async token =>
+    {
+        await LoadDataAsync();
+    });
+
+    private async Task LoadDataAsync()
+    {
+        await RunAuthenticatedAsync(async token =>
+        {
+            var instanceTask = ProjectApiClient.GetActiveGameInstanceAsync(token, ProjectId);
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
+            var teamsTask = ProjectApiClient.GetTeamsAsync(token, ProjectId);
+
+            await Task.WhenAll(instanceTask, participantsTask, teamsTask);
+
+            _instance = await instanceTask;
+            _participants = await participantsTask;
+            _teams = await teamsTask;
+
+            if (_selectedParticipant is null && _participants.Length > 0)
+            {
+                _selectedParticipant = _participants[0];
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OnParticipantSelected(ChangeEventArgs e)
+    {
+        if (e.Value is string val && Guid.TryParse(val, out var parsedId))
+        {
+            var match = _participants.FirstOrDefault(p => p.Id == parsedId);
+            if (match is not null)
+            {
+                _selectedParticipant = match;
+                _emulatorTicks = DateTime.UtcNow.Ticks;
+            }
+        }
+    }
+
+    private void SelectAndEmulate(ParticipantSummary p)
+    {
+        _selectedParticipant = p;
+        _emulatorTicks = DateTime.UtcNow.Ticks;
+        _activeTab = "emulator";
+    }
+
+    private void OpenPermissionsModal(ParticipantSummary p)
+    {
+        _permissionsParticipant = p;
+        _isPermissionsModalOpen = true;
+    }
+
+    private void ClosePermissionsModal() => _isPermissionsModalOpen = false;
+
+    private List<ParticipantSummary> FilteredParticipants
+    {
+        get
+        {
+            var list = _participants.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                var q = _searchQuery.Trim().ToLowerInvariant();
+                list = list.Where(p => p.Number.ToString().Contains(q) || (p.Name is not null && p.Name.ToLowerInvariant().Contains(q)));
+            }
+            if (_filter == "muted")
+            {
+                list = list.Where(p => p.Permissions is not null && p.Permissions.HasPermission(ParticipantPermissionKeys.IsMuted) == false);
+            }
+            return list.OrderBy(p => p.Number).ToList();
+        }
+    }
+}

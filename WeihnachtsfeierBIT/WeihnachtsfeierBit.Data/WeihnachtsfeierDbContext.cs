@@ -12,6 +12,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
     public DbSet<ProjektAdminSitzung> ProjektAdminSitzungen => Set<ProjektAdminSitzung>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Teilnehmer> Teilnehmer => Set<Teilnehmer>();
+    public DbSet<TeilnehmerBerechtigung> TeilnehmerBerechtigungen => Set<TeilnehmerBerechtigung>();
     public DbSet<Sitzung> Sitzungen => Set<Sitzung>();
     public DbSet<GameInstance> GameInstances => Set<GameInstance>();
     public DbSet<GameInstanceEvent> GameInstanceEvents => Set<GameInstanceEvent>();
@@ -81,6 +82,9 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .HasForeignKey(slide => slide.ShowId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        var projekte = modelBuilder.Entity<Projekt>();
+        projekte.Property(p => p.PermissionsJson).HasColumnType("jsonb");
+
         var sitzungen = modelBuilder.Entity<Sitzung>();
         sitzungen.Property(sitzung => sitzung.TokenHash)
             .HasMaxLength(64)
@@ -102,6 +106,14 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         sitzungen.HasOne(sitzung => sitzung.GameInstance)
             .WithMany(gi => gi.Sitzungen)
             .HasForeignKey(sitzung => sitzung.GameInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var teilnehmerBerechtigungen = modelBuilder.Entity<TeilnehmerBerechtigung>();
+        teilnehmerBerechtigungen.Property(tb => tb.PermissionsJson).HasColumnType("jsonb").IsRequired();
+        teilnehmerBerechtigungen.HasIndex(tb => tb.TeilnehmerId).IsUnique();
+        teilnehmerBerechtigungen.HasOne(tb => tb.Teilnehmer)
+            .WithOne(t => t.Berechtigung)
+            .HasForeignKey<TeilnehmerBerechtigung>(tb => tb.TeilnehmerId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var gameInstances = modelBuilder.Entity<GameInstance>();

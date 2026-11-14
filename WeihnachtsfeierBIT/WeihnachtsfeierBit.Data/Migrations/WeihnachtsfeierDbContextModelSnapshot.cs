@@ -375,6 +375,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PermissionsJson")
+                        .HasColumnType("jsonb");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ErstellerAdminId");
@@ -821,6 +824,27 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Teilnehmer");
+                });
+
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeilnehmerBerechtigung", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PermissionsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("TeilnehmerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeilnehmerId")
+                        .IsUnique();
+
+                    b.ToTable("TeilnehmerBerechtigungen");
                 });
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.TestEntry", b =>
@@ -1352,6 +1376,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Navigation("Team");
                 });
 
+            modelBuilder.Entity("WeihnachtsfeierBit.Data.TeilnehmerBerechtigung", b =>
+                {
+                    b.HasOne("WeihnachtsfeierBit.Data.Teilnehmer", "Teilnehmer")
+                        .WithOne("Berechtigung")
+                        .HasForeignKey("WeihnachtsfeierBit.Data.TeilnehmerBerechtigung", "TeilnehmerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Teilnehmer");
+                });
+
             modelBuilder.Entity("WeihnachtsfeierBit.Data.ChatGroup", b =>
                 {
                     b.Navigation("Members");
@@ -1411,6 +1446,8 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
             modelBuilder.Entity("WeihnachtsfeierBit.Data.Teilnehmer", b =>
                 {
+                    b.Navigation("Berechtigung");
+
                     b.Navigation("Sitzungen");
                 });
 #pragma warning restore 612, 618

@@ -1,0 +1,64 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard.Modals
+@using WeihnachtsfeierBit.Framework
+
+<FrameworkModal IsOpen="IsOpen" Title="Show in Session starten" OnClose="OnClose" DialogClass="session-config-modal">
+    <div>
+        @if (Shows.Length == 0)
+        {
+            <EmptyState Title="Keine Shows verknüpft" Description="Verknüpfe zuerst Shows mit diesem Projekt." />
+        }
+        else
+        {
+            <div class="session-config-form">
+                <div class="session-config-grid">
+                    <FrameworkFormGroup Label="Start-Modus" ForId="show-start-mode">
+                        <FrameworkSelect Id="show-start-mode" Value="@_showStartMode" ValueChanged='v => _showStartMode = v ?? "active"' Options="ModeOptions" />
+                    </FrameworkFormGroup>
+                </div>
+
+                <details class="event-settings-disclosure">
+                    <summary>
+                        <span>Weitere Einstellungen</span>
+                        <small>Titel, Anzeige und Zeitplan</small>
+                    </summary>
+                    <div class="event-settings-content">
+                        <FrameworkFormGroup Label="Event-Titel überschreiben (optional)">
+                            <FrameworkInputText @bind-Value="_showTitleInput" Placeholder="Show-Titel anpassen..." />
+                        </FrameworkFormGroup>
+
+                        <FrameworkFormGroup Label="Untertitel (optional)">
+                            <FrameworkInputText @bind-Value="_showSubtitleInput" Placeholder="z. B. Pause & Büfett eröffnet" />
+                        </FrameworkFormGroup>
+
+                        <FrameworkFormGroup Label="Folien-Steuerung" ForId="show-navigation-mode">
+                            <FrameworkSelect Id="show-navigation-mode" Value="@_showNavMode" ValueChanged='v => _showNavMode = v ?? "host_controlled"' Options="NavModeOptions" />
+                        </FrameworkFormGroup>
+
+                        <FrameworkCheckbox @bind-Value="_showIsHidden" Label="Show vor Teilnehmern ausblenden" />
+                        <FrameworkCheckbox @bind-Value="_showIsScheduled" Label="Show zeitlich planen" />
+                        @if (_showIsScheduled)
+                        {
+                            <div class="event-schedule-options">
+                                <FrameworkFormGroup Label="Geplante Startzeit" ForId="show-scheduled-time">
+                                    <FrameworkInputText Id="show-scheduled-time" @bind-Value="_showScheduledTimeInput" Placeholder="19:30" />
+                                </FrameworkFormGroup>
+                                <FrameworkCheckbox @bind-Value="_showAutoStart" Label="Automatisch zur geplanten Uhrzeit starten" />
+                            </div>
+                        }
+                    </div>
+                </details>
+
+                <div class="show-start-list">
+                    <div class="event-config-section-heading">Verknüpfte Shows</div>
+                    @foreach (var show in Shows)
+                    {
+                        <div class="show-start-card">
+                            <strong title="@show.Name">@show.Name</strong>
+                            <FrameworkButton Label="Show starten / einplanen" Variant="primary" OnClick="() => StartShowAndCloseModalAsync(show.Id)" />
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</FrameworkModal>

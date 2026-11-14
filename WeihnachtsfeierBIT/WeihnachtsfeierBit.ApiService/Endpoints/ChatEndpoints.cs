@@ -361,7 +361,16 @@ public static class ChatEndpoints
 
         if (access.ParticipantId is Guid partId)
         {
-            var participant = await dbContext.Teilnehmer.AsNoTracking().FirstOrDefaultAsync(t => t.Id == partId, cancellationToken);
+            var participant = await dbContext.Teilnehmer.AsNoTracking()
+                .Include(t => t.Berechtigung)
+                .FirstOrDefaultAsync(t => t.Id == partId, cancellationToken);
+
+            var perms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(participant?.Berechtigung?.PermissionsJson);
+            if (!new WeihnachtsfeierBit.Framework.ParticipantPermissions(perms).HasPermission(WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSendChatMessages))
+            {
+                return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Chat-Nachrichten zu senden."));
+            }
+
             bool hasAccess = group.Type == "global" ||
                 (group.Type == "team" && group.AssociatedTeamId == participant?.TeamId) ||
                 (group.Type == "admin_support" && group.Members.Any(m => m.ParticipantId == partId)) ||

@@ -39,6 +39,7 @@
                     <FrameworkChat ProjectId="@ProjectId"
                                    AccessToken="@AccessToken"
                                    ParticipantId="@ParticipantId"
+                                   Permissions="@ParticipantPermissions"
                                    IsAdmin="false" />
                 </div>
             }
@@ -77,6 +78,7 @@
     [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public ParticipantPermissions? ParticipantPermissions { get; set; }
     [Parameter] public TeamState? TeamState { get; set; }
     [Parameter] public TeamState[] AllTeams { get; set; } = [];
     [Parameter] public EventState[] PassiveEvents { get; set; } = [];

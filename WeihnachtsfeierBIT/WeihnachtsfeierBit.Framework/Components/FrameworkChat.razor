@@ -10,7 +10,15 @@
 @implements IAsyncDisposable
 
 <div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; position: relative;">
-    @if (_currentView == "overview")
+    @if (!IsAdmin && Permissions?.HasPermission(ParticipantPermissionKeys.CanReadChat) == false)
+    {
+        <div style="margin: auto; text-align: center; padding: 32px 24px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 16px;">
+            <span class="material-symbols-outlined" style="font-size: 48px; color: #b45309; margin-bottom: 12px; display: block;">lock</span>
+            <h3 style="margin: 0 0 8px 0; color: #b45309; font-size: 18px;">Chat deaktiviert</h3>
+            <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.4;">Der Chat wurde von der Spielleitung für dein Profil deaktiviert.</p>
+        </div>
+    }
+    else if (_currentView == "overview")
     {
         <!-- CHAT OVERVIEW LIST -->
         <div style="flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 10px;">
@@ -128,13 +136,22 @@
             }
         </div>
 
-        <!-- MESSAGE INPUT BAR -->
-        <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0; position: relative; z-index: 5;">
-            <div style="flex: 1;">
-                <FrameworkInputText @bind-Value="_newMessageInput" MaxLength="1000" Placeholder="Nachricht schreiben..." />
+        @if (!IsAdmin && Permissions?.HasPermission(ParticipantPermissionKeys.CanSendChatMessages) == false)
+        {
+            <div style="padding: 12px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 13px; color: #b45309; font-weight: 600; text-align: center; flex-shrink: 0;">
+                Das Schreiben im Chat wurde für dein Profil stummgeschaltet.
             </div>
-            <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
-        </form>
+        }
+        else
+        {
+            <!-- MESSAGE INPUT BAR -->
+            <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0; position: relative; z-index: 5;">
+                <div style="flex: 1;">
+                    <FrameworkInputText @bind-Value="_newMessageInput" MaxLength="1000" Placeholder="Nachricht schreiben..." />
+                </div>
+                <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
+            </form>
+        }
     }
 
     <!-- CREATE CHAT / GROUP MODAL -->
@@ -184,6 +201,7 @@
     [Parameter, EditorRequired] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public Guid? ParticipantId { get; set; }
     [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public ParticipantPermissions? Permissions { get; set; }
 
     private string _currentView = "overview"; // "overview" or "room"
     private ChatGroupSummary[] _groups = [];
