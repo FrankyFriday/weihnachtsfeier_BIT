@@ -21,6 +21,7 @@ public static class ChatEndpoints
         reader.MapPost("/chat/groups", CreateCustomGroupAsync).WithName("CreateCustomGroup");
         admin.MapDelete("/chat/messages/{messageId:guid}", DeleteChatMessageAsync).WithName("DeleteChatMessage");
         admin.MapDelete("/chat/groups/{groupId:guid}", DeleteChatGroupAsync).WithName("DeleteChatGroup");
+        admin.MapPut("/chat/groups/{groupId:guid}", RenameChatGroupAsync).WithName("RenameChatGroup");
     }
 
     private static async Task<IResult> GetChatGroupsAsync(
@@ -171,15 +172,34 @@ public static class ChatEndpoints
             DateTime? lastRead = userRead?.LastReadAtUtc;
             int unreadCount = lastRead.HasValue ? g.Messages.Count(m => m.SentAtUtc > lastRead.Value) : g.Messages.Count;
 
+            string groupName = g.Name;
+            if (adminId.HasValue && g.Type == "admin_support")
+            {
+                var memberParticipantId = g.Members.FirstOrDefault()?.ParticipantId;
+                if (memberParticipantId is Guid partIdVal && partIdVal != Guid.Empty)
+                {
+                    var participant = await dbContext.Teilnehmer
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == partIdVal, cancellationToken);
+
+                    if (participant is not null)
+                    {
+                        string pName = string.IsNullOrWhiteSpace(participant.Name) ? $"Teilnehmer #{participant.Nummer}" : $"{participant.Name} (#{participant.Nummer})";
+                        groupName = $"Support: {pName}";
+                    }
+                }
+            }
+
             summaries.Add(new ChatGroupSummary(
                 g.Id,
-                g.Name,
+                groupName,
                 g.Type,
                 g.AssociatedTeamId,
                 g.Members.Count,
                 lastMsg?.MessageText,
                 lastMsg?.SentAtUtc,
-                unreadCount));
+                unreadCount,
+                lastMsg?.SenderName));
         }
 
         return Results.Ok(summaries);
@@ -528,6 +548,41 @@ public static class ChatEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count, null, null, 0));
+    }
+
+    private static async Task<IResult> RenameChatGroupAsync(
+        Guid projectId,
+        Guid groupId,
+        RenameChatGroupRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IHubContext<GameStateHub> hubContext,
+        CancellationToken cancellationToken)
+    {
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
+        if (access is null || access.AdminId is null) return Results.Unauthorized();
+
+        var group = await dbContext.ChatGroups
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.ProjektId == projectId, cancellationToken);
+
+        if (group is null) return Results.NotFound();
+
+        if (group.Type == "global")
+        {
+            return Results.BadRequest(new ApiError("Die globale Hauptgruppe kann nicht umbenannt werden."));
+        }
+
+        var newName = request.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || newName.Length > 60)
+        {
+            return Results.BadRequest(new ApiError("Gruppenname muss zwischen 1 und 60 Zeichen lang sein."));
+        }
+
+        group.Name = newName;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveGroupRenamed", groupId, group.Name, cancellationToken);
+        return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count, null, null, 0, null));
     }
 
     private static async Task<IResult> DeleteChatMessageAsync(

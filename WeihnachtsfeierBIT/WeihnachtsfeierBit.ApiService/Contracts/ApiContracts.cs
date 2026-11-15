@@ -111,7 +111,10 @@ public sealed record ChatGroupSummary(
     int MemberCount,
     string? LastMessageText,
     DateTime? LastMessageAtUtc,
-    int UnreadCount);
+    int UnreadCount,
+    string? LastMessageSenderName = null);
+
+public sealed record RenameChatGroupRequest(string Name);
 
 public sealed record ChatMessageResponse(
     Guid Id,

@@ -1048,6 +1048,15 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<ChatGroupSummary> RenameChatGroupAsync(string accessToken, Guid projectId, Guid groupId, string newName, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/chat/groups/{groupId}", accessToken, new { name = newName });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ChatGroupSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Failed to rename group.");
+    }
+
     public async Task AdminSubmitResponseAsync(
         string accessToken, Guid projectId, Guid eventId, Guid slideId, Guid participantId, JsonElement responseData, CancellationToken cancellationToken = default)
     {
@@ -1273,7 +1282,8 @@ public sealed record ChatGroupSummary(
     int MemberCount,
     string? LastMessageText,
     DateTime? LastMessageAtUtc,
-    int UnreadCount);
+    int UnreadCount,
+    string? LastMessageSenderName = null);
 
 public sealed record ChatMessageResponse(
     Guid Id,

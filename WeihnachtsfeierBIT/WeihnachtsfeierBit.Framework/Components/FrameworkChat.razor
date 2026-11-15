@@ -3,6 +3,7 @@
 @using Microsoft.Extensions.Configuration
 @using Microsoft.Extensions.Logging
 @using Microsoft.JSInterop
+@using System.Text.Json
 @using WeihnachtsfeierBit.Framework.Services
 @inject ProjectApiClient ProjectApiClient
 @inject ClientDiagnosticLogger DiagnosticLogger
@@ -26,19 +27,21 @@
         <div style="flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span class="mobile-eyebrow">UNTERHALTUNGEN</span>
-                <span style="font-size: 12px; color: #657276;">@_groups.Length Chats</span>
+                <span style="font-size: 12px; color: #657276;">@_filteredGroups.Length Chats</span>
             </div>
 
-            @if (_groups.Length == 0)
+            <FrameworkInputText @bind-Value="_groupSearchQuery" Placeholder="Chats durchsuchen..." style="margin-bottom: 4px;" />
+
+            @if (_filteredGroups.Length == 0)
             {
                 <div style="margin: auto; text-align: center; color: #657276; padding: 32px;">
                     <span class="material-symbols-outlined" style="font-size: 40px; color: #cbd7d3; margin-bottom: 8px; display: block;">forum</span>
-                    <strong style="font-size: 15px;">Keine Chats vorhanden</strong>
+                    <strong style="font-size: 15px;">Keine Chats gefunden</strong>
                 </div>
             }
             else
             {
-                @foreach (var g in _groups)
+                @foreach (var g in _filteredGroups)
                 {
                     string iconName = g.Type switch
                     {
@@ -63,7 +66,21 @@
                                     }
                                 </div>
                                 <span style="font-size: 13px; color: #657276; display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    @(string.IsNullOrEmpty(g.LastMessageText) ? "Noch keine Nachrichten" : g.LastMessageText)
+                                    @if (!string.IsNullOrEmpty(g.LastMessageText))
+                                    {
+                                        @if (!string.IsNullOrEmpty(g.LastMessageSenderName))
+                                        {
+                                            @:@g.LastMessageSenderName: @g.LastMessageText
+                                        }
+                                        else
+                                        {
+                                            @g.LastMessageText
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @:Noch keine Nachrichten
+                                    }
                                 </span>
                             </div>
                         </div>
@@ -72,6 +89,12 @@
                             @if (g.UnreadCount > 0)
                             {
                                 <span style="background: #197b67; color: #fff; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 10px;">@g.UnreadCount</span>
+                            }
+                            @if (IsAdmin && (g.Type == "custom" || g.Type == "team"))
+                            {
+                                <button type="button" class="btn-icon-small" title="Gruppe umbenennen" @onclick:stopPropagation="true" @onclick="() => RequestRenameGroup(g)" style="color: #197b67;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
+                                </button>
                             }
                             @if (IsAdmin && g.Type != "global")
                             {
@@ -103,7 +126,7 @@
         </div>
 
         <!-- MESSAGES STREAM CONTAINER -->
-        <div style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box;">
+        <div @ref="_messagesContainer" @onscroll="OnMessagesScroll" style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box; position: relative;">
             @if (_messages.Length == 0)
             {
                 <div style="margin: auto; text-align: center; color: #657276; padding: 24px;">
@@ -127,7 +150,14 @@
                                 {
                                     <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @msg.TeamColor; display: inline-block;"></span>
                                 }
-                                <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
+                                @if (IsAdmin && msg.SenderParticipantId.HasValue)
+                                {
+                                    <span @onclick="() => OpenDirectChatWithParticipant(msg.SenderParticipantId.Value)" style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#197b67"); cursor: pointer; text-decoration: underline;" title="Direktchat mit Teilnehmer öffnen">@msg.SenderName</span>
+                                }
+                                else
+                                {
+                                    <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
+                                }
                                 @if (isAdmin)
                                 {
                                     <FrameworkBadge Text="Moderator" Variant="warning" />
@@ -147,6 +177,14 @@
                         </div>
                     </div>
                 }
+            }
+
+            @if (_isScrolledUp)
+            {
+                <button type="button" @onclick="ScrollToBottom" style="position: sticky; bottom: 8px; left: 50%; transform: translateX(-50%); background: #197b67; color: #fff; border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; z-index: 5; margin: auto;">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">arrow_downward</span>
+                    <span>Neue Nachrichten</span>
+                </button>
             }
         </div>
 
@@ -212,6 +250,32 @@
         </div>
     }
 
+    <!-- RENAME GROUP MODAL -->
+    @if (_isRenameModalOpen)
+    {
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+            <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #dce5e2;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                    <strong style="font-size: 16px; color: #1d2528;">Chat umbenennen</strong>
+                    <button type="button" class="btn-icon-small" @onclick="CloseRenameModal">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+                    <FrameworkInputText @bind-Value="_newGroupRenameInput" Placeholder="Neuer Gruppenname..." Label="Gruppenname" />
+                    @if (!string.IsNullOrEmpty(_renameModalError))
+                    {
+                        <FrameworkNotice Message="@_renameModalError" Severity="error" />
+                    }
+                </div>
+                <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseRenameModal" />
+                    <FrameworkButton Label="Speichern" Variant="primary" OnClick="ConfirmRenameGroupAsync" Busy="_isRenaming" />
+                </div>
+            </div>
+        </div>
+    }
+
     <!-- DELETE MESSAGE CONFIRMATION MODAL -->
     @if (_messageToDeleteId.HasValue)
     {
@@ -258,6 +322,7 @@
     private Guid? _selectedGroupId;
     private ChatMessageResponse[] _messages = [];
     private string _newMessageInput = string.Empty;
+    private string _groupSearchQuery = string.Empty;
 
     private bool _isCreateModalOpen;
     private string _newGroupName = string.Empty;
@@ -267,8 +332,17 @@
     private string? _modalError;
     private bool _isCreating;
 
+    private bool _isRenameModalOpen;
+    private ChatGroupSummary? _groupToRename;
+    private string _newGroupRenameInput = string.Empty;
+    private string? _renameModalError;
+    private bool _isRenaming;
+
     private Guid? _messageToDeleteId;
     private Guid? _groupToDeleteId;
+
+    private ElementReference _messagesContainer;
+    private bool _isScrolledUp;
 
     private HubConnection? _activeConnection;
     private bool _isLocalHubConnection;
@@ -282,6 +356,11 @@
         string.IsNullOrWhiteSpace(_searchFilter)
             ? _allContacts
             : _allContacts.Where(c => c.Name.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
+
+    private ChatGroupSummary[] _filteredGroups =>
+        string.IsNullOrWhiteSpace(_groupSearchQuery)
+            ? _groups
+            : _groups.Where(g => g.Name.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase) || (g.LastMessageText is not null && g.LastMessageText.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase)) || (g.LastMessageSenderName is not null && g.LastMessageSenderName.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase))).ToArray();
 
     private string? _lastLoadedToken;
 
@@ -306,6 +385,25 @@
             _lastLoadedToken = AccessToken;
             await LoadGroupsAsync();
         }
+        await SetupSignalRAsync();
+    }
+
+    private async Task ReconnectSignalRAsync()
+    {
+        if (_activeConnection is not null && _isLocalHubConnection)
+        {
+            try
+            {
+                _connectionCancellation?.Cancel();
+                await _activeConnection.DisposeAsync();
+            }
+            catch
+            {
+            }
+            _activeConnection = null;
+            _handlersRegistered = false;
+        }
+
         await SetupSignalRAsync();
     }
 
@@ -337,7 +435,7 @@
     private async Task OpenChatRoom(Guid groupId)
     {
         // Optimistic UI update: instantly set unread count to 0 locally
-        _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0) : g).ToArray();
+        _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0, g.LastMessageSenderName) : g).ToArray();
 
         _selectedGroupId = groupId;
         _currentView = "room";
@@ -350,6 +448,7 @@
                 await ProjectApiClient.MarkGroupAsReadAsync(AccessToken, ProjectId, groupId);
                 _messages = await ProjectApiClient.GetChatMessagesAsync(AccessToken, ProjectId, groupId);
                 StateHasChanged();
+                await ScrollToBottom();
             }
         }
         catch
@@ -444,11 +543,56 @@
         }
     }
 
-    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    private async Task OpenDirectChatWithParticipant(Guid participantId)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
         {
-            await SubmitMessageAsync();
+            var directGroup = await ProjectApiClient.GetOrCreateDirectChatAsync(AccessToken, ProjectId, participantId);
+            await LoadGroupsAsync();
+            await OpenChatRoom(directGroup.Id);
+        }
+        catch
+        {
+        }
+    }
+
+    private void RequestRenameGroup(ChatGroupSummary group)
+    {
+        if (!IsAdmin || group.Type == "global") return;
+        _groupToRename = group;
+        _newGroupRenameInput = group.Name;
+        _renameModalError = null;
+        _isRenameModalOpen = true;
+    }
+
+    private void CloseRenameModal() => _isRenameModalOpen = false;
+
+    private async Task ConfirmRenameGroupAsync()
+    {
+        if (_groupToRename is null || !IsAdmin || string.IsNullOrEmpty(AccessToken)) return;
+        var newName = _newGroupRenameInput?.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || newName.Length > 60)
+        {
+            _renameModalError = "Gruppenname muss zwischen 1 und 60 Zeichen lang sein.";
+            return;
+        }
+
+        _isRenaming = true;
+        _renameModalError = null;
+        try
+        {
+            await ProjectApiClient.RenameChatGroupAsync(AccessToken, ProjectId, _groupToRename.Id, newName);
+            _isRenameModalOpen = false;
+            await LoadGroupsAsync();
+        }
+        catch (Exception ex)
+        {
+            _renameModalError = "Fehler beim Umbenennen: " + ex.Message;
+        }
+        finally
+        {
+            _isRenaming = false;
         }
     }
 
@@ -458,6 +602,16 @@
         var text = _newMessageInput.Trim();
         _newMessageInput = string.Empty;
         StateHasChanged();
+
+        await Task.Delay(10);
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('input[placeholder=\"Nachricht schreiben...\"]').value = ''");
+        }
+        catch
+        {
+        }
 
         try
         {
@@ -476,6 +630,15 @@
         }
 
         await LoadGroupsAsync();
+        await ScrollToBottom();
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SubmitMessageAsync();
+        }
     }
 
     private void RequestDeleteMessage(Guid messageId)
@@ -538,6 +701,36 @@
         }
     }
 
+    private async Task OnMessagesScroll(EventArgs e)
+    {
+        try
+        {
+            var res = await JS.InvokeAsync<JsonElement>("eval", "(() => { const el = document.querySelector('div[style*=\"overflow-y: auto\"]'); if(!el) return {scrollTop:0, scrollHeight:0, clientHeight:0}; return {scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight}; })()");
+            double scrollTop = res.GetProperty("scrollTop").GetDouble();
+            double scrollHeight = res.GetProperty("scrollHeight").GetDouble();
+            double clientHeight = res.GetProperty("clientHeight").GetDouble();
+
+            _isScrolledUp = (scrollHeight - scrollTop - clientHeight) > 100;
+            StateHasChanged();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "(() => { const el = document.querySelector('div[style*=\"overflow-y: auto\"]'); if(el) el.scrollTop = el.scrollHeight; })()");
+            _isScrolledUp = false;
+            StateHasChanged();
+        }
+        catch
+        {
+        }
+    }
+
     private async Task SetupSignalRAsync()
     {
         if (_handlersRegistered) return;
@@ -568,6 +761,10 @@
                 {
                     _messages = [.. _messages, msg];
                     StateHasChanged();
+                    if (!_isScrolledUp)
+                    {
+                        await ScrollToBottom();
+                    }
                 }
 
                 await LoadGroupsAsync();
@@ -594,6 +791,15 @@
                     _currentView = "overview";
                     _selectedGroupId = null;
                 }
+                StateHasChanged();
+            });
+        });
+
+        _activeConnection.On<Guid, string>("ReceiveGroupRenamed", async (groupId, newName) =>
+        {
+            await InvokeAsync(() =>
+            {
+                _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, newName, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, g.UnreadCount, g.LastMessageSenderName) : g).ToArray();
                 StateHasChanged();
             });
         });
