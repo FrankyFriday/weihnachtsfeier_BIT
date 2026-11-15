@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace WeihnachtsfeierBit.Framework;
 
-public sealed class ProjectApiClient(HttpClient httpClient)
+public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagnosticLogger? diagnosticLogger = null)
 {
     public async Task<ProjectSummary[]> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
@@ -1034,6 +1034,20 @@ public sealed class ProjectApiClient(HttpClient httpClient)
             ?? new ParticipantSummary(participantId, 0, null, null);
     }
 
+    public async Task DeleteChatMessageAsync(string accessToken, Guid projectId, Guid messageId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/chat/messages/{messageId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteChatGroupAsync(string accessToken, Guid projectId, Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/chat/groups/{groupId}", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task AdminSubmitResponseAsync(
         string accessToken, Guid projectId, Guid eventId, Guid slideId, Guid participantId, JsonElement responseData, CancellationToken cancellationToken = default)
     {
@@ -1070,10 +1084,11 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         return request;
     }
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
         {
+            diagnosticLogger?.LogInfo("HTTP", $"{response.RequestMessage?.Method} {response.RequestMessage?.RequestUri?.PathAndQuery}", $"Status: {(int)response.StatusCode}");
             return;
         }
 
@@ -1088,6 +1103,9 @@ public sealed class ProjectApiClient(HttpClient httpClient)
         }
 
         var message = error?.Message ?? $"Die Anfrage ist fehlgeschlagen ({(int)response.StatusCode}).";
+        var authParam = response.RequestMessage?.Headers.Authorization?.Parameter;
+        var tokenSnippet = string.IsNullOrEmpty(authParam) ? "(null/empty)" : (authParam.Length > 8 ? $"{authParam[..4]}...{authParam[^4..]}" : authParam);
+        diagnosticLogger?.LogError("HTTP", $"{response.RequestMessage?.Method} {response.RequestMessage?.RequestUri?.PathAndQuery} -> {message}", (int)response.StatusCode, $"Error: {message} | AuthParamLen: {authParam?.Length ?? 0} | AuthSnippet: {tokenSnippet}");
         throw new HttpRequestException(message, null, response.StatusCode);
     }
 }

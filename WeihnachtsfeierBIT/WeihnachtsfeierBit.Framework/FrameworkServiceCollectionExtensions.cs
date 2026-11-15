@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using WeihnachtsfeierBit.Framework.Services;
 
 namespace WeihnachtsfeierBit.Framework;
 
@@ -8,6 +9,7 @@ public static class FrameworkServiceCollectionExtensions
         this IServiceCollection services,
         Action<HttpClient> configureApiClient)
     {
+        services.AddScoped<ClientDiagnosticLogger>();
         services.AddHttpClient<ProjectApiClient>(configureApiClient);
         return services;
     }

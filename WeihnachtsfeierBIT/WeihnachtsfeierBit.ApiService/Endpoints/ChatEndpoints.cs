@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Hubs;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 
@@ -18,17 +19,17 @@ public static class ChatEndpoints
         reader.MapPost("/chat/groups/{groupId:guid}/read", MarkGroupAsReadAsync).WithName("MarkGroupAsRead");
         reader.MapPost("/chat/direct/{targetParticipantId:guid}", GetOrCreateDirectChatAsync).WithName("GetOrCreateDirectChat");
         reader.MapPost("/chat/groups", CreateCustomGroupAsync).WithName("CreateCustomGroup");
+        admin.MapDelete("/chat/messages/{messageId:guid}", DeleteChatMessageAsync).WithName("DeleteChatMessage");
+        admin.MapDelete("/chat/groups/{groupId:guid}", DeleteChatGroupAsync).WithName("DeleteChatGroup");
     }
 
     private static async Task<IResult> GetChatGroupsAsync(
         Guid projectId,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
 
         // 1. Ensure Global group exists
@@ -181,18 +182,16 @@ public static class ChatEndpoints
                 unreadCount));
         }
 
-        return Results.Ok(summaries.ToArray());
+        return Results.Ok(summaries);
     }
 
     private static async Task<IResult> GetChatParticipantsAndAdminsAsync(
         Guid projectId,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
 
         var participants = await dbContext.Teilnehmer
@@ -219,12 +218,10 @@ public static class ChatEndpoints
         Guid projectId,
         Guid groupId,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
 
         var group = await dbContext.ChatGroups
@@ -270,12 +267,10 @@ public static class ChatEndpoints
         Guid projectId,
         Guid groupId,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
 
         Guid? partId = access.ParticipantId;
@@ -335,13 +330,11 @@ public static class ChatEndpoints
         Guid groupId,
         SendChatMessageRequest request,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
-        IHubContext<Hubs.GameStateHub> hubContext,
+        IHubContext<GameStateHub> hubContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
 
         var text = request.MessageText?.Trim();
@@ -354,59 +347,45 @@ public static class ChatEndpoints
             .Include(cg => cg.Members)
             .FirstOrDefaultAsync(cg => cg.Id == groupId && cg.ProjektId == projectId, cancellationToken);
 
-        if (group is null)
-        {
-            return Results.NotFound();
-        }
+        if (group is null) return Results.NotFound();
 
-        if (access.ParticipantId is Guid partId)
-        {
-            var participant = await dbContext.Teilnehmer.AsNoTracking()
-                .Include(t => t.Berechtigung)
-                .FirstOrDefaultAsync(t => t.Id == partId, cancellationToken);
-
-            var perms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ParsePermissionsJson(participant?.Berechtigung?.PermissionsJson);
-            if (!new WeihnachtsfeierBit.Framework.ParticipantPermissions(perms).HasPermission(WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSendChatMessages))
-            {
-                return Results.BadRequest(new ApiError("Du hast keine Berechtigung, Chat-Nachrichten zu senden."));
-            }
-
-            bool hasAccess = group.Type == "global" ||
-                (group.Type == "team" && group.AssociatedTeamId == participant?.TeamId) ||
-                (group.Type == "admin_support" && group.Members.Any(m => m.ParticipantId == partId)) ||
-                (group.Type == "direct" && group.Members.Any(m => m.ParticipantId == partId)) ||
-                (group.Type == "custom" && group.Members.Any(m => m.ParticipantId == partId));
-
-            if (!hasAccess) return Results.Forbid();
-        }
-
-        string senderName = "Moderation";
+        string senderName = "Teilnehmer";
         string? teamColor = null;
-        Guid? participantId = null;
-        Guid? adminId = null;
 
         if (access.ParticipantId is Guid pId)
         {
-            participantId = pId;
             var participant = await dbContext.Teilnehmer
                 .Include(t => t.Team)
                 .FirstOrDefaultAsync(t => t.Id == pId, cancellationToken);
 
-            senderName = !string.IsNullOrWhiteSpace(participant?.Name) ? participant.Name : $"Teilnehmer #{participant?.Nummer}";
-            teamColor = participant?.Team?.Color;
+            if (participant is null) return Results.Unauthorized();
+
+            if (group.Type != "global" && group.Type != "team" && !group.Members.Any(m => m.ParticipantId == pId))
+            {
+                return Results.Forbid();
+            }
+
+            var project = await dbContext.Projekte.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
+            var perms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ResolveEffectivePermissions(project?.PermissionsJson, participant.Berechtigung?.PermissionsJson);
+            if (!perms.TryGetValue(WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSendChatMessages, out var canSend) || !canSend)
+            {
+                return Results.BadRequest(new ApiError("Das Schreiben im Chat ist für deinen Benutzer gesperrt."));
+            }
+
+            senderName = string.IsNullOrWhiteSpace(participant.Name) ? $"Teilnehmer #{participant.Nummer}" : participant.Name;
+            teamColor = participant.Team?.Color;
         }
-        else if (access.AdminId is Guid aId)
+        else if (access.AdminId is Guid adminId)
         {
-            adminId = aId;
-            var admin = await dbContext.ProjektAdmins.FindAsync([aId], cancellationToken);
+            var admin = await dbContext.ProjektAdmins.FindAsync([adminId], cancellationToken);
             senderName = admin?.Benutzername ?? "Moderator";
         }
 
         var message = new ChatMessage
         {
             ChatGroupId = groupId,
-            SenderParticipantId = participantId,
-            SenderAdminId = adminId,
+            SenderParticipantId = access.ParticipantId,
+            SenderAdminId = access.AdminId,
             SenderName = senderName,
             TeamColor = teamColor,
             MessageText = text,
@@ -427,7 +406,7 @@ public static class ChatEndpoints
             message.SenderAdminId.HasValue,
             message.SentAtUtc);
 
-        var groupName = Hubs.GameStateHub.GetGroupName(projectId);
+        var groupName = GameStateHub.GetGroupName(projectId);
         await hubContext.Clients.Group(groupName).SendAsync("ReceiveChatMessage", response, cancellationToken);
 
         return Results.Ok(response);
@@ -437,12 +416,10 @@ public static class ChatEndpoints
         Guid projectId,
         Guid targetParticipantId,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null || (access.ParticipantId is null && access.AdminId is null)) return Results.Unauthorized();
 
         if (access.AdminId is Guid adminId)
@@ -512,12 +489,10 @@ public static class ChatEndpoints
         Guid projectId,
         CreateCustomGroupRequest request,
         HttpContext httpContext,
-        ProjectAccessService accessService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
-        var token = ProjectAccessService.GetBearerToken(httpContext.Request);
-        var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
+        var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null || (access.ParticipantId is null && access.AdminId is null)) return Results.Unauthorized();
 
         var name = request.Name?.Trim();
@@ -553,5 +528,50 @@ public static class ChatEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count, null, null, 0));
+    }
+
+    private static async Task<IResult> DeleteChatMessageAsync(
+        Guid projectId,
+        Guid messageId,
+        WeihnachtsfeierDbContext dbContext,
+        IHubContext<GameStateHub> hubContext,
+        CancellationToken cancellationToken)
+    {
+        var message = await dbContext.ChatMessages
+            .Include(m => m.ChatGroup)
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatGroup.ProjektId == projectId, cancellationToken);
+
+        if (message is null) return Results.NotFound();
+
+        var groupId = message.ChatGroupId;
+        dbContext.ChatMessages.Remove(message);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveMessageDeleted", messageId, cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> DeleteChatGroupAsync(
+        Guid projectId,
+        Guid groupId,
+        WeihnachtsfeierDbContext dbContext,
+        IHubContext<GameStateHub> hubContext,
+        CancellationToken cancellationToken)
+    {
+        var group = await dbContext.ChatGroups
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.ProjektId == projectId, cancellationToken);
+
+        if (group is null) return Results.NotFound();
+
+        if (group.Type == "global")
+        {
+            return Results.BadRequest(new ApiError("Die globale Hauptgruppe kann nicht gelöscht werden."));
+        }
+
+        dbContext.ChatGroups.Remove(group);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveGroupDeleted", groupId, cancellationToken);
+        return Results.NoContent();
     }
 }

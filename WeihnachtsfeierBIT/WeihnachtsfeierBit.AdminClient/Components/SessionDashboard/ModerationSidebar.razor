@@ -23,6 +23,13 @@
             @onclick='() => ToggleCompartment("leaderboard")'>
         <span class="material-symbols-outlined">leaderboard</span>
     </button>
+
+    <button type="button"
+            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "chat" ? "active" : "")"
+            title="Quick-Chat"
+            @onclick='() => ToggleCompartment("chat")'>
+        <span class="material-symbols-outlined">chat</span>
+    </button>
 </div>
 
 <!-- COMPARTMENT DRAWER PANEL -->
@@ -30,10 +37,10 @@
     <div class="regie-sidebar-header">
         <div style="display: flex; gap: 8px; align-items: center;">
             <span class="material-symbols-outlined" style="color: #105c4d;">
-                @(_activeCompartment == "emulator" ? "smartphone" : _activeCompartment == "participants" ? "group" : "leaderboard")
+                @(_activeCompartment == "emulator" ? "smartphone" : _activeCompartment == "participants" ? "group" : _activeCompartment == "leaderboard" ? "leaderboard" : "chat")
             </span>
             <strong style="font-size: 14px; color: #1d2528;">
-                @(_activeCompartment == "emulator" ? "Handy-Emulator" : _activeCompartment == "participants" ? "Teilnehmer & Rechte" : "Punkte & Rangliste")
+                @(_activeCompartment == "emulator" ? "Handy-Emulator" : _activeCompartment == "participants" ? "Teilnehmer & Rechte" : _activeCompartment == "leaderboard" ? "Punkte & Rangliste" : "Quick-Chat")
             </strong>
         </div>
         <button type="button" class="btn-icon-small" title="Schließen" @onclick="CloseDrawer">
@@ -124,7 +131,7 @@
             </div>
         </div>
     }
-    else
+    else if (_activeCompartment == "leaderboard")
     {
         <div class="regie-sidebar-body" style="gap: 12px; display: flex; flex-direction: column; height: 100%; min-height: 0;">
             <!-- ZWISCHENSTAND QUICK START DROPDOWN LINK -->
@@ -206,6 +213,19 @@
                     </div>
                 }
             </div>
+        </div>
+    }
+    else
+    {
+        <div class="regie-sidebar-body" style="display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 4px;">
+            @if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty)
+            {
+                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" HubConnection="@HubConnection" IsAdmin="true" />
+            }
+            else
+            {
+                <p style="text-align: center; color: #64748b; padding: 40px 16px;">Chat wird geladen...</p>
+            }
         </div>
     }
 </div>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR.Client;
 using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard;
@@ -13,6 +14,8 @@ public partial class ModerationSidebar : ComponentBase
     [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
+    [Parameter] public string AccessToken { get; set; } = string.Empty;
+    [Parameter] public HubConnection? HubConnection { get; set; }
 
     [Parameter] public EventCallback<ParticipantSummary> OnOpenPermissions { get; set; }
     [Parameter] public EventCallback<bool> OnDrawerStateChanged { get; set; }

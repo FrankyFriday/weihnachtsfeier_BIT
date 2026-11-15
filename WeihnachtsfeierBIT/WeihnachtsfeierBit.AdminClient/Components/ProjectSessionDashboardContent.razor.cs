@@ -34,6 +34,8 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
     private bool _isPermissionsModalOpen;
     private ParticipantSummary? _permissionsParticipant;
 
+    private bool _isDiagnosticModalOpen;
+
     private FrameworkDropdownOption[] _sessionOptions =>
     [
         new("share_project", "Projekt teilen / Admins", "person_add"),
@@ -78,14 +80,23 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
         new("self_paced", "Selbstständig (Teilnehmer blättern selbst)")
     ];
 
-    protected override async Task OnInitializedAsync()
+    private string? _accessToken;
+
+    protected override async Task OnParametersSetAsync()
     {
-        _state = new SessionDashboardState(ProjectId, ProjectApiClient, Configuration, Logger, async action => await RunAuthenticatedAsync(action));
-        _state.OnStateChanged += StateHasChanged;
-        await _state.InitializeAsync();
+        await LoadAuthenticatedAsync(async token =>
+        {
+            _accessToken = token;
+            if (_state is null)
+            {
+                _state = new SessionDashboardState(ProjectId, ProjectApiClient, Configuration, Logger, async action => await RunAuthenticatedAsync(action));
+                _state.OnStateChanged += StateHasChanged;
+                await _state.InitializeAsync();
+            }
+        });
     }
 
-    private string GetCanvasUrl() => Navigation.ToAbsoluteUri($"/play/beamer/{_state.Instance!.AccessCode}").ToString();
+    private string GetCanvasUrl() => _state?.Instance?.AccessCode is not null ? Navigation.ToAbsoluteUri($"/play/beamer/{_state.Instance.AccessCode}").ToString() : Navigation.BaseUri;
 
     private async Task HandleSessionOptionSelect(string optionValue)
     {
@@ -152,6 +163,9 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
     }
 
     private void ClosePermissionsModal() => _isPermissionsModalOpen = false;
+
+    private void OpenDiagnosticModal() => _isDiagnosticModalOpen = true;
+    private void CloseDiagnosticModal() => _isDiagnosticModalOpen = false;
 
     private async Task ToggleRegieSidebar()
     {

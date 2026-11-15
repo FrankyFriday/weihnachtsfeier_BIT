@@ -1,11 +1,16 @@
 @namespace WeihnachtsfeierBit.AdminClient.Components
+@using WeihnachtsfeierBit.Framework.Components.Modals
 @inherits AuthenticatedComponentBase
 @implements IAsyncDisposable
 
 <FrameworkPage IsFluid="true">
-    @if (_state.IsLoading)
+    @if (IsLoading || _state?.IsLoading == true)
     {
         <FrameworkLoading Message="Session-Dashboard wird geladen ..." />
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FrameworkNotice Message="@ErrorMessage" Severity="error" />
     }
     else
     {
@@ -15,6 +20,7 @@
                         SessionOptions="_sessionOptions"
                         OnSessionOptionSelect="HandleSessionOptionSelect"
                         OnStartSession="OpenStartSessionModal"
+                        OnOpenDiagnostics="OpenDiagnosticModal"
                         IsProcessing="_state.IsProcessing"
                         IsDrawerOpen="_isRegieDrawerOpen" />
 
@@ -45,7 +51,7 @@
                     @if (_state.SelectedTabItem is not null)
                     {
                         <ActiveEventCard Event="_state.SelectedTabItem.Event"
-                                         ProjectId="ProjectId"
+                                         ProjectId="@ProjectId"
                                          ActiveCanvasEventId="_state.ActiveCanvasEventId"
                                          OnStepEventSlide="dir => _state.StepEventSlideToAsync(_state.SelectedTabItem.Event, _state.SelectedTabItem.Event.CurrentSlideIndex + dir)"
                                          OnStepEventSlideTo="idx => _state.StepEventSlideToAsync(_state.SelectedTabItem.Event, idx)"
@@ -70,7 +76,9 @@
                                Teams="_state.Teams"
                                Instance="_state.Instance"
                                PointLogs="_state.PointLogs"
-                               ProjectId="ProjectId"
+                               ProjectId="@ProjectId"
+                               AccessToken="@_accessToken"
+                               HubConnection="_state.HubConnection"
                                RunAuthenticated="RunAuthenticatedAsync"
                                OnOpenPermissions="OpenPermissionsModal"
                                OnOpenAwardPoints="OpenAwardPointsForTeam"
@@ -79,7 +87,7 @@
 
         <!-- MODALS -->
         <AwardPointsModal IsOpen="_isAwardPointsModalOpen"
-                          ProjectId="ProjectId"
+                          ProjectId="@ProjectId"
                           Teams="_state.Teams"
                           DefaultTeamId="_awardDefaultTeamId"
                           OnClose="CloseAwardPointsModal"
@@ -87,12 +95,12 @@
                           RunAuthenticated="RunAuthenticatedAsync" />
 
         <PointLogsModal IsOpen="_isPointLogModalOpen"
-                        ProjectId="ProjectId"
+                        ProjectId="@ProjectId"
                         OnClose="ClosePointLogModal"
                         RunAuthenticated="RunAuthenticatedAsync" />
 
         <EditEventModal IsOpen="_isEditEventModalOpen"
-                        ProjectId="ProjectId"
+                        ProjectId="@ProjectId"
                         EditingEvent="_editingEvent"
                         ModeOptions="_modeOptions"
                         NavModeOptions="_navModeOptions"
@@ -101,7 +109,7 @@
                         RunAuthenticated="RunAuthenticatedAsync" />
 
         <LinkShowModal IsOpen="_isLinkShowModalOpen"
-                       ProjectId="ProjectId"
+                       ProjectId="@ProjectId"
                        Shows="_state.ProjectShows"
                        ModeOptions="_modeOptions"
                        NavModeOptions="_navModeOptions"
@@ -110,13 +118,13 @@
                        RunAuthenticated="RunAuthenticatedAsync" />
 
         <StartSessionModal IsOpen="_isStartSessionModalOpen"
-                           ProjectId="ProjectId"
+                           ProjectId="@ProjectId"
                            OnClose="CloseStartSessionModal"
                            OnSessionStarted="data => OnSessionStarted(data.Instance, data.Notice)"
                            RunAuthenticated="RunAuthenticatedAsync" />
 
         <SpontaneousEventModal IsOpen="_isSpontaneousModalOpen"
-                               ProjectId="ProjectId"
+                               ProjectId="@ProjectId"
                                SlideTypeOptions="_slideTypeOptions"
                                ModeOptions="_modeOptions"
                                NavModeOptions="_navModeOptions"
@@ -125,10 +133,13 @@
                                RunAuthenticated="RunAuthenticatedAsync" />
 
         <ParticipantPermissionsModal IsOpen="_isPermissionsModalOpen"
-                                     ProjectId="ProjectId"
+                                     ProjectId="@ProjectId"
                                      Participant="_permissionsParticipant"
                                      OnClose="ClosePermissionsModal"
                                      OnPermissionsSaved="() => _state.LoadDataAsync()"
                                      RunAuthenticated="RunAuthenticatedAsync" />
+
+        <DiagnosticModal IsOpen="_isDiagnosticModalOpen"
+                         OnClose="CloseDiagnosticModal" />
     }
 </FrameworkPage>
