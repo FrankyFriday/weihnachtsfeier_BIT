@@ -93,7 +93,7 @@ Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-N
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
 | `PUT /api/projects/{projectId}/session/canvas-settings` | Projektadmin (`CanControlSession`) | Anzeigeeinstellungen der aktiven Session setzen. |
 
-Die Beamer-Einstellungen werden mit der aktiven `GameInstance` gespeichert und bei einer neuen Session auf die Standardwerte zurückgesetzt. `scoreboardLayout` akzeptiert `right` (Punktestand und Diagramm rechts), `bottom` (schmale Punkte-Leiste) oder `hidden`; `qrCodeMode` akzeptiert `card`, `popup` (große Teilnahme-Überlagerung mit QR-Code und Session-Code) oder `hidden`. Änderungen werden live an die Beameransicht übertragen.
+Die Beamer-Einstellungen werden mit der aktiven `GameInstance` gespeichert und bei einer neuen Session auf die Standardwerte zurückgesetzt. `scoreboardLayout` akzeptiert `right` (Punktestand und Diagramm rechts), `bottom` (schmale Punkte-Leiste) oder `hidden`; `qrCodeMode` akzeptiert `card`, `popup` (große Teilnahme-Überlagerung mit QR-Code und Session-Code) oder `hidden`. `fontScalePercent`, `eventScalePercent`, `scoreboardScalePercent` und `qrCodeScalePercent` steuern die jeweilige Größe und sind jeweils auf 60 bis 160 Prozent begrenzt; fehlende Werte in älteren gespeicherten Einstellungen entsprechen 100 Prozent. Änderungen werden live an die Beameransicht übertragen, die ihre Inhalte ohne Scrollen an den verfügbaren Bildschirmplatz anpasst.
 
 ## Chat-Moderation & Endpunkte
 

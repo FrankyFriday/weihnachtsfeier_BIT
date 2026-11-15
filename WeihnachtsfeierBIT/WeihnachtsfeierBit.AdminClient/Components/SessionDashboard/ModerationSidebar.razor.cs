@@ -55,8 +55,7 @@ public partial class ModerationSidebar : ComponentBase
     private bool _isZwischenstandDropdownOpen;
     private bool _isCanvasSettingsSaving;
     private string _draftCanvasEventId = string.Empty;
-    private string _draftScoreboardLayout = CanvasDisplaySettings.Default.ScoreboardLayout;
-    private string _draftQrCodeMode = CanvasDisplaySettings.Default.QrCodeMode;
+    private CanvasDisplaySettings _draftCanvasSettings = CanvasDisplaySettings.Default;
     private CanvasDisplaySettings? _lastCanvasSettings;
     private Guid? _lastActiveCanvasEventId;
 
@@ -76,12 +75,25 @@ public partial class ModerationSidebar : ComponentBase
                 : SessionState.PassiveEvents;
         }
     }
-    private Guid? DraftCanvasEventId =>
-        Guid.TryParse(_draftCanvasEventId, out var eventId) ? eventId : null;
-    private bool HasUnsavedCanvasEvent => DraftCanvasEventId != ActiveCanvasEventId;
-    private bool HasUnsavedCanvasSettings =>
-        _draftScoreboardLayout != CanvasSettings.ScoreboardLayout ||
-        _draftQrCodeMode != CanvasSettings.QrCodeMode;
+    private FrameworkSelectOption[] CanvasEventOptions =>
+        [
+            new(string.Empty, "Kein Event · nur Kopfbereich und Punktestand"),
+            .. CanvasEvents.Select(gameEvent => new FrameworkSelectOption(
+                gameEvent.EventId.ToString(),
+                gameEvent.Title))
+        ];
+    private static FrameworkSelectOption[] ScoreboardLayoutOptions =>
+    [
+        new(CanvasDisplaySettings.ScoreboardRight, "Rechts · Punktestand und Diagramm"),
+        new(CanvasDisplaySettings.ScoreboardBottom, "Unten · schmale Punkte-Leiste"),
+        new(CanvasDisplaySettings.ScoreboardHidden, "Nicht anzeigen")
+    ];
+    private static FrameworkSelectOption[] QrCodeModeOptions =>
+    [
+        new(CanvasDisplaySettings.QrCodeCard, "Kleine Karte im Kopfbereich"),
+        new(CanvasDisplaySettings.QrCodePopup, "Großes Popup mit Session-Code"),
+        new(CanvasDisplaySettings.QrCodeHidden, "Ausblenden")
+    ];
 
     protected override void OnParametersSet()
     {
@@ -100,8 +112,7 @@ public partial class ModerationSidebar : ComponentBase
         if (!Equals(_lastCanvasSettings, CanvasSettings))
         {
             _lastCanvasSettings = CanvasSettings;
-            _draftScoreboardLayout = CanvasSettings.ScoreboardLayout;
-            _draftQrCodeMode = CanvasSettings.QrCodeMode;
+            _draftCanvasSettings = CanvasSettings;
         }
     }
 
@@ -199,27 +210,86 @@ public partial class ModerationSidebar : ComponentBase
         _regieFilter = filter;
     }
 
-    private void OnScoreboardLayoutChanged(ChangeEventArgs args) =>
-        _draftScoreboardLayout = args.Value?.ToString() ?? string.Empty;
-
-    private void OnQrCodeModeChanged(ChangeEventArgs args) =>
-        _draftQrCodeMode = args.Value?.ToString() ?? string.Empty;
-
-    private void OnCanvasEventChanged(ChangeEventArgs args) =>
-        _draftCanvasEventId = args.Value?.ToString() ?? string.Empty;
-
-    private Task ApplyCanvasEventAsync() => OnSetCanvasEvent.InvokeAsync(DraftCanvasEventId);
-
-    private async Task SaveCanvasSettingsAsync()
+    private async Task OnCanvasEventSelectedAsync(string? value)
     {
-        _isCanvasSettingsSaving = true;
+        Guid? eventId = null;
+        if (!string.IsNullOrEmpty(value))
+        {
+            if (!Guid.TryParse(value, out var parsedEventId) ||
+                CanvasEvents.All(gameEvent => gameEvent.EventId != parsedEventId))
+            {
+                return;
+            }
+
+            eventId = parsedEventId;
+        }
+
+        _draftCanvasEventId = eventId?.ToString() ?? string.Empty;
         try
         {
-            await OnSaveCanvasSettings.InvokeAsync(
-                new CanvasDisplaySettings(_draftScoreboardLayout, _draftQrCodeMode));
+            await OnSetCanvasEvent.InvokeAsync(eventId);
         }
         finally
         {
+            _draftCanvasEventId = ActiveCanvasEventId?.ToString() ?? string.Empty;
+        }
+    }
+
+    private Task OnScoreboardLayoutSelectedAsync(string? value) =>
+        value is CanvasDisplaySettings.ScoreboardRight or
+            CanvasDisplaySettings.ScoreboardBottom or
+            CanvasDisplaySettings.ScoreboardHidden
+            ? SaveCanvasSettingsAsync(_draftCanvasSettings with { ScoreboardLayout = value })
+            : Task.CompletedTask;
+
+    private Task OnQrCodeModeSelectedAsync(string? value) =>
+        value is CanvasDisplaySettings.QrCodeCard or
+            CanvasDisplaySettings.QrCodePopup or
+            CanvasDisplaySettings.QrCodeHidden
+            ? SaveCanvasSettingsAsync(_draftCanvasSettings with { QrCodeMode = value })
+            : Task.CompletedTask;
+
+    private Task AdjustFontScaleAsync(int delta) =>
+        AdjustCanvasScaleAsync(value => _draftCanvasSettings with { FontScalePercent = value },
+            _draftCanvasSettings.FontScalePercent, delta);
+
+    private Task AdjustEventScaleAsync(int delta) =>
+        AdjustCanvasScaleAsync(value => _draftCanvasSettings with { EventScalePercent = value },
+            _draftCanvasSettings.EventScalePercent, delta);
+
+    private Task AdjustScoreboardScaleAsync(int delta) =>
+        AdjustCanvasScaleAsync(value => _draftCanvasSettings with { ScoreboardScalePercent = value },
+            _draftCanvasSettings.ScoreboardScalePercent, delta);
+
+    private Task AdjustQrCodeScaleAsync(int delta) =>
+        AdjustCanvasScaleAsync(value => _draftCanvasSettings with { QrCodeScalePercent = value },
+            _draftCanvasSettings.QrCodeScalePercent, delta);
+
+    private Task AdjustCanvasScaleAsync(
+        Func<int, CanvasDisplaySettings> update,
+        int currentScale,
+        int delta)
+    {
+        var nextScale = Math.Clamp(
+            currentScale + delta,
+            CanvasDisplaySettings.MinimumScalePercent,
+            CanvasDisplaySettings.MaximumScalePercent);
+        return nextScale == currentScale
+            ? Task.CompletedTask
+            : SaveCanvasSettingsAsync(update(nextScale));
+    }
+
+    private async Task SaveCanvasSettingsAsync(CanvasDisplaySettings settings)
+    {
+        _draftCanvasSettings = settings;
+        _isCanvasSettingsSaving = true;
+        try
+        {
+            await OnSaveCanvasSettings.InvokeAsync(settings);
+        }
+        finally
+        {
+            _draftCanvasSettings = CanvasSettings;
             _isCanvasSettingsSaving = false;
         }
     }

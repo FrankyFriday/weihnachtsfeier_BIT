@@ -258,60 +258,102 @@ else
                 </div>
 
                 <section class="regie-beamer-settings">
-                    <div class="regie-beamer-setting">
-                        <label for="canvas-active-event">Beamer-Inhalt</label>
-                        <select id="canvas-active-event"
-                                class="framework-select"
-                                value="@_draftCanvasEventId"
-                                @onchange="OnCanvasEventChanged">
-                            <option value="">Kein Event · nur Kopfbereich und Punktestand</option>
-                            @foreach (var gameEvent in CanvasEvents)
-                            {
-                                <option value="@gameEvent.EventId">@gameEvent.Title</option>
-                            }
-                        </select>
-                    </div>
-                    <button type="button"
-                            class="framework-button framework-button-primary"
-                            disabled="@(!HasUnsavedCanvasEvent || IsProcessing || !OnSetCanvasEvent.HasDelegate)"
-                            @onclick="ApplyCanvasEventAsync">
-                        Inhalt übernehmen
-                    </button>
+                    <FrameworkSelect Id="canvas-active-event"
+                                     Label="Beamer-Inhalt"
+                                     Value="@_draftCanvasEventId"
+                                     ValueChanged="OnCanvasEventSelectedAsync"
+                                     Options="CanvasEventOptions"
+                                     Disabled="@(IsProcessing || !OnSetCanvasEvent.HasDelegate)" />
                 </section>
 
                 <section class="regie-beamer-settings">
-                    <div class="regie-beamer-setting">
-                        <label for="canvas-scoreboard-layout">Team-Punktestände</label>
-                        <select id="canvas-scoreboard-layout"
-                                class="framework-select"
-                                value="@_draftScoreboardLayout"
-                                @onchange="OnScoreboardLayoutChanged">
-                            <option value="@CanvasDisplaySettings.ScoreboardRight">Rechts · Punktestand und Diagramm</option>
-                            <option value="@CanvasDisplaySettings.ScoreboardBottom">Unten · schmale Punkte-Leiste</option>
-                            <option value="@CanvasDisplaySettings.ScoreboardHidden">Nicht anzeigen</option>
-                        </select>
-                    </div>
+                    <FrameworkSelect Id="canvas-scoreboard-layout"
+                                     Label="Team-Punktestände"
+                                     Value="@_draftCanvasSettings.ScoreboardLayout"
+                                     ValueChanged="OnScoreboardLayoutSelectedAsync"
+                                     Options="ScoreboardLayoutOptions"
+                                     Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
 
-                    <div class="regie-beamer-setting">
-                        <label for="canvas-qr-mode">Teilnahme-QR-Code</label>
-                        <select id="canvas-qr-mode"
-                                class="framework-select"
-                                value="@_draftQrCodeMode"
-                                @onchange="OnQrCodeModeChanged">
-                            <option value="@CanvasDisplaySettings.QrCodeCard">Kleine Karte im Kopfbereich</option>
-                            <option value="@CanvasDisplaySettings.QrCodePopup">Großes Popup mit Session-Code</option>
-                            <option value="@CanvasDisplaySettings.QrCodeHidden">Ausblenden</option>
-                        </select>
+                    <FrameworkSelect Id="canvas-qr-mode"
+                                     Label="Teilnahme-QR-Code"
+                                     Value="@_draftCanvasSettings.QrCodeMode"
+                                     ValueChanged="OnQrCodeModeSelectedAsync"
+                                     Options="QrCodeModeOptions"
+                                     Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
+
+                    <div class="regie-beamer-scales">
+                        <div class="regie-beamer-scale">
+                            <span>Schriftgröße</span>
+                            <div>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Schrift verkleinern"
+                                        disabled="@(_draftCanvasSettings.FontScalePercent <= CanvasDisplaySettings.MinimumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustFontScaleAsync(-10)">−</button>
+                                <output>@_draftCanvasSettings.FontScalePercent%</output>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Schrift vergrößern"
+                                        disabled="@(_draftCanvasSettings.FontScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustFontScaleAsync(10)">+</button>
+                            </div>
+                        </div>
+                        <div class="regie-beamer-scale">
+                            <span>Event-Inhalt</span>
+                            <div>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Event-Inhalt verkleinern"
+                                        disabled="@(_draftCanvasSettings.EventScalePercent <= CanvasDisplaySettings.MinimumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustEventScaleAsync(-10)">−</button>
+                                <output>@_draftCanvasSettings.EventScalePercent%</output>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Event-Inhalt vergrößern"
+                                        disabled="@(_draftCanvasSettings.EventScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustEventScaleAsync(10)">+</button>
+                            </div>
+                        </div>
+                        <div class="regie-beamer-scale">
+                            <span>Punktestand</span>
+                            <div>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Punktestand verkleinern"
+                                        disabled="@(_draftCanvasSettings.ScoreboardScalePercent <= CanvasDisplaySettings.MinimumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustScoreboardScaleAsync(-10)">−</button>
+                                <output>@_draftCanvasSettings.ScoreboardScalePercent%</output>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Punktestand vergrößern"
+                                        disabled="@(_draftCanvasSettings.ScoreboardScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustScoreboardScaleAsync(10)">+</button>
+                            </div>
+                        </div>
+                        <div class="regie-beamer-scale">
+                            <span>QR-Code</span>
+                            <div>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="QR-Code verkleinern"
+                                        disabled="@(_draftCanvasSettings.QrCodeScalePercent <= CanvasDisplaySettings.MinimumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustQrCodeScaleAsync(-10)">−</button>
+                                <output>@_draftCanvasSettings.QrCodeScalePercent%</output>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="QR-Code vergrößern"
+                                        disabled="@(_draftCanvasSettings.QrCodeScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustQrCodeScaleAsync(10)">+</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="regie-beamer-save">
-                        <span>Gilt nur für diese Session.</span>
-                        <button type="button"
-                                class="framework-button framework-button-primary"
-                                disabled="@(!HasUnsavedCanvasSettings || IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)"
-                                @onclick="SaveCanvasSettingsAsync">
-                            @(_isCanvasSettingsSaving ? "Wird gespeichert ..." : "Einstellungen übernehmen")
-                        </button>
+                        <span>Änderungen werden sofort gespeichert und gelten nur für diese Session.</span>
+                        @if (_isCanvasSettingsSaving)
+                        {
+                            <span role="status">Wird gespeichert …</span>
+                        }
                     </div>
                     @if (!string.IsNullOrEmpty(ActionError))
                     {

@@ -6,6 +6,13 @@ html, body {
     color: #1d2528;
 }
 
+html.canvas-document,
+html.canvas-document body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 .participant-shell {
     min-height: 100vh;
     display: flex;

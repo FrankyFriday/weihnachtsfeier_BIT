@@ -34,11 +34,11 @@ Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock
 2. **Teilnehmer & Rechte (👥):** Durchsuchbare Teilnehmerliste mit Filtern (*Alle*, *Abweichend*, *+ Rechte*, *- Rechte*), Berechtigungs-Modal-Trigger und Direkt-Emulator.
 3. **Punkte & Rangliste (📊):** Live-Zeitverlaufsgraph, Team-Punktestände, Punkte-Anpassen-Trigger und Quick-Start-Dropdown für Zwischenstand-Events.
 4. **Quick-Chat (💬):** Eingebetteter Echtzeit-Chat mit Hub-Sharing, um ohne Seitenwechsel direkt mit Teams und Teilnehmern zu kommunizieren.
-5. **Beamer-Steuerung (📽️):** Event auswählen oder nur Punktestand zeigen, Beamer öffnen, Live-Vorschau sowie Einstellungen für Punktestand-Layout und Teilnahme-QR-Code.
+5. **Beamer-Steuerung (📽️):** Event auswählen oder nur Punktestand zeigen, Beamer öffnen, Live-Vorschau sowie Einstellungen für Punktestand-Layout, Teilnahme-QR-Code und Anzeigegrößen.
 
 Die mobile Regie-Seite und die Desktop-Seitenleiste verwenden dieselben Tabs und Inhalte. Neue Regie-Bereiche werden daher zentral konfiguriert und erscheinen automatisch auch mobil.
 
-Beamer-Einstellungen gelten nur für die aktive Session. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
+Beamer-Einstellungen gelten nur für die aktive Session und werden nach einer Dropdown-Auswahl sofort übernommen. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Schrift, Event-Inhalt, Punktestand und QR-Code lassen sich in begrenzten Stufen skalieren. Die Beameransicht blendet Scrollleisten aus und passt Event- und Punktestandsinhalte automatisch an den verfügbaren Bildschirmplatz an. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
 
 ## Erweiterte Chat-Moderation & UX
 

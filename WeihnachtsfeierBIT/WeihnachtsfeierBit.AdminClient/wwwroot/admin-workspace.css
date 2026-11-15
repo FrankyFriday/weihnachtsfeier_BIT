@@ -1198,6 +1198,46 @@
     font-weight: 750;
 }
 
+.regie-beamer-scales {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+}
+
+.regie-beamer-scale {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #dce5e2;
+    border-radius: 8px;
+    background: #fff;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.regie-beamer-scale > div {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.regie-beamer-scale .framework-button {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 2px 8px;
+}
+
+.regie-beamer-scale output {
+    min-width: 3.5em;
+    color: #1d2528;
+    font-size: 11px;
+    text-align: center;
+}
+
 .regie-beamer-save {
     display: flex;
     flex-wrap: wrap;
@@ -1219,6 +1259,10 @@
 }
 
 @media (max-width: 600px) {
+    .regie-beamer-scales {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .regie-compact-tabs {
         gap: 6px;
     }

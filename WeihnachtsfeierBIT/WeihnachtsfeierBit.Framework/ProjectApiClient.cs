@@ -1366,6 +1366,9 @@ public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCod
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    public const int MinimumScalePercent = 60;
+    public const int MaximumScalePercent = 160;
+
     public const string ScoreboardRight = "right";
     public const string ScoreboardBottom = "bottom";
     public const string ScoreboardHidden = "hidden";
@@ -1375,10 +1378,22 @@ public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCod
 
     public static CanvasDisplaySettings Default { get; } = new(ScoreboardRight, QrCodeCard);
 
+    public int FontScalePercent { get; init; } = 100;
+    public int EventScalePercent { get; init; } = 100;
+    public int ScoreboardScalePercent { get; init; } = 100;
+    public int QrCodeScalePercent { get; init; } = 100;
+
     [JsonIgnore]
     public bool IsValid =>
         (ScoreboardLayout is ScoreboardRight or ScoreboardBottom or ScoreboardHidden) &&
-        (QrCodeMode is QrCodeCard or QrCodeHidden or QrCodePopup);
+        (QrCodeMode is QrCodeCard or QrCodeHidden or QrCodePopup) &&
+        IsScaleValid(FontScalePercent) &&
+        IsScaleValid(EventScalePercent) &&
+        IsScaleValid(ScoreboardScalePercent) &&
+        IsScaleValid(QrCodeScalePercent);
+
+    private static bool IsScaleValid(int scalePercent) =>
+        scalePercent is >= MinimumScalePercent and <= MaximumScalePercent;
 
     public static CanvasDisplaySettings FromJson(string? json)
     {
