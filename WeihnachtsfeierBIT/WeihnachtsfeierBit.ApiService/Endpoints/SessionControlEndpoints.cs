@@ -23,6 +23,7 @@ public static class SessionControlEndpoints
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
+        admin.MapPut("/session/canvas-settings", SetCanvasDisplaySettingsAsync).WithName("SetCanvasDisplaySettings");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
         admin.MapPost("/session/toggle-pause", ToggleSessionPauseAsync).WithName("ToggleSessionPause");
         admin.MapPut("/session/events/{eventId:guid}/responses/{responseId:guid}", AdminUpdateResponseAsync).WithName("AdminUpdateResponse");
@@ -527,6 +528,39 @@ public static class SessionControlEndpoints
         }
 
         instance.ActiveCanvasEventId = request.EventId;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> SetCanvasDisplaySettingsAsync(
+        Guid projectId,
+        WeihnachtsfeierBit.Framework.CanvasDisplaySettings? settings,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Beamer-Einstellungen anzupassen."));
+        }
+
+        if (settings?.IsValid != true)
+        {
+            return Results.BadRequest(new ApiError("Die Beamer-Einstellungen sind ungültig."));
+        }
+
+        var instance = await dbContext.GameInstances
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+        if (instance is null)
+        {
+            return Results.BadRequest(new ApiError("Keine aktive Play-Session vorhanden."));
+        }
+
+        instance.CanvasSettingsJson = settings.ToJson();
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 

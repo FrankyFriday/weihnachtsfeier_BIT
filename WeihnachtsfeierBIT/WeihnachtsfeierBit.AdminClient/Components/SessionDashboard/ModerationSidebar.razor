@@ -1,51 +1,55 @@
 @namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard
 @using WeihnachtsfeierBit.Framework
 
-<!-- RIGHT-EDGE MULTI-COMPARTMENT ICON DOCK STRIP -->
-<div class="regie-dock-strip @(_isDrawerOpen ? "drawer-open" : "")">
-    <button type="button"
-            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "emulator" ? "active" : "")"
-            title="Handy-Emulator"
-            @onclick='() => ToggleCompartment("emulator")'>
-        <span class="material-symbols-outlined">smartphone</span>
-    </button>
-
-    <button type="button"
-            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "participants" ? "active" : "")"
-            title="Teilnehmer & Berechtigungen"
-            @onclick='() => ToggleCompartment("participants")'>
-        <span class="material-symbols-outlined">group</span>
-    </button>
-
-    <button type="button"
-            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "leaderboard" ? "active" : "")"
-            title="Punkte & Rangliste"
-            @onclick='() => ToggleCompartment("leaderboard")'>
-        <span class="material-symbols-outlined">leaderboard</span>
-    </button>
-
-    <button type="button"
-            class="regie-dock-item @(_isDrawerOpen && _activeCompartment == "chat" ? "active" : "")"
-            title="Quick-Chat"
-            @onclick='() => ToggleCompartment("chat")'>
-        <span class="material-symbols-outlined">chat</span>
-    </button>
-</div>
+@if (CompactMode)
+{
+    <div class="regie-compact-tabs" role="tablist" aria-label="Regie-Bereiche">
+        @foreach (var compartment in Compartments)
+        {
+            <button type="button"
+                    role="tab"
+                    aria-selected="@(_activeCompartment == compartment.Id)"
+                    class="btn-tab @(_activeCompartment == compartment.Id ? "active" : "")"
+                    @onclick="() => SelectCompartment(compartment.Id)">
+                <span class="material-symbols-outlined">@compartment.Icon</span>
+                <span>@compartment.Title</span>
+            </button>
+        }
+    </div>
+}
+else
+{
+    <div class="regie-dock-strip @(_isDrawerOpen ? "drawer-open" : "")">
+        @foreach (var compartment in Compartments)
+        {
+            <button type="button"
+                    class="regie-dock-item @(_isDrawerOpen && _activeCompartment == compartment.Id ? "active" : "")"
+                    title="@compartment.Title"
+                    aria-label="@compartment.Title"
+                    @onclick="() => ToggleCompartment(compartment.Id)">
+                <span class="material-symbols-outlined">@compartment.Icon</span>
+            </button>
+        }
+    </div>
+}
 
 <!-- COMPARTMENT DRAWER PANEL -->
-<div class="regie-drawer-panel @(_isDrawerOpen ? "open" : "")">
+<div class="regie-drawer-panel @(_isDrawerOpen ? "open" : "") @(CompactMode ? "compact" : "")">
     <div class="regie-sidebar-header">
         <div style="display: flex; gap: 8px; align-items: center;">
             <span class="material-symbols-outlined" style="color: #105c4d;">
-                @(_activeCompartment == "emulator" ? "smartphone" : _activeCompartment == "participants" ? "group" : _activeCompartment == "leaderboard" ? "leaderboard" : "chat")
+                @SelectedCompartment.Icon
             </span>
             <strong style="font-size: 14px; color: #1d2528;">
-                @(_activeCompartment == "emulator" ? "Handy-Emulator" : _activeCompartment == "participants" ? "Teilnehmer & Rechte" : _activeCompartment == "leaderboard" ? "Punkte & Rangliste" : "Quick-Chat")
+                @SelectedCompartment.Title
             </strong>
         </div>
-        <button type="button" class="btn-icon-small" title="Schließen" @onclick="CloseDrawer">
-            <span class="material-symbols-outlined">close</span>
-        </button>
+        @if (!CompactMode)
+        {
+            <button type="button" class="btn-icon-small" title="Schließen" @onclick="CloseDrawer">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        }
     </div>
 
     @if (_activeCompartment == "emulator")
@@ -86,6 +90,7 @@
                 <button type="button" class="btn-chip @(_regieFilter == "modified" ? "active" : "")" @onclick='() => SetRegieFilter("modified")' style="font-size: 11px; padding: 3px 8px;">Abweichend</button>
                 <button type="button" class="btn-chip @(_regieFilter == "plus" ? "active" : "")" @onclick='() => SetRegieFilter("plus")' style="font-size: 11px; padding: 3px 8px;">+ Rechte</button>
                 <button type="button" class="btn-chip @(_regieFilter == "minus" ? "active" : "")" @onclick='() => SetRegieFilter("minus")' style="font-size: 11px; padding: 3px 8px;">- Rechte</button>
+                <button type="button" class="btn-chip @(_regieFilter == "muted" ? "active" : "")" @onclick='() => SetRegieFilter("muted")' style="font-size: 11px; padding: 3px 8px;">Gesperrt</button>
             </div>
             <div class="regie-participant-list">
                 @foreach (var p in FilteredParticipants)
@@ -215,7 +220,7 @@
             </div>
         </div>
     }
-    else
+    else if (_activeCompartment == "chat")
     {
         <div class="regie-sidebar-body" style="display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 4px;">
             @if (!string.IsNullOrEmpty(AccessToken) && ProjectId != Guid.Empty)
@@ -225,6 +230,94 @@
             else
             {
                 <p style="text-align: center; color: #64748b; padding: 40px 16px;">Chat wird geladen...</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="regie-sidebar-body regie-beamer-body">
+            @if (Instance is null)
+            {
+                <EmptyState Title="Keine aktive Session" Description="Starte eine Session im Dashboard, um die Beameransicht zu öffnen und zu konfigurieren." />
+            }
+            else
+            {
+                <div class="regie-beamer-actions">
+                    <a class="framework-button framework-button-primary"
+                       href="@CanvasUrl"
+                       target="_blank"
+                       rel="noopener">
+                        <span class="material-symbols-outlined">present_to_all</span>
+                        <span>Beamer öffnen</span>
+                    </a>
+                    <span>Session-Code: <strong>@Instance.AccessCode</strong></span>
+                </div>
+
+                <div class="regie-beamer-preview" aria-label="Live-Vorschau der Beameransicht">
+                    <iframe src="@CanvasUrl" title="Live-Vorschau Beamer"></iframe>
+                </div>
+
+                <section class="regie-beamer-settings">
+                    <div class="regie-beamer-setting">
+                        <label for="canvas-active-event">Beamer-Inhalt</label>
+                        <select id="canvas-active-event"
+                                class="framework-select"
+                                value="@_draftCanvasEventId"
+                                @onchange="OnCanvasEventChanged">
+                            <option value="">Kein Event · nur Kopfbereich und Punktestand</option>
+                            @foreach (var gameEvent in CanvasEvents)
+                            {
+                                <option value="@gameEvent.EventId">@gameEvent.Title</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="button"
+                            class="framework-button framework-button-primary"
+                            disabled="@(!HasUnsavedCanvasEvent || IsProcessing || !OnSetCanvasEvent.HasDelegate)"
+                            @onclick="ApplyCanvasEventAsync">
+                        Inhalt übernehmen
+                    </button>
+                </section>
+
+                <section class="regie-beamer-settings">
+                    <div class="regie-beamer-setting">
+                        <label for="canvas-scoreboard-layout">Team-Punktestände</label>
+                        <select id="canvas-scoreboard-layout"
+                                class="framework-select"
+                                value="@_draftScoreboardLayout"
+                                @onchange="OnScoreboardLayoutChanged">
+                            <option value="@CanvasDisplaySettings.ScoreboardRight">Rechts · Punktestand und Diagramm</option>
+                            <option value="@CanvasDisplaySettings.ScoreboardBottom">Unten · schmale Punkte-Leiste</option>
+                            <option value="@CanvasDisplaySettings.ScoreboardHidden">Nicht anzeigen</option>
+                        </select>
+                    </div>
+
+                    <div class="regie-beamer-setting">
+                        <label for="canvas-qr-mode">Teilnahme-QR-Code</label>
+                        <select id="canvas-qr-mode"
+                                class="framework-select"
+                                value="@_draftQrCodeMode"
+                                @onchange="OnQrCodeModeChanged">
+                            <option value="@CanvasDisplaySettings.QrCodeCard">Kleine Karte im Kopfbereich</option>
+                            <option value="@CanvasDisplaySettings.QrCodePopup">Großes Popup mit Session-Code</option>
+                            <option value="@CanvasDisplaySettings.QrCodeHidden">Ausblenden</option>
+                        </select>
+                    </div>
+
+                    <div class="regie-beamer-save">
+                        <span>Gilt nur für diese Session.</span>
+                        <button type="button"
+                                class="framework-button framework-button-primary"
+                                disabled="@(!HasUnsavedCanvasSettings || IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)"
+                                @onclick="SaveCanvasSettingsAsync">
+                            @(_isCanvasSettingsSaving ? "Wird gespeichert ..." : "Einstellungen übernehmen")
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(ActionError))
+                    {
+                        <p class="regie-beamer-error" role="alert">@ActionError</p>
+                    }
+                </section>
             }
         </div>
     }

@@ -150,7 +150,10 @@ public sealed class GameStateNotifier(
             DateTime.UtcNow,
             IsPaused: instance?.IsPaused ?? false,
             IsEnded: isEnded,
-            ActiveTeamId: activeEvent?.ActiveTeamId);
+            ActiveTeamId: activeEvent?.ActiveTeamId,
+            CanvasSettings: instance is null
+                ? null
+                : CanvasDisplaySettings.FromJson(instance.CanvasSettingsJson));
     }
 
     private static EventState ToEventState(

@@ -7,19 +7,39 @@ namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard;
 
 public partial class ModerationSidebar : ComponentBase
 {
+    private sealed record RegieCompartmentDefinition(string Id, string Title, string Icon);
+
+    private static readonly RegieCompartmentDefinition[] Compartments =
+    [
+        new("emulator", "Handy-Emulator", "smartphone"),
+        new("participants", "Teilnehmer & Rechte", "group"),
+        new("leaderboard", "Punkte & Rangliste", "leaderboard"),
+        new("chat", "Quick-Chat", "chat"),
+        new("beamer", "Beamer-Steuerung", "present_to_all")
+    ];
+
     [Inject] public ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     [Parameter] public ParticipantSummary[] Participants { get; set; } = [];
     [Parameter] public TeamSummary[] Teams { get; set; } = [];
     [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
+    [Parameter] public ProjectGameState? SessionState { get; set; }
+    [Parameter] public Guid? ActiveCanvasEventId { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public HubConnection? HubConnection { get; set; }
+    [Parameter] public bool CompactMode { get; set; }
+    [Parameter] public string? CanvasUrl { get; set; }
+    [Parameter] public CanvasDisplaySettings CanvasSettings { get; set; } = CanvasDisplaySettings.Default;
+    [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public string? ActionError { get; set; }
 
     [Parameter] public EventCallback<ParticipantSummary> OnOpenPermissions { get; set; }
     [Parameter] public EventCallback<bool> OnDrawerStateChanged { get; set; }
     [Parameter] public EventCallback<Guid> OnOpenAwardPoints { get; set; }
+    [Parameter] public EventCallback<Guid?> OnSetCanvasEvent { get; set; }
+    [Parameter] public EventCallback<CanvasDisplaySettings> OnSaveCanvasSettings { get; set; }
     [Parameter] public EventCallback OnEventCreated { get; set; }
     [Parameter] public Func<Func<string, Task>, Task>? RunAuthenticated { get; set; }
 
@@ -33,6 +53,35 @@ public partial class ModerationSidebar : ComponentBase
     private long _emulatorTicks = DateTime.UtcNow.Ticks;
 
     private bool _isZwischenstandDropdownOpen;
+    private bool _isCanvasSettingsSaving;
+    private string _draftCanvasEventId = string.Empty;
+    private string _draftScoreboardLayout = CanvasDisplaySettings.Default.ScoreboardLayout;
+    private string _draftQrCodeMode = CanvasDisplaySettings.Default.QrCodeMode;
+    private CanvasDisplaySettings? _lastCanvasSettings;
+    private Guid? _lastActiveCanvasEventId;
+
+    private RegieCompartmentDefinition SelectedCompartment =>
+        Compartments.FirstOrDefault(compartment => compartment.Id == _activeCompartment) ?? Compartments[0];
+    private EventState[] CanvasEvents
+    {
+        get
+        {
+            if (SessionState is null)
+            {
+                return [];
+            }
+
+            return SessionState.ActiveEvent is { } activeEvent
+                ? [activeEvent, .. SessionState.PassiveEvents]
+                : SessionState.PassiveEvents;
+        }
+    }
+    private Guid? DraftCanvasEventId =>
+        Guid.TryParse(_draftCanvasEventId, out var eventId) ? eventId : null;
+    private bool HasUnsavedCanvasEvent => DraftCanvasEventId != ActiveCanvasEventId;
+    private bool HasUnsavedCanvasSettings =>
+        _draftScoreboardLayout != CanvasSettings.ScoreboardLayout ||
+        _draftQrCodeMode != CanvasSettings.QrCodeMode;
 
     protected override void OnParametersSet()
     {
@@ -41,6 +90,26 @@ public partial class ModerationSidebar : ComponentBase
             _selectedEmulatorParticipant = Participants[0];
             _emulatorTicks = DateTime.UtcNow.Ticks;
         }
+
+        if (_lastActiveCanvasEventId != ActiveCanvasEventId)
+        {
+            _lastActiveCanvasEventId = ActiveCanvasEventId;
+            _draftCanvasEventId = ActiveCanvasEventId?.ToString() ?? string.Empty;
+        }
+
+        if (!Equals(_lastCanvasSettings, CanvasSettings))
+        {
+            _lastCanvasSettings = CanvasSettings;
+            _draftScoreboardLayout = CanvasSettings.ScoreboardLayout;
+            _draftQrCodeMode = CanvasSettings.QrCodeMode;
+        }
+    }
+
+    private Task SelectCompartment(string compartment)
+    {
+        _activeCompartment = compartment;
+        _isDrawerOpen = true;
+        return CompactMode ? Task.CompletedTask : OnDrawerStateChanged.InvokeAsync(true);
     }
 
     public async Task ToggleCompartment(string compartment)
@@ -130,6 +199,31 @@ public partial class ModerationSidebar : ComponentBase
         _regieFilter = filter;
     }
 
+    private void OnScoreboardLayoutChanged(ChangeEventArgs args) =>
+        _draftScoreboardLayout = args.Value?.ToString() ?? string.Empty;
+
+    private void OnQrCodeModeChanged(ChangeEventArgs args) =>
+        _draftQrCodeMode = args.Value?.ToString() ?? string.Empty;
+
+    private void OnCanvasEventChanged(ChangeEventArgs args) =>
+        _draftCanvasEventId = args.Value?.ToString() ?? string.Empty;
+
+    private Task ApplyCanvasEventAsync() => OnSetCanvasEvent.InvokeAsync(DraftCanvasEventId);
+
+    private async Task SaveCanvasSettingsAsync()
+    {
+        _isCanvasSettingsSaving = true;
+        try
+        {
+            await OnSaveCanvasSettings.InvokeAsync(
+                new CanvasDisplaySettings(_draftScoreboardLayout, _draftQrCodeMode));
+        }
+        finally
+        {
+            _isCanvasSettingsSaving = false;
+        }
+    }
+
     private int TotalFilteredCount
     {
         get
@@ -165,6 +259,11 @@ public partial class ModerationSidebar : ComponentBase
             else if (_regieFilter == "minus")
             {
                 list = list.Where(p => p.PermissionOverrides is not null && p.PermissionOverrides.Values.Any(v => v == false));
+            }
+            else if (_regieFilter == "muted")
+            {
+                list = list.Where(p =>
+                    p.Permissions?.HasPermission(ParticipantPermissionKeys.IsMuted) == false);
             }
             return list.OrderBy(p => p.Number).ToList();
         }

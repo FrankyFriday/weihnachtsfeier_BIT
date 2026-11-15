@@ -27,6 +27,7 @@ public class SessionDashboardState : IAsyncDisposable
 
     public ProjectGameState? SessionState { get; private set; }
     public Guid? ActiveCanvasEventId { get; private set; }
+    public CanvasDisplaySettings CanvasSettings { get; private set; } = CanvasDisplaySettings.Default;
 
     public List<TabItem> Tabs { get; } = [];
     public string? SelectedTabId { get; private set; }
@@ -88,6 +89,7 @@ public class SessionDashboardState : IAsyncDisposable
             {
                 SessionState = state;
                 ActiveCanvasEventId = state.ActiveCanvasEventId;
+                CanvasSettings = state.CanvasSettings ?? CanvasDisplaySettings.Default;
                 await BuildTabsAsync();
                 NotifyStateChanged();
             }
@@ -107,6 +109,7 @@ public class SessionDashboardState : IAsyncDisposable
                 var state = await _apiClient.GetSessionStateAsync(accessToken, ProjectId, token);
                 SessionState = state;
                 ActiveCanvasEventId = state.ActiveCanvasEventId;
+                CanvasSettings = state.CanvasSettings ?? CanvasDisplaySettings.Default;
                 await BuildTabsAsync();
                 NotifyStateChanged();
             },
@@ -146,7 +149,16 @@ public class SessionDashboardState : IAsyncDisposable
             {
                 SessionState = await _apiClient.GetSessionStateAsync(token, ProjectId);
                 ActiveCanvasEventId = SessionState.ActiveCanvasEventId;
+                CanvasSettings = SessionState.CanvasSettings ?? CanvasDisplaySettings.Default;
                 await BuildTabsAsync();
+            }
+            else
+            {
+                SessionState = null;
+                ActiveCanvasEventId = null;
+                CanvasSettings = CanvasDisplaySettings.Default;
+                Tabs.Clear();
+                SelectedTabId = null;
             }
         });
     }
@@ -237,7 +249,10 @@ public class SessionDashboardState : IAsyncDisposable
                 await _apiClient.EndGameInstanceAsync(token, ProjectId);
                 Instance = null;
                 SessionState = null;
+                ActiveCanvasEventId = null;
+                CanvasSettings = CanvasDisplaySettings.Default;
                 Tabs.Clear();
+                SelectedTabId = null;
                 NoticeMessage = "Session wurde beendet.";
             });
         }
@@ -387,6 +402,31 @@ public class SessionDashboardState : IAsyncDisposable
         }
     }
 
+    public async Task SetCanvasDisplaySettingsAsync(CanvasDisplaySettings settings)
+    {
+        IsProcessing = true;
+        ActionError = null;
+        NotifyStateChanged();
+
+        try
+        {
+            await _runAuthenticated(async token =>
+            {
+                await _apiClient.SetCanvasDisplaySettingsAsync(token, ProjectId, settings);
+                await LoadDataInternalAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            ActionError = ex.Message;
+        }
+        finally
+        {
+            IsProcessing = false;
+            NotifyStateChanged();
+        }
+    }
+
     public async Task StartScheduledEventNowAsync(EventState ev)
     {
         IsProcessing = true;
@@ -415,6 +455,7 @@ public class SessionDashboardState : IAsyncDisposable
     public void SetInstance(GameInstanceSummary instance, string noticeMessage)
     {
         Instance = instance;
+        CanvasSettings = CanvasDisplaySettings.Default;
         NoticeMessage = noticeMessage;
         NotifyStateChanged();
     }

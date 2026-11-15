@@ -10,6 +10,8 @@ public class GameInstance
 
     public bool IsPaused { get; set; }
 
+    public string CanvasSettingsJson { get; set; } = "{\"scoreboardLayout\":\"right\",\"qrCodeMode\":\"card\"}";
+
     public List<Sitzung> Sitzungen { get; set; } = [];
     public List<GameInstanceEvent> Events { get; set; } = [];
     public Guid? ActiveCanvasEventId { get; set; }

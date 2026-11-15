@@ -118,6 +118,10 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
 
         var gameInstances = modelBuilder.Entity<GameInstance>();
         gameInstances.Property(gi => gi.AccessCode).HasMaxLength(6).IsRequired();
+        gameInstances.Property(gi => gi.CanvasSettingsJson)
+            .HasColumnType("jsonb")
+            .HasDefaultValueSql("'{\"scoreboardLayout\":\"right\",\"qrCodeMode\":\"card\"}'::jsonb")
+            .IsRequired();
         gameInstances.HasIndex(gi => gi.AccessCode);
         gameInstances.HasIndex(gi => gi.ProjektId).IsUnique(); // At most ONE session per project
         gameInstances.HasOne(gi => gi.Projekt)

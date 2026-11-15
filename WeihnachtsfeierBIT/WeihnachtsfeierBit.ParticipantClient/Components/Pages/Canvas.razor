@@ -33,13 +33,16 @@
     }
     else if (_state is not null)
     {
+        var displaySettings = _state.DisplaySettings ?? CanvasDisplaySettings.Default;
+
         <header class="canvas-header">
             <div class="canvas-brand">
                 <div class="canvas-eyebrow">LIVE · @_state.ProjectName</div>
                 <h1>WeihnachtsfeierBIT</h1>
             </div>
             <div class="canvas-header-actions">
-                @if (!string.IsNullOrEmpty(_qrCodeDataUri))
+                @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
+                     !string.IsNullOrEmpty(_qrCodeDataUri))
                 {
                     <aside class="canvas-join-card" aria-label="Session beitreten">
                         <div class="canvas-join-copy">
@@ -57,7 +60,7 @@
             </div>
         </header>
 
-        <div class="canvas-content">
+        <div class="canvas-content scoreboard-@displaySettings.ScoreboardLayout">
             <section class="canvas-event" aria-live="polite">
                 @if (_state.Event is CanvasEventState activeEvent)
                 {
@@ -162,27 +165,65 @@
                 }
             </section>
 
-            <section class="canvas-scoreboard" aria-label="Live-Punktestand">
-                <div class="canvas-scoreboard-heading">
-                    <div class="canvas-event-type">LIVE-PUNKTSTAND</div>
-                    <h2>Teams</h2>
-                    @if (_state.Teams.Length > 0)
-                    {
-                        <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
-                    }
-                </div>
-                @if (_state.Teams.Length == 0)
-                {
-                    <p class="canvas-empty">Noch keine Teams angelegt.</p>
-                }
-                else
-                {
-                    <div style="margin-top: 12px;">
-                        <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
+            @if (displaySettings.ScoreboardLayout == CanvasDisplaySettings.ScoreboardRight)
+            {
+                <section class="canvas-scoreboard" aria-label="Live-Punktestand">
+                    <div class="canvas-scoreboard-heading">
+                        <div class="canvas-event-type">LIVE-PUNKTSTAND</div>
+                        <h2>Teams</h2>
+                        @if (_state.Teams.Length > 0)
+                        {
+                            <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
+                        }
                     </div>
-                }
-            </section>
+                    @if (_state.Teams.Length == 0)
+                    {
+                        <p class="canvas-empty">Noch keine Teams angelegt.</p>
+                    }
+                    else
+                    {
+                        <div style="margin-top: 12px;">
+                            <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
+                        </div>
+                    }
+                </section>
+            }
+            else if (displaySettings.ScoreboardLayout == CanvasDisplaySettings.ScoreboardBottom)
+            {
+                <section class="canvas-scoreboard canvas-scoreboard-bottom" aria-label="Team-Punkte">
+                    @if (_state.Teams.Length == 0)
+                    {
+                        <span class="canvas-empty">Noch keine Teams angelegt.</span>
+                    }
+                    else
+                    {
+                        @foreach (var team in _state.Teams.OrderBy(team => team.Rank))
+                        {
+                            <div class="canvas-score-point">
+                                <span class="canvas-score-rank">@team.Rank</span>
+                                <span class="canvas-score-team">@team.DisplayName</span>
+                                <strong>@team.Points Pkt.</strong>
+                            </div>
+                        }
+                    }
+                </section>
+            }
         </div>
+
+        @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodePopup &&
+             !string.IsNullOrEmpty(_qrCodeDataUri))
+        {
+            <aside class="canvas-join-overlay" aria-label="Teilnahmeinformationen">
+                <div class="canvas-join-popup">
+                    <div class="canvas-event-type">JETZT MITMACHEN</div>
+                    <h2>Mit dem Smartphone teilnehmen</h2>
+                    <p>Scanne den QR-Code oder öffne die Teilnehmerseite und gib den Session-Code ein.</p>
+                    <img src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
+                    <div class="canvas-join-code-label">SESSION-CODE</div>
+                    <strong class="canvas-join-code">@Code</strong>
+                </div>
+            </aside>
+        }
     }
 </main>
 

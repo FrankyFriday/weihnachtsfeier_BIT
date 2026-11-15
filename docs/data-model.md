@@ -13,7 +13,7 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
 | `TeilnehmerBerechtigung` | Speichert individuelle 3-State-Berechtigungs-Overrides für einen Teilnehmer (`PermissionsJson`), darunter Chat-, Vorschlags-, Abstimmungs-, Interaktions- und Namensänderungsrechte. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligen Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige und `IsPaused` für Session-Pausierung. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligen Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige, `IsPaused` für Session-Pausierung und `CanvasSettingsJson` für sessionbezogene Beamer-Layouts. |
 | `GameInstanceEvent` | Vereinheitlichtes Live-Event (Multi-Slide Show oder Spontanevent). Speichert `Title`, `Mode` (`active`/`passive`), `NavigationMode` (`host_controlled`/`self_paced`), `CurrentSlideIndex`, `IsHidden`, `ScheduledStartUtc`, `AutoStartOnSchedule` und `SlidesJson` (`jsonb` Array aller Folien). |
 | `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für eine konkrete Folie eines Events. Unique Index auf `(GameInstanceEventId, SlideId, ParticipantId)` erzwingt eindeutige Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |

@@ -196,6 +196,12 @@ namespace WeihnachtsfeierBit.Data.Migrations
                     b.Property<Guid?>("ActiveCanvasEventId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CanvasSettingsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'{\"scoreboardLayout\":\"right\",\"qrCodeMode\":\"card\"}'::jsonb");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
