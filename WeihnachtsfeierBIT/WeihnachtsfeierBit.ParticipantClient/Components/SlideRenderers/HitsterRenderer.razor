@@ -110,7 +110,7 @@
                 <button type="button" class="mobile-button secondary" @onclick="() => _showTeamChat = false">Zurück zu Hitster</button>
             </div>
             <div style="flex:1;min-height:0;">
-                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" ParticipantId="@ParticipantId" IsAdmin="false" />
+                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" ParticipantId="@ParticipantId" Permissions="@ParticipantPermissions" IsAdmin="false" />
             </div>
         </div>
     }
@@ -123,6 +123,7 @@
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public Guid? TeamId { get; set; }
+    [Parameter] public ParticipantPermissions? ParticipantPermissions { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private bool _busy;

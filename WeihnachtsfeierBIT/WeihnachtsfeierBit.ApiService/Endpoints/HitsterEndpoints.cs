@@ -300,6 +300,7 @@ public static class HitsterEndpoints
         Guid slideId,
         HitsterVoteRequest request,
         HttpContext httpContext,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext db,
         IGameStateNotifier notifier,
         CancellationToken cancellationToken)
@@ -310,6 +311,14 @@ public static class HitsterEndpoints
         {
             var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
             if (access.ParticipantId is not Guid participantId)
+            {
+                return Results.Forbid();
+            }
+            if (!await permissionService.AllowsAsync(
+                    access,
+                    WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.IsMuted,
+                    requireInteraction: false,
+                    cancellationToken))
             {
                 return Results.Forbid();
             }

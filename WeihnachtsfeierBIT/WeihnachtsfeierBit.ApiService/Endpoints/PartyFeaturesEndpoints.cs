@@ -35,18 +35,20 @@ public static class PartyFeaturesEndpoints
         if (access is null || access.ParticipantId is null) return Results.Unauthorized();
 
         var participant = await dbContext.Teilnehmer.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == access.ParticipantId.Value, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == access.ParticipantId.Value && t.ProjektId == projectId, cancellationToken);
 
         if (participant?.TeamId is null)
         {
             return Results.BadRequest(new ApiError("Du bist keinem Team zugewiesen."));
         }
 
-        var teamMemberCount = await dbContext.Teilnehmer.CountAsync(t => t.TeamId == participant.TeamId.Value, cancellationToken);
+        var teamMemberCount = await dbContext.Teilnehmer.CountAsync(
+            t => t.TeamId == participant.TeamId.Value && t.ProjektId == projectId,
+            cancellationToken);
         int requiredVotes = teamMemberCount > 0 ? (int)Math.Ceiling(teamMemberCount * 0.5) : 1;
 
         var suggestions = await dbContext.TeamNameSuggestions.AsNoTracking()
-            .Where(s => s.TeamId == participant.TeamId.Value)
+            .Where(s => s.TeamId == participant.TeamId.Value && s.Team.ProjektId == projectId)
             .Include(s => s.Participant)
             .Include(s => s.Votes)
             .OrderByDescending(s => s.Votes.Count)
@@ -69,6 +71,7 @@ public static class PartyFeaturesEndpoints
         SubmitTeamNameSuggestionRequest request,
         HttpContext httpContext,
         ProjectAccessService accessService,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
@@ -76,6 +79,14 @@ public static class PartyFeaturesEndpoints
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
         if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSuggestTeamNames,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         if (string.IsNullOrWhiteSpace(request.SuggestedName))
         {
@@ -83,23 +94,32 @@ public static class PartyFeaturesEndpoints
         }
 
         var participant = await dbContext.Teilnehmer
-            .FirstOrDefaultAsync(t => t.Id == access.ParticipantId.Value, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == access.ParticipantId.Value && t.ProjektId == projectId, cancellationToken);
 
         if (participant?.TeamId is null)
         {
             return Results.BadRequest(new ApiError("Du bist keinem Team zugewiesen."));
         }
 
+        var canVote = await permissionService.AllowsAsync(
+            access,
+            WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanVoteTeamNames,
+            requireInteraction: true,
+            cancellationToken);
+
         var suggestion = new TeamNameSuggestion
         {
             TeamId = participant.TeamId.Value,
             ParticipantId = participant.Id,
             SuggestedName = request.SuggestedName.Trim(),
-            VoteCount = 1
+            VoteCount = canVote ? 1 : 0
         };
 
         dbContext.TeamNameSuggestions.Add(suggestion);
-        dbContext.TeamNameVotes.Add(new TeamNameVote { Suggestion = suggestion, ParticipantId = participant.Id });
+        if (canVote)
+        {
+            dbContext.TeamNameVotes.Add(new TeamNameVote { Suggestion = suggestion, ParticipantId = participant.Id });
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -113,6 +133,7 @@ public static class PartyFeaturesEndpoints
         Guid suggestionId,
         HttpContext httpContext,
         ProjectAccessService accessService,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
@@ -120,10 +141,29 @@ public static class PartyFeaturesEndpoints
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
         if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanVoteTeamNames,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
+        var participantTeamId = await dbContext.Teilnehmer.AsNoTracking()
+            .Where(item => item.Id == access.ParticipantId.Value && item.ProjektId == projectId)
+            .Select(item => item.TeamId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (participantTeamId is null)
+        {
+            return Results.BadRequest(new ApiError("Du bist keinem Team zugewiesen."));
+        }
 
         var suggestion = await dbContext.TeamNameSuggestions
             .Include(s => s.Votes)
-            .FirstOrDefaultAsync(s => s.Id == suggestionId, cancellationToken);
+            .FirstOrDefaultAsync(
+                s => s.Id == suggestionId && s.TeamId == participantTeamId && s.Team.ProjektId == projectId,
+                cancellationToken);
 
         if (suggestion is null) return Results.NotFound();
 
@@ -154,19 +194,23 @@ public static class PartyFeaturesEndpoints
         CancellationToken cancellationToken)
     {
         var teamId = suggestion.TeamId;
-        int memberCount = await dbContext.Teilnehmer.CountAsync(t => t.TeamId == teamId, cancellationToken);
+        int memberCount = await dbContext.Teilnehmer.CountAsync(
+            t => t.TeamId == teamId && t.ProjektId == projectId,
+            cancellationToken);
         int threshold = memberCount > 0 ? (int)Math.Ceiling(memberCount * 0.5) : 1;
 
-        if (suggestion.Votes.Count >= threshold)
+        if (suggestion.VoteCount >= threshold)
         {
-            var team = await dbContext.Teams.FirstOrDefaultAsync(t => t.Id == teamId, cancellationToken);
+            var team = await dbContext.Teams.FirstOrDefaultAsync(
+                t => t.Id == teamId && t.ProjektId == projectId,
+                cancellationToken);
             if (team is not null)
             {
                 team.DisplayName = suggestion.SuggestedName;
             }
 
             var allSuggestions = await dbContext.TeamNameSuggestions
-                .Where(s => s.TeamId == teamId)
+                .Where(s => s.TeamId == teamId && s.Team.ProjektId == projectId)
                 .ToListAsync(cancellationToken);
 
             dbContext.TeamNameSuggestions.RemoveRange(allSuggestions);
@@ -211,17 +255,32 @@ public static class PartyFeaturesEndpoints
         SubmitSongWishRequest request,
         HttpContext httpContext,
         ProjectAccessService accessService,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
         if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSuggestSongs,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         if (string.IsNullOrWhiteSpace(request.SongTitle))
         {
             return Results.BadRequest(new ApiError("Bitte gib einen Songtitel ein."));
         }
+
+        var canVote = await permissionService.AllowsAsync(
+            access,
+            WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanVoteSongs,
+            requireInteraction: true,
+            cancellationToken);
 
         var wish = new SongWish
         {
@@ -229,11 +288,14 @@ public static class PartyFeaturesEndpoints
             ParticipantId = access.ParticipantId.Value,
             SongTitle = request.SongTitle.Trim(),
             Artist = request.Artist?.Trim() ?? string.Empty,
-            VoteCount = 1
+            VoteCount = canVote ? 1 : 0
         };
 
         dbContext.SongWishes.Add(wish);
-        dbContext.SongWishVotes.Add(new SongWishVote { SongWish = wish, ParticipantId = access.ParticipantId.Value });
+        if (canVote)
+        {
+            dbContext.SongWishVotes.Add(new SongWishVote { SongWish = wish, ParticipantId = access.ParticipantId.Value });
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return Results.Ok();
@@ -244,12 +306,21 @@ public static class PartyFeaturesEndpoints
         Guid wishId,
         HttpContext httpContext,
         ProjectAccessService accessService,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var token = ProjectAccessService.GetBearerToken(httpContext.Request);
         var access = await accessService.AuthenticateAsync(projectId, token, cancellationToken);
         if (access is null || access.ParticipantId is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanVoteSongs,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         var wish = await dbContext.SongWishes
             .Include(sw => sw.Votes)

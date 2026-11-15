@@ -144,16 +144,30 @@ public static class ProjectEndpoints
         }
 
         var participant = await dbContext.Teilnehmer.AsNoTracking()
-            .Where(item => item.Id == participantId && item.ProjektId == access.ProjectId)
-            .Select(item => new ParticipantResponse(item.Id, item.Nummer, item.Name, item.Team == null ? null : item.Team.Id))
+            .Include(item => item.Berechtigung)
+            .FirstOrDefaultAsync(item => item.Id == participantId && item.ProjektId == access.ProjectId, cancellationToken);
+        if (participant is null) return Results.NotFound();
+
+        var projectPermissions = await dbContext.Projekte.AsNoTracking()
+            .Where(item => item.Id == access.ProjectId)
+            .Select(item => item.PermissionsJson)
             .FirstOrDefaultAsync(cancellationToken);
-        return participant is null ? Results.NotFound() : Results.Ok(participant);
+        var permissions = ParticipantPermissionKeys.ResolveEffectivePermissions(
+            projectPermissions,
+            participant.Berechtigung?.PermissionsJson);
+        return Results.Ok(new ParticipantResponse(
+            participant.Id,
+            participant.Nummer,
+            participant.Name,
+            participant.TeamId,
+            permissions));
     }
 
     private static async Task<IResult> UpdateCurrentParticipantNameAsync(
         HttpContext httpContext,
         WeihnachtsfeierBit.ApiService.Contracts.UpdateParticipantRequest request,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
@@ -162,13 +176,23 @@ public static class ProjectEndpoints
         {
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         }
+        if (!await permissionService.AllowsAsync(
+                access,
+                ParticipantPermissionKeys.CanChangeName,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         if (request.Name?.Length > 120)
         {
             return Results.BadRequest(new WeihnachtsfeierBit.ApiService.Contracts.ApiError("Der Name darf höchstens 120 Zeichen lang sein."));
         }
 
-        var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
+        var participant = await dbContext.Teilnehmer
+            .Include(item => item.Berechtigung)
+            .FirstOrDefaultAsync(
             item => item.Id == participantId && item.ProjektId == access.ProjectId, cancellationToken);
         if (participant is null)
         {
@@ -178,7 +202,19 @@ public static class ProjectEndpoints
         participant.Name = request.Name?.Trim();
         await dbContext.SaveChangesAsync(cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(access.ProjectId, cancellationToken);
-        return Results.Ok(new ParticipantResponse(participant.Id, participant.Nummer, participant.Name, participant.TeamId));
+        var projectPermissions = await dbContext.Projekte.AsNoTracking()
+            .Where(item => item.Id == access.ProjectId)
+            .Select(item => item.PermissionsJson)
+            .FirstOrDefaultAsync(cancellationToken);
+        var permissions = ParticipantPermissionKeys.ResolveEffectivePermissions(
+            projectPermissions,
+            participant.Berechtigung?.PermissionsJson);
+        return Results.Ok(new ParticipantResponse(
+            participant.Id,
+            participant.Nummer,
+            participant.Name,
+            participant.TeamId,
+            permissions));
     }
 
     private static async Task<IResult> GetTeamsAsync(
@@ -218,6 +254,7 @@ public static class ProjectEndpoints
         UpdateProjectGlobalPermissionsRequest request,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ChatHubAccessSynchronizer chatHubAccessSynchronizer,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
@@ -232,6 +269,7 @@ public static class ProjectEndpoints
 
         project.PermissionsJson = JsonSerializer.Serialize(request.Permissions);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await chatHubAccessSynchronizer.RefreshProjectAsync(projectId, cancellationToken);
         _ = gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         return Results.Ok(request.Permissions);

@@ -87,7 +87,9 @@ public sealed class GameStateNotifier(
                     m.Id,
                     m.Nummer,
                     m.Name,
-                    new ParticipantPermissions(ParticipantPermissionKeys.ParsePermissionsJson(m.Berechtigung?.PermissionsJson))))
+                    new ParticipantPermissions(ParticipantPermissionKeys.ResolveEffectivePermissions(
+                        project.PermissionsJson,
+                        m.Berechtigung?.PermissionsJson))))
                 .ToArray();
 
             teamStates.Add(new TeamState(

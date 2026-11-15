@@ -13,7 +13,7 @@
 @implements IAsyncDisposable
 
 <div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; position: relative;">
-    @if (!IsAdmin && Permissions?.HasPermission(ParticipantPermissionKeys.CanReadChat) == false)
+    @if (!CanReadChat)
     {
         <div style="margin: auto; text-align: center; padding: 32px 24px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 16px;">
             <span class="material-symbols-outlined" style="font-size: 48px; color: #b45309; margin-bottom: 12px; display: block;">lock</span>
@@ -110,9 +110,12 @@
         </div>
 
         <!-- FLOATING ACTION BUTTON (FAB) -->
-        <button type="button" @onclick="OpenCreateModal" style="position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px; border-radius: 50%; background: #197b67; color: #ffffff; border: none; box-shadow: 0 4px 16px rgba(25, 123, 103, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: transform 0.15s ease;" title="Neuen Chat starten">
-            <span class="material-symbols-outlined" style="font-size: 28px;">add</span>
-        </button>
+        @if (CanCreateChats)
+        {
+            <button type="button" @onclick="OpenCreateModal" style="position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px; border-radius: 50%; background: #197b67; color: #ffffff; border: none; box-shadow: 0 4px 16px rgba(25, 123, 103, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: transform 0.15s ease;" title="Neuen Chat starten">
+                <span class="material-symbols-outlined" style="font-size: 28px;">add</span>
+            </button>
+        }
     }
     else
     {
@@ -188,7 +191,7 @@
             }
         </div>
 
-        @if (!IsAdmin && Permissions?.HasPermission(ParticipantPermissionKeys.CanSendChatMessages) == false)
+        @if (!CanSendChat)
         {
             <div style="padding: 12px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; font-size: 13px; color: #b45309; font-weight: 600; text-align: center; flex-shrink: 0;">
                 Das Schreiben im Chat wurde für dein Profil stummgeschaltet.
@@ -204,7 +207,7 @@
     }
 
     <!-- CREATE CHAT MODAL -->
-    @if (_isCreateModalOpen)
+    @if (_isCreateModalOpen && CanCreateChats)
     {
         <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
             <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #dce5e2;">
@@ -347,10 +350,22 @@
     private HubConnection? _activeConnection;
     private bool _isLocalHubConnection;
     private bool _handlersRegistered;
+    private bool _chatAccessDenied;
+    private ParticipantPermissions? _resolvedPermissions;
+    private ParticipantPermissions? _lastParameterPermissions;
     private CancellationTokenSource? _connectionCancellation;
     private Task? _connectionRecoveryTask;
 
     private string CurrentGroupName => _groups.FirstOrDefault(g => g.Id == _selectedGroupId)?.Name ?? "Chat";
+    private ParticipantPermissions? EffectivePermissions => _resolvedPermissions ?? Permissions;
+    private bool CanReadChat => IsAdmin || (!_chatAccessDenied &&
+        EffectivePermissions?.HasPermission(ParticipantPermissionKeys.CanReadChat) != false);
+    private bool CanSendChat => IsAdmin ||
+        (EffectivePermissions?.HasPermission(ParticipantPermissionKeys.IsMuted) != false &&
+         EffectivePermissions?.HasPermission(ParticipantPermissionKeys.CanSendChatMessages) != false);
+    private bool CanCreateChats => IsAdmin ||
+        (EffectivePermissions?.HasPermission(ParticipantPermissionKeys.IsMuted) != false &&
+         EffectivePermissions?.HasPermission(ParticipantPermissionKeys.CanCreateChats) != false);
 
     private ChatContactDto[] _filteredContacts =>
         string.IsNullOrWhiteSpace(_searchFilter)
@@ -366,7 +381,22 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!string.IsNullOrEmpty(AccessToken) && (AccessToken != _lastLoadedToken || _groups.Length == 0))
+        if (!ReferenceEquals(Permissions, _lastParameterPermissions))
+        {
+            _lastParameterPermissions = Permissions;
+            _resolvedPermissions = Permissions;
+            _chatAccessDenied = Permissions?.HasPermission(ParticipantPermissionKeys.CanReadChat) == false;
+        }
+
+        if (!CanReadChat)
+        {
+            _groups = [];
+            _messages = [];
+            _selectedGroupId = null;
+            _currentView = "overview";
+            _isCreateModalOpen = false;
+        }
+        else if (!string.IsNullOrEmpty(AccessToken) && (AccessToken != _lastLoadedToken || _groups.Length == 0))
         {
             _lastLoadedToken = AccessToken;
             await LoadGroupsAsync();
@@ -411,7 +441,7 @@
 
     private async Task LoadGroupsAsync()
     {
-        if (string.IsNullOrEmpty(AccessToken) || _isLoadingGroups) return;
+        if (!CanReadChat || string.IsNullOrEmpty(AccessToken) || _isLoadingGroups) return;
         _isLoadingGroups = true;
         try
         {
@@ -434,6 +464,8 @@
 
     private async Task OpenChatRoom(Guid groupId)
     {
+        if (!CanReadChat) return;
+
         // Optimistic UI update: instantly set unread count to 0 locally
         _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0, g.LastMessageSenderName) : g).ToArray();
 
@@ -476,6 +508,8 @@
 
     private async Task OpenCreateModal()
     {
+        if (!CanCreateChats) return;
+
         _newGroupName = string.Empty;
         _searchFilter = string.Empty;
         _selectedContactIds.Clear();
@@ -506,6 +540,12 @@
 
     private async Task CreateChatOrGroupAsync()
     {
+        if (!CanCreateChats)
+        {
+            _modalError = "Das Erstellen neuer Chats ist für dein Profil gesperrt.";
+            return;
+        }
+
         if (_selectedContactIds.Count == 0)
         {
             _modalError = "Bitte wähle mindestens einen Teilnehmer oder Moderator aus.";
@@ -800,6 +840,35 @@
             await InvokeAsync(() =>
             {
                 _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, newName, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, g.UnreadCount, g.LastMessageSenderName) : g).ToArray();
+                StateHasChanged();
+            });
+        });
+
+        _activeConnection.On("ParticipantPermissionsChanged", async () =>
+        {
+            await InvokeAsync(async () =>
+            {
+                var previouslyHadChatAccess = CanReadChat;
+                if (!string.IsNullOrEmpty(AccessToken))
+                {
+                    var participant = await ProjectApiClient.GetCurrentParticipantAsync(AccessToken, ProjectId);
+                    _resolvedPermissions = participant.Permissions;
+                }
+
+                _chatAccessDenied = EffectivePermissions?.HasPermission(ParticipantPermissionKeys.CanReadChat) == false;
+                if (!CanReadChat)
+                {
+                    _groups = [];
+                    _messages = [];
+                    _selectedGroupId = null;
+                    _currentView = "overview";
+                    _isCreateModalOpen = false;
+                }
+                else if (!previouslyHadChatAccess)
+                {
+                    await LoadGroupsAsync();
+                }
+
                 StateHasChanged();
             });
         });

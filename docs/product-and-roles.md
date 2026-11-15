@@ -16,6 +16,34 @@ Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden o
 | **Teilnehmer** | Mit Smartphone interaktiv teilnehmen | Login per Code & Nummer; zeigt aktive Events, Eingabemasken, Live-Ergebnisse, Chat, Musik-Wünsche und Infoseiten. Schaltet bei Verbindungsabbruch oder Pausierung automatisch Vollbild-Overlays frei. |
 | **Beamer / Leinwand (`Canvas`)** | Projektion für den Saal | Unter `/play/beamer/{SessionCode}`. Zeigt das vom Spielleiter ausgewählte Live-Event, den Beamer-Fokus sowie animierte Live-Säulendiagramme mit Punktestand. |
 
+## Teilnehmer-Berechtigungen & Overrides (3-State System)
+
+Das Berechtigungssystem ermöglicht Administratoren eine feingranulare Steuerung der Teilnehmer-Privilegien:
+- **Globale Projekt-Standards**: Legt fest, welche Rechte (z. B. Chat-Nachrichten schreiben, Chat lesen, neue Chats erstellen, Teamnamen vorschlagen/abstimmen, Musikwünsche einreichen/abstimmen, Sprechrecht & Interaktion, eigenen Namen ändern) standardmäßig für alle Teilnehmer im Projekt gelten.
+- **3-Zustands-Overrides pro Teilnehmer**: Jeder Teilnehmer kann individuell konfiguriert werden:
+  - *Global übernehmen* (Standard): Übernimmt das globale Projekt-Standardrecht.
+  - *An (Erzwungen)* (`+`): Erzwingt das Recht für diesen Teilnehmer, selbst wenn es global deaktiviert ist.
+  - *Aus (Sperre)* (`-`): Entzieht dem Teilnehmer dieses Recht, selbst wenn es global aktiv ist.
+- Chat-Leserechte werden serverseitig für API-Abrufe und Live-Chat-Events geprüft. Teilnehmer ohne Leserecht erhalten weder Nachrichten noch Vorschauen; das Erstellen von Direkt- und Gruppenchats ist separat steuerbar. Vorschläge, Abstimmungen, Eventantworten und Namensänderungen werden jeweils serverseitig gegen ihre Einzelrechte geprüft.
+- **Regie-Seitenleisten-Indikator**: Die Teilnehmerliste im Dashboard zeigt Abweichungen vom Standard als kompakte Badges an (zusätzliche Rechte `+X` in **Grün**, entzogene Rechte `-Y` in **Rot**).
+
+## Regie-Seitenleiste & Multi-Compartment Drawer
+
+Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock für vier Fachbereiche:
+1. **Handy-Emulator (📱):** Live-Simulation eines Teilnehmer-Smartphones mit anpassbarer maximaler Höhe, um Ansichten direkt zu testen.
+2. **Teilnehmer & Rechte (👥):** Durchsuchbare Teilnehmerliste mit Filtern (*Alle*, *Abweichend*, *+ Rechte*, *- Rechte*), Berechtigungs-Modal-Trigger und Direkt-Emulator.
+3. **Punkte & Rangliste (📊):** Live-Zeitverlaufsgraph, Team-Punktestände, Punkte-Anpassen-Trigger und Quick-Start-Dropdown für Zwischenstand-Events.
+4. **Quick-Chat (💬):** Eingebetteter Echtzeit-Chat mit Hub-Sharing, um ohne Seitenwechsel direkt mit Teams und Teilnehmern zu kommunizieren.
+
+## Erweiterte Chat-Moderation & UX
+
+- **Sender-Vorschau**: In der Chat-Listenübersicht wird vor jeder Nachrichtenvorschau der Absender angezeigt (z. B. *„Max: Hallo zusammen“*).
+- **Gruppen-Umbenennung**: Moderatoren können Team- und benutzerdefinierte Chat-Gruppen umbenennen.
+- **Support-Namen für Moderatoren**: Admin-Support-Chats werden für Moderatoren übersichtlich nach Teilnehmern benannt (z. B. *Support: Max (#12)*), während Teilnehmer weiterhin *„Moderation & Hilfe“* sehen.
+- **Direktchat-Shortcut**: Ein Klick auf den Namen eines Teilnehmers im Chat-Raum öffnet sofort den Direktchat mit ihm.
+- **Scroll-to-Bottom Pill**: Ein schwebendes *„↓ Neue Nachrichten“*-Element erscheint beim Hochscrollen, wenn neue Nachrichten eintreffen.
+- **Enter-Taste & Textbox-Leeren**: Nachrichten senden per `Enter` (Zeilenumbruch per `Shift+Enter`) mit sofortigem Leeren des Eingabefelds.
+
 ## Interaktive Spiele & Slide-Typen
 
 Das System unterstützt 16 spezialisierte Folientypen:
