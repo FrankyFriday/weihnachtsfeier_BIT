@@ -6,18 +6,20 @@ Das Modell liegt in `WeihnachtsfeierBit.Data`. `WeihnachtsfeierDbContext` defini
 
 | Entity | Bedeutung |
 | --- | --- |
-| `Projekt` | Event-Kontext mit Adminmitgliedschaften (`Admins`), Ersteller-Zuordnung (`ErstellerAdminId`) und Show-Zuordnungen. |
+| `Projekt` | Event-Kontext mit Adminmitgliedschaften (`Admins`), Ersteller-Zuordnung (`ErstellerAdminId`), Show-Zuordnungen und globalen Projekt-Standardberechtigungen (`PermissionsJson`). |
 | `ProjektAdmin` | Globales Konto mit eindeutigem normalisiertem Benutzernamen und Passwort-Hash. |
 | `ProjektAdminProjekt` | Join-Entity für die n:m-Beziehung Konto ↔ Projekt, inklusive granularen Berechtigungen (`CanControlSession`, `CanManageParticipants`, `CanEditProjectSettings`, `CanManageShows`). |
 | `ProjektAdminShow` | Join-Entity für die n:m-Beziehung Konto ↔ Show für das Teilen von Shows. |
 | `ProjektAdminSitzung` | Widerrufbare globale Admin-Anmeldesitzung; nicht projektgebunden. |
 | `Teilnehmer` | Gehört genau zu einem Projekt; Nummer ist pro Projekt eindeutig, Team-Zuordnung optional. |
-| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligem Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige und `IsPaused` für Session-Pausierung. |
+| `TeilnehmerBerechtigung` | Speichert individuelle 3-State-Berechtigungs-Overrides für einen Teilnehmer (`PermissionsJson`), darunter Chat-, Vorschlags-, Abstimmungs-, Interaktions- und Namensänderungsrechte. |
+| `GameInstance` | Aktive Anmelde-Sitzung eines Projekts mit 6-stelligen Code. Höchstens eine aktive GameInstance pro Projekt. Speichert `ActiveCanvasEventId` für die Beamer-Anzeige und `IsPaused` für Session-Pausierung. |
 | `GameInstanceEvent` | Vereinheitlichtes Live-Event (Multi-Slide Show oder Spontanevent). Speichert `Title`, `Mode` (`active`/`passive`), `NavigationMode` (`host_controlled`/`self_paced`), `CurrentSlideIndex`, `IsHidden`, `ScheduledStartUtc`, `AutoStartOnSchedule` und `SlidesJson` (`jsonb` Array aller Folien). |
 | `GameInstanceEventResponse` | Antwort/Stimme/Schätzwert eines Teilnehmers für eine konkrete Folie eines Events. Unique Index auf `(GameInstanceEventId, SlideId, ParticipantId)` erzwingt eindeutige Upserts ohne Duplikate. |
 | `Sitzung` | Widerrufbare Teilnehmer-Sitzung mit Fremdschlüssel auf den Teilnehmer und die jeweilige `GameInstance`. |
 | `Team` | Gehört zu einem Projekt (DisplayName, Color, Punkte). |
 | `TeamPointLog` | Chronologisches Punkte-Logbuch für Buchungen, Bonifikationen und Abzüge mit Zeitstempel und Begründung. |
+| `ChatGroup`, `ChatGroupMember`, `ChatMessage`, `ChatUserRead` | Chat-System für globale Kanäle, Team-Chats, Admin-Support-Kanäle (`admin_support`), Direktchats und benutzerdefinierte Gruppen mit Live-Sync und Lesestatus. |
 | `Show` | Projektunabhängige, benannte wiederverwendbare Show mit geordneten Slides und Ersteller-Zuordnung (`ErstellerAdminId`). |
 | `ShowProjektZuo` | Join-Entity für die n:m-Beziehung Show ↔ Projekt. |
 | `Slide` | Show-ID, Position und konkrete Untertypen (Poll, Announcement, Quiz, Ranking, Estimation, Buzzer, Jeopardy, Hitster, Pantomime, PointAward, Text, WordCloud, Slider, Rating, Ordering, Countdown). |

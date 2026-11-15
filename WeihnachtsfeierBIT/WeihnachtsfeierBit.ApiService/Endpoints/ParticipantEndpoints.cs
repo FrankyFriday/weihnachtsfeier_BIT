@@ -361,6 +361,7 @@ public static class ParticipantEndpoints
         UpdateParticipantPermissionsRequest request,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ChatHubAccessSynchronizer chatHubAccessSynchronizer,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
@@ -392,6 +393,7 @@ public static class ParticipantEndpoints
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await chatHubAccessSynchronizer.RefreshProjectAsync(projectId, cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
         var project = await dbContext.Projekte.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);

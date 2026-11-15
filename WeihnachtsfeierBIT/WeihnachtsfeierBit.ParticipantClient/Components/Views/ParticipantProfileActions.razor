@@ -31,15 +31,22 @@ else if (_activeActionView == "name")
             </button>
         </FrameworkFlexRow>
 
-        <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Deinen Namen ändern</h3>
-        <p class="framework-help-text" style="font-size: 13px;">Trage deinen Namen ein, damit deine Punkte und Ergebnisse im Team erscheinen.</p>
+        @if (CanChangeName)
+        {
+            <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Deinen Namen ändern</h3>
+            <p class="framework-help-text" style="font-size: 13px;">Trage deinen Namen ein, damit deine Punkte und Ergebnisse im Team erscheinen.</p>
 
-        <form @onsubmit="SaveNameAndCloseSubView" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
-            <FrameworkFormGroup Label="Dein Name" ForId="my-name">
-                <FrameworkInputText Id="my-name" Value="@NameInput" ValueChanged="NameInputChanged" MaxLength="120" Placeholder="z. B. Alex" />
-            </FrameworkFormGroup>
-            <FrameworkButton Label="@(IsSavingName ? "Wird gespeichert..." : "Name speichern")" Variant="primary" Type="submit" Disabled="@IsSavingName" />
-        </form>
+            <form @onsubmit="SaveNameAndCloseSubView" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+                <FrameworkFormGroup Label="Dein Name" ForId="my-name">
+                    <FrameworkInputText Id="my-name" Value="@NameInput" ValueChanged="NameInputChanged" MaxLength="120" Placeholder="z. B. Alex" />
+                </FrameworkFormGroup>
+                <FrameworkButton Label="@(IsSavingName ? "Wird gespeichert..." : "Name speichern")" Variant="primary" Type="submit" Disabled="@IsSavingName" />
+            </form>
+        }
+        else
+        {
+            <FrameworkNotice Message="Du darfst deinen Namen derzeit nicht ändern." Severity="warning" />
+        }
     </Card>
 }
 else if (_activeActionView == "team_name")
@@ -56,12 +63,19 @@ else if (_activeActionView == "team_name")
         <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Teamnamen vorschlagen</h3>
         <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Schlage einen Namen für dein Team vor! Sobald 50% deines Teams dafür stimmen, wird er automatisch als offizieller Teamname übernommen.</p>
 
-        <form @onsubmit="SubmitTeamNameSuggestionAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; margin-bottom: 14px;">
-            <div style="flex: 1;">
-                <FrameworkInputText @bind-Value="_newTeamNameInput" Placeholder="Neuer Teamname..." MaxLength="60" />
-            </div>
-            <FrameworkButton Label="Vorschlagen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newTeamNameInput))" />
-        </form>
+        @if (CanSuggestTeamNames)
+        {
+            <form @onsubmit="SubmitTeamNameSuggestionAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; margin-bottom: 14px;">
+                <div style="flex: 1;">
+                    <FrameworkInputText @bind-Value="_newTeamNameInput" Placeholder="Neuer Teamname..." MaxLength="60" />
+                </div>
+                <FrameworkButton Label="Vorschlagen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newTeamNameInput))" />
+            </form>
+        }
+        @if (!CanSuggestTeamNames && !CanVoteTeamNames)
+        {
+            <FrameworkNotice Message="Vorschläge und Abstimmungen sind für dein Profil gesperrt." Severity="warning" />
+        }
 
         @if (!string.IsNullOrEmpty(_teamNameError))
         {
@@ -82,10 +96,13 @@ else if (_activeActionView == "team_name")
                             <strong style="display: block; font-size: 14px; color: #1d2528;">@sug.SuggestedName</strong>
                             <span style="font-size: 11px; color: #657276;">Von @sug.SubmittedBy &bull; @sug.Votes von @sug.RequiredVotes Stimmen benötigt</span>
                         </div>
-                        <button type="button" @onclick="() => ToggleTeamVoteAsync(sug.Id)" style="border: 1px solid @(sug.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(sug.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(sug.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 10px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
-                            <span>@sug.Votes</span>
-                        </button>
+                        @if (CanVoteTeamNames)
+                        {
+                            <button type="button" @onclick="() => ToggleTeamVoteAsync(sug.Id)" style="border: 1px solid @(sug.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(sug.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(sug.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 10px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
+                                <span>@sug.Votes</span>
+                            </button>
+                        }
                     </FrameworkListItem>
                 }
             }
@@ -106,15 +123,22 @@ else if (_activeActionView == "song_wishes")
         <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">DJ-Jukebox & Musikwünsche</h3>
         <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Wünsche dir Songs für die Party oder stimme für Songs anderer ab!</p>
 
-        <form @onsubmit="SubmitSongWishAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
-            <FrameworkInputText @bind-Value="_newSongTitleInput" Placeholder="Songtitel..." MaxLength="100" />
-            <FrameworkFlexRow Gap="8px">
-                <div style="flex: 1;">
-                    <FrameworkInputText @bind-Value="_newSongArtistInput" Placeholder="Künstler (optional)..." MaxLength="100" />
-                </div>
-                <FrameworkButton Label="Wünschen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newSongTitleInput))" />
-            </FrameworkFlexRow>
-        </form>
+        @if (CanSuggestSongs)
+        {
+            <form @onsubmit="SubmitSongWishAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+                <FrameworkInputText @bind-Value="_newSongTitleInput" Placeholder="Songtitel..." MaxLength="100" />
+                <FrameworkFlexRow Gap="8px">
+                    <div style="flex: 1;">
+                        <FrameworkInputText @bind-Value="_newSongArtistInput" Placeholder="Künstler (optional)..." MaxLength="100" />
+                    </div>
+                    <FrameworkButton Label="Wünschen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newSongTitleInput))" />
+                </FrameworkFlexRow>
+            </form>
+        }
+        @if (!CanSuggestSongs && !CanVoteSongs)
+        {
+            <FrameworkNotice Message="Musikwünsche und Abstimmungen sind für dein Profil gesperrt." Severity="warning" />
+        }
 
         @if (!string.IsNullOrEmpty(_songWishError))
         {
@@ -137,10 +161,13 @@ else if (_activeActionView == "song_wishes")
                                 @(string.IsNullOrWhiteSpace(wish.Artist) ? "Unbekannter Künstler" : wish.Artist) &bull; @wish.SubmittedBy
                             </span>
                         </div>
-                        <button type="button" @onclick="() => ToggleSongVoteAsync(wish.Id)" style="border: 1px solid @(wish.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(wish.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(wish.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 8px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
-                            <span>@wish.Votes</span>
-                        </button>
+                        @if (CanVoteSongs)
+                        {
+                            <button type="button" @onclick="() => ToggleSongVoteAsync(wish.Id)" style="border: 1px solid @(wish.HasVoted ? "#105c4d" : "#cbd7d3"); background: @(wish.HasVoted ? "#e8f3ef" : "#ffffff"); color: @(wish.HasVoted ? "#105c4d" : "#475569"); border-radius: 6px; padding: 4px 8px; font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">thumb_up</span>
+                                <span>@wish.Votes</span>
+                            </button>
+                        }
                     </FrameworkListItem>
                 }
             }
@@ -180,6 +207,8 @@ else
         <div>
             <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">PROFIL-AKTIONEN</span>
             <FrameworkFlexColumn Gap="6px">
+                @if (CanChangeName)
+                {
                 <button type="button" @onclick='() => _activeActionView = "name"' style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
                     <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
                         <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -194,6 +223,7 @@ else
                     </FrameworkFlexRow>
                     <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
                 </button>
+                }
             </FrameworkFlexColumn>
         </div>
 
@@ -257,6 +287,7 @@ else
     [Parameter] public string AccessToken { get; set; } = string.Empty;
     [Parameter] public string ProjectName { get; set; } = string.Empty;
     [Parameter] public int ParticipantNumber { get; set; }
+    [Parameter] public ParticipantPermissions? ParticipantPermissions { get; set; }
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
@@ -274,6 +305,17 @@ else
     private string _newSongTitleInput = string.Empty;
     private string _newSongArtistInput = string.Empty;
     private string? _songWishError;
+    private bool CanInteract => ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.IsMuted) != false;
+    private bool CanChangeName => CanInteract &&
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanChangeName) != false;
+    private bool CanSuggestTeamNames => CanInteract &&
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanSuggestTeamNames) != false;
+    private bool CanVoteTeamNames => CanInteract &&
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanVoteTeamNames) != false;
+    private bool CanSuggestSongs => CanInteract &&
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanSuggestSongs) != false;
+    private bool CanVoteSongs => CanInteract &&
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanVoteSongs) != false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -317,7 +359,7 @@ else
 
     private async Task SubmitTeamNameSuggestionAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newTeamNameInput) || string.IsNullOrEmpty(AccessToken)) return;
+        if (!CanSuggestTeamNames || string.IsNullOrWhiteSpace(_newTeamNameInput) || string.IsNullOrEmpty(AccessToken)) return;
         _teamNameError = null;
         try
         {
@@ -334,7 +376,7 @@ else
 
     private async Task ToggleTeamVoteAsync(Guid suggestionId)
     {
-        if (string.IsNullOrEmpty(AccessToken)) return;
+        if (!CanVoteTeamNames || string.IsNullOrEmpty(AccessToken)) return;
         try
         {
             await ProjectApiClient.ToggleTeamNameVoteAsync(AccessToken, ProjectId, suggestionId);
@@ -365,7 +407,7 @@ else
 
     private async Task SubmitSongWishAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newSongTitleInput) || string.IsNullOrEmpty(AccessToken)) return;
+        if (!CanSuggestSongs || string.IsNullOrWhiteSpace(_newSongTitleInput) || string.IsNullOrEmpty(AccessToken)) return;
         _songWishError = null;
         try
         {
@@ -384,7 +426,7 @@ else
 
     private async Task ToggleSongVoteAsync(Guid wishId)
     {
-        if (string.IsNullOrEmpty(AccessToken)) return;
+        if (!CanVoteSongs || string.IsNullOrEmpty(AccessToken)) return;
         try
         {
             await ProjectApiClient.ToggleSongWishVoteAsync(AccessToken, ProjectId, wishId);
@@ -397,6 +439,7 @@ else
 
     private async Task SaveNameAndCloseSubView()
     {
+        if (!CanChangeName) return;
         if (OnSaveName.HasDelegate)
         {
             await OnSaveName.InvokeAsync();

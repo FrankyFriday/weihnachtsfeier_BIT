@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using WeihnachtsfeierBit.ApiService.Auth;
 using WeihnachtsfeierBit.ApiService.Hubs;
 
 namespace WeihnachtsfeierBit.ApiService.Services;
@@ -6,21 +7,22 @@ namespace WeihnachtsfeierBit.ApiService.Services;
 public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubContext)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly Dictionary<(string ConnectionId, Guid ProjectId), Guid> _sessionsByConnection = [];
+    private readonly Dictionary<(string ConnectionId, Guid ProjectId), HubConnectionAccess> _connectionsByConnection = [];
     private readonly Dictionary<Guid, HashSet<(string ConnectionId, Guid ProjectId)>> _connectionsBySession = [];
     private readonly Dictionary<Guid, DateTime> _revokedSessions = [];
 
     public async Task<bool> JoinProjectAsync(
-        Guid sessionId,
+        ProjectAccess access,
         Guid projectId,
         string connectionId,
+        bool canReadChat,
         CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
             RemoveExpiredRevocations();
-            if (_revokedSessions.ContainsKey(sessionId))
+            if (_revokedSessions.ContainsKey(access.SessionId))
             {
                 return false;
             }
@@ -30,12 +32,24 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
                 connectionId,
                 GameStateHub.GetGroupName(projectId),
                 cancellationToken);
-            _sessionsByConnection[connection] = sessionId;
+            if (access.IsAdmin || canReadChat)
+            {
+                await hubContext.Groups.AddToGroupAsync(
+                    connectionId,
+                    GameStateHub.GetChatGroupName(projectId),
+                    cancellationToken);
+            }
 
-            if (!_connectionsBySession.TryGetValue(sessionId, out var connections))
+            _connectionsByConnection[connection] = new HubConnectionAccess(
+                access.SessionId,
+                access.ParticipantId,
+                access.IsAdmin,
+                access.IsAdmin || canReadChat);
+
+            if (!_connectionsBySession.TryGetValue(access.SessionId, out var connections))
             {
                 connections = [];
-                _connectionsBySession.Add(sessionId, connections);
+                _connectionsBySession.Add(access.SessionId, connections);
             }
 
             connections.Add(connection);
@@ -59,6 +73,10 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
                 connectionId,
                 GameStateHub.GetGroupName(projectId),
                 cancellationToken);
+            await hubContext.Groups.RemoveFromGroupAsync(
+                connectionId,
+                GameStateHub.GetChatGroupName(projectId),
+                cancellationToken);
             RemoveConnection((connectionId, projectId));
         }
         finally
@@ -72,7 +90,7 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         await _gate.WaitAsync();
         try
         {
-            var connections = _sessionsByConnection.Keys
+            var connections = _connectionsByConnection.Keys
                 .Where(connection => connection.ConnectionId == connectionId)
                 .ToArray();
 
@@ -81,6 +99,9 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connectionId,
                     GameStateHub.GetGroupName(connection.ProjectId));
+                await hubContext.Groups.RemoveFromGroupAsync(
+                    connectionId,
+                    GameStateHub.GetChatGroupName(connection.ProjectId));
                 RemoveConnection(connection);
             }
         }
@@ -108,7 +129,10 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connection.ConnectionId,
                     GameStateHub.GetGroupName(connection.ProjectId));
-                _sessionsByConnection.Remove(connection);
+                await hubContext.Groups.RemoveFromGroupAsync(
+                    connection.ConnectionId,
+                    GameStateHub.GetChatGroupName(connection.ProjectId));
+                _connectionsByConnection.Remove(connection);
                 await hubContext.Clients.Client(connection.ConnectionId)
                     .SendAsync("SessionRevoked", CancellationToken.None);
             }
@@ -119,10 +143,68 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         }
     }
 
+    public async Task UpdateChatReadersAsync(
+        Guid projectId,
+        IReadOnlySet<Guid> participantIds,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var pair in _connectionsByConnection
+                         .Where(item => item.Key.ProjectId == projectId && !item.Value.IsAdmin)
+                         .ToArray())
+            {
+                if (pair.Value.ParticipantId is not Guid participantId)
+                {
+                    continue;
+                }
+
+                var canReadChat = participantIds.Contains(participantId);
+                if (canReadChat == pair.Value.CanReadChat)
+                {
+                    continue;
+                }
+
+                if (canReadChat)
+                {
+                    await hubContext.Groups.AddToGroupAsync(
+                        pair.Key.ConnectionId,
+                        GameStateHub.GetChatGroupName(projectId),
+                        cancellationToken);
+                }
+                else
+                {
+                    await hubContext.Groups.RemoveFromGroupAsync(
+                        pair.Key.ConnectionId,
+                        GameStateHub.GetChatGroupName(projectId),
+                        cancellationToken);
+                }
+
+                _connectionsByConnection[pair.Key] = pair.Value with { CanReadChat = canReadChat };
+            }
+
+            var participantConnections = _connectionsByConnection
+                .Where(item => item.Key.ProjectId == projectId && !item.Value.IsAdmin)
+                .Select(item => item.Key.ConnectionId)
+                .Distinct()
+                .ToArray();
+            if (participantConnections.Length > 0)
+            {
+                await hubContext.Clients.Clients(participantConnections)
+                    .SendAsync("ParticipantPermissionsChanged", cancellationToken);
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private void RemoveConnection((string ConnectionId, Guid ProjectId) connection)
     {
-        if (!_sessionsByConnection.Remove(connection, out var sessionId) ||
-            !_connectionsBySession.TryGetValue(sessionId, out var connections))
+        if (!_connectionsByConnection.Remove(connection, out var access) ||
+            !_connectionsBySession.TryGetValue(access.SessionId, out var connections))
         {
             return;
         }
@@ -130,7 +212,7 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         connections.Remove(connection);
         if (connections.Count == 0)
         {
-            _connectionsBySession.Remove(sessionId);
+            _connectionsBySession.Remove(access.SessionId);
         }
     }
 
@@ -145,4 +227,10 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
             _revokedSessions.Remove(sessionId);
         }
     }
+
+    private sealed record HubConnectionAccess(
+        Guid SessionId,
+        Guid? ParticipantId,
+        bool IsAdmin,
+        bool CanReadChat);
 }

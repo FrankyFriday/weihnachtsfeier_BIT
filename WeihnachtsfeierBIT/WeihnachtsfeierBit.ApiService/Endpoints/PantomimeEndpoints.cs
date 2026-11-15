@@ -314,12 +314,21 @@ public static class PantomimeEndpoints
         Guid eventId,
         Guid slideId,
         HttpContext httpContext,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
     {
         var access = GetAccess(httpContext);
         if (!access.IsParticipant || access.ParticipantId is not Guid participantId)
+        {
+            return Results.Forbid();
+        }
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.IsMuted,
+                requireInteraction: false,
+                cancellationToken))
         {
             return Results.Forbid();
         }

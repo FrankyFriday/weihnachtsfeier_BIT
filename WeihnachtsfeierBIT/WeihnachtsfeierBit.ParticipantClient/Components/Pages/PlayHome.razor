@@ -61,11 +61,11 @@ else if (_liveGameState?.IsPaused == true)
 }
 else if (_liveGameState?.ActiveEvent is EventState activeEv && !activeEv.IsHidden)
 {
-    <ParticipantEventView Event="activeEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ShowBackButton="false" />
+    <ParticipantEventView Event="activeEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ParticipantPermissions="@_participant?.Permissions" ShowBackButton="false" />
 }
 else if (_selectedPassiveEvent is EventState passiveEv)
 {
-    <ParticipantEventView Event="passiveEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ShowBackButton="true" OnBack="ClosePassiveEvent" />
+    <ParticipantEventView Event="passiveEv" Teams="CurrentTeamsSummary" AccessToken="@_accessToken" ProjectId="@ProjectId" ParticipantId="@(_participant?.Id ?? Guid.Empty)" TeamId="@_participant?.TeamId" ParticipantPermissions="@_participant?.Permissions" ShowBackButton="true" OnBack="ClosePassiveEvent" />
 }
 else
 {
@@ -203,7 +203,7 @@ else
                 _participantNumberInput);
 
             _accessToken = login.AccessToken;
-            _participant = new ParticipantSummary(login.ParticipantId ?? login.SessionId, _participantNumberInput, login.DisplayName, login.TeamId);
+            _participant = await ProjectApiClient.GetCurrentParticipantAsync(_accessToken, ProjectId);
             _nameInput = login.DisplayName;
             _isLoggedIn = true;
 
@@ -273,6 +273,18 @@ else
             }
 
             return Task.CompletedTask;
+        });
+
+        _hubConnection.On("ParticipantPermissionsChanged", () =>
+        {
+            return InvokeAsync(async () =>
+            {
+                if (!string.IsNullOrEmpty(_accessToken))
+                {
+                    _participant = await ProjectApiClient.GetCurrentParticipantAsync(_accessToken, ProjectId);
+                    StateHasChanged();
+                }
+            });
         });
 
         _hubConnection.On("SessionRevoked", () =>
@@ -368,6 +380,11 @@ else
 
         var myTeam = _liveGameState.Teams.FirstOrDefault(t => t.Members.Any(m => m.Id == _participant.Id) || (_participant.TeamId.HasValue && t.Id == _participant.TeamId.Value));
         CurrentTeamState = myTeam;
+        var participantState = myTeam?.Members.FirstOrDefault(member => member.Id == _participant.Id);
+        if (participantState?.Permissions is not null)
+        {
+            _participant = _participant with { Permissions = participantState.Permissions };
+        }
     }
 
     public async ValueTask DisposeAsync()

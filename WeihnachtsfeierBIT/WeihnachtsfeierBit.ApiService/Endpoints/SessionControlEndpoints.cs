@@ -540,6 +540,7 @@ public static class SessionControlEndpoints
         SubmitResponseRequest request,
         HttpContext httpContext,
         ProjectAccessService accessService,
+        ParticipantPermissionService permissionService,
         WeihnachtsfeierDbContext dbContext,
         IGameStateNotifier gameStateNotifier,
         CancellationToken cancellationToken)
@@ -549,6 +550,15 @@ public static class SessionControlEndpoints
         if (access is null)
         {
             return Results.Unauthorized();
+        }
+        if (access.ParticipantId is not null &&
+            !await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.IsMuted,
+                requireInteraction: false,
+                cancellationToken))
+        {
+            return Results.Forbid();
         }
 
         var ev = await dbContext.GameInstanceEvents

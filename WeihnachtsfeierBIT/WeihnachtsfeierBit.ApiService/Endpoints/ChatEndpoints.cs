@@ -28,10 +28,19 @@ public static class ChatEndpoints
         Guid projectId,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanReadChat,
+                requireInteraction: false,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         // 1. Ensure Global group exists
         var globalGroup = await dbContext.ChatGroups
@@ -54,7 +63,7 @@ public static class ChatEndpoints
         {
             var participant = await dbContext.Teilnehmer
                 .Include(t => t.Team)
-                .FirstOrDefaultAsync(t => t.Id == pId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.Id == pId && t.ProjektId == projectId, cancellationToken);
 
             if (participant is not null)
             {
@@ -120,7 +129,8 @@ public static class ChatEndpoints
 
         if (partId is Guid pid)
         {
-            var participant = await dbContext.Teilnehmer.AsNoTracking().FirstOrDefaultAsync(t => t.Id == pid, cancellationToken);
+            var participant = await dbContext.Teilnehmer.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == pid && t.ProjektId == projectId, cancellationToken);
             Guid? myTeamId = participant?.TeamId;
 
             groups = await dbContext.ChatGroups
@@ -209,10 +219,19 @@ public static class ChatEndpoints
         Guid projectId,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanCreateChats,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         var participants = await dbContext.Teilnehmer
             .AsNoTracking()
@@ -239,10 +258,19 @@ public static class ChatEndpoints
         Guid groupId,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanReadChat,
+                requireInteraction: false,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         var group = await dbContext.ChatGroups
             .AsNoTracking()
@@ -253,7 +281,8 @@ public static class ChatEndpoints
 
         if (access.ParticipantId is Guid partId)
         {
-            var participant = await dbContext.Teilnehmer.AsNoTracking().FirstOrDefaultAsync(t => t.Id == partId, cancellationToken);
+            var participant = await dbContext.Teilnehmer.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == partId && t.ProjektId == projectId, cancellationToken);
             bool hasAccess = group.Type == "global" ||
                 (group.Type == "team" && group.AssociatedTeamId == participant?.TeamId) ||
                 (group.Type == "admin_support" && group.Members.Any(m => m.ParticipantId == partId)) ||
@@ -288,10 +317,33 @@ public static class ChatEndpoints
         Guid groupId,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanReadChat,
+                requireInteraction: false,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
+        var group = await dbContext.ChatGroups
+            .AsNoTracking()
+            .Include(item => item.Members)
+            .FirstOrDefaultAsync(item => item.Id == groupId && item.ProjektId == projectId, cancellationToken);
+        if (group is null) return Results.NotFound();
+        if (access.ParticipantId is Guid participantId &&
+            !HasGroupAccess(group, participantId, await dbContext.Teilnehmer.AsNoTracking()
+                .Where(item => item.Id == participantId && item.ProjektId == projectId)
+                .Select(item => item.TeamId)
+                .FirstOrDefaultAsync(cancellationToken)))
+        {
+            return Results.Forbid();
+        }
 
         Guid? partId = access.ParticipantId;
         Guid? adminId = access.AdminId;
@@ -351,6 +403,7 @@ public static class ChatEndpoints
         SendChatMessageRequest request,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         IHubContext<GameStateHub> hubContext,
         CancellationToken cancellationToken)
     {
@@ -376,7 +429,7 @@ public static class ChatEndpoints
         {
             var participant = await dbContext.Teilnehmer
                 .Include(t => t.Team)
-                .FirstOrDefaultAsync(t => t.Id == pId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.Id == pId && t.ProjektId == projectId, cancellationToken);
 
             if (participant is null) return Results.Unauthorized();
 
@@ -385,9 +438,11 @@ public static class ChatEndpoints
                 return Results.Forbid();
             }
 
-            var project = await dbContext.Projekte.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
-            var perms = WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.ResolveEffectivePermissions(project?.PermissionsJson, participant.Berechtigung?.PermissionsJson);
-            if (!perms.TryGetValue(WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSendChatMessages, out var canSend) || !canSend)
+            if (!await permissionService.AllowsAsync(
+                    access,
+                    WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanSendChatMessages,
+                    requireInteraction: true,
+                    cancellationToken))
             {
                 return Results.BadRequest(new ApiError("Das Schreiben im Chat ist für deinen Benutzer gesperrt."));
             }
@@ -426,8 +481,8 @@ public static class ChatEndpoints
             message.SenderAdminId.HasValue,
             message.SentAtUtc);
 
-        var groupName = GameStateHub.GetGroupName(projectId);
-        await hubContext.Clients.Group(groupName).SendAsync("ReceiveChatMessage", response, cancellationToken);
+        await hubContext.Clients.Group(GameStateHub.GetChatGroupName(projectId))
+            .SendAsync("ReceiveChatMessage", response, cancellationToken);
 
         return Results.Ok(response);
     }
@@ -437,6 +492,7 @@ public static class ChatEndpoints
         Guid targetParticipantId,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
@@ -472,6 +528,15 @@ public static class ChatEndpoints
 
         Guid p1 = access.ParticipantId!.Value;
         Guid p2 = targetParticipantId;
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanReadChat,
+                requireInteraction: false,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
         if (p1 == p2) return Results.BadRequest(new ApiError("Selbstgespräche nicht möglich."));
 
         var targetParticipant = await dbContext.Teilnehmer.FirstOrDefaultAsync(t => t.Id == p2 && t.ProjektId == projectId, cancellationToken);
@@ -485,6 +550,15 @@ public static class ChatEndpoints
         if (existingGroup is not null)
         {
             return Results.Ok(new ChatGroupSummary(existingGroup.Id, existingGroup.Name, existingGroup.Type, existingGroup.AssociatedTeamId, existingGroup.Members.Count, null, null, 0));
+        }
+
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanCreateChats,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
         }
 
         var sender = await dbContext.Teilnehmer.FindAsync([p1], cancellationToken);
@@ -510,10 +584,19 @@ public static class ChatEndpoints
         CreateCustomGroupRequest request,
         HttpContext httpContext,
         WeihnachtsfeierDbContext dbContext,
+        ParticipantPermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var access = httpContext.Items[RequireProjectAccessFilter.AccessItemKey] as ProjectAccess;
         if (access is null || (access.ParticipantId is null && access.AdminId is null)) return Results.Unauthorized();
+        if (!await permissionService.AllowsAsync(
+                access,
+                WeihnachtsfeierBit.Framework.ParticipantPermissionKeys.CanCreateChats,
+                requireInteraction: true,
+                cancellationToken))
+        {
+            return Results.Forbid();
+        }
 
         var name = request.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name.Length > 60)
@@ -535,7 +618,15 @@ public static class ChatEndpoints
 
         if (request.ParticipantIds is not null)
         {
-            foreach (var pid in request.ParticipantIds.Distinct())
+            var participantIds = request.ParticipantIds.Distinct().ToArray();
+            var validParticipantCount = await dbContext.Teilnehmer
+                .CountAsync(item => item.ProjektId == projectId && participantIds.Contains(item.Id), cancellationToken);
+            if (validParticipantCount != participantIds.Length)
+            {
+                return Results.BadRequest(new ApiError("Alle ausgewählten Teilnehmer müssen zu diesem Projekt gehören."));
+            }
+
+            foreach (var pid in participantIds)
             {
                 if (access.ParticipantId is null || pid != access.ParticipantId.Value)
                 {
@@ -581,7 +672,7 @@ public static class ChatEndpoints
         group.Name = newName;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveGroupRenamed", groupId, group.Name, cancellationToken);
+        await hubContext.Clients.Group(GameStateHub.GetChatGroupName(projectId)).SendAsync("ReceiveGroupRenamed", groupId, group.Name, cancellationToken);
         return Results.Ok(new ChatGroupSummary(group.Id, group.Name, group.Type, group.AssociatedTeamId, group.Members.Count, null, null, 0, null));
     }
 
@@ -602,7 +693,7 @@ public static class ChatEndpoints
         dbContext.ChatMessages.Remove(message);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveMessageDeleted", messageId, cancellationToken);
+        await hubContext.Clients.Group(GameStateHub.GetChatGroupName(projectId)).SendAsync("ReceiveMessageDeleted", messageId, cancellationToken);
         return Results.NoContent();
     }
 
@@ -626,7 +717,13 @@ public static class ChatEndpoints
         dbContext.ChatGroups.Remove(group);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await hubContext.Clients.Group(GameStateHub.GetGroupName(projectId)).SendAsync("ReceiveGroupDeleted", groupId, cancellationToken);
+        await hubContext.Clients.Group(GameStateHub.GetChatGroupName(projectId)).SendAsync("ReceiveGroupDeleted", groupId, cancellationToken);
         return Results.NoContent();
     }
+
+    private static bool HasGroupAccess(ChatGroup group, Guid participantId, Guid? teamId) =>
+        group.Type == "global" ||
+        (group.Type == "team" && group.AssociatedTeamId == teamId) ||
+        ((group.Type is "admin_support" or "direct" or "custom") &&
+            group.Members.Any(member => member.ParticipantId == participantId));
 }

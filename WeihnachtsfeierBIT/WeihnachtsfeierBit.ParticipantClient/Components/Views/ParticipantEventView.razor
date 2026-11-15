@@ -32,7 +32,7 @@
                 </div>
             }
 
-            <div style="@(IsTeamExclusiveBlocked(currentSlide) ? "pointer-events: none; opacity: 0.65; width: 100%; height: 100%; display: flex; flex-direction: column;" : "width: 100%; height: 100%; display: flex; flex-direction: column;")">
+            <div style="@(IsTeamExclusiveBlocked(currentSlide) || IsInteractionBlocked ? "pointer-events: none; opacity: 0.65; width: 100%; height: 100%; display: flex; flex-direction: column;" : "width: 100%; height: 100%; display: flex; flex-direction: column;")">
                 @switch (currentSlide.Type.ToLowerInvariant())
                 {
                     case "announcement":
@@ -54,7 +54,7 @@
                         <BuzzerRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" />
                         break;
                     case "hitster":
-                        <HitsterRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" TeamId="@TeamId" />
+                        <HitsterRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" ParticipantId="@ParticipantId" TeamId="@TeamId" ParticipantPermissions="@ParticipantPermissions" />
                         break;
                     case "text":
                         <TextRenderer Event="Event" CurrentSlide="currentSlide" AccessToken="@AccessToken" ProjectId="@ProjectId" />
@@ -93,6 +93,15 @@
                         break;
                 }
             </div>
+            @if (IsInteractionBlocked)
+            {
+                <div style="position: absolute; inset: 0; z-index: 60; display: flex; justify-content: center; align-items: center; padding: 24px; text-align: center; pointer-events: none;">
+                    <div style="padding: 20px; border: 1.5px solid #f59e0b; border-radius: 12px; background: rgba(255, 251, 235, 0.96); color: #78350f; max-width: 380px;">
+                        <strong style="display: block; margin-bottom: 6px;">Interaktion gesperrt</strong>
+                        <span style="font-size: 14px;">Die Spielleitung hat Antworten und Aktionen für dein Profil deaktiviert.</span>
+                    </div>
+                </div>
+            }
         </div>
 
         @if (Event.NavigationMode == "self_paced" && Event.Slides.Length > 1)
@@ -113,6 +122,10 @@
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public Guid ParticipantId { get; set; }
     [Parameter] public Guid? TeamId { get; set; }
+    [Parameter] public ParticipantPermissions? ParticipantPermissions { get; set; }
+
+    private bool IsInteractionBlocked =>
+        ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.IsMuted) == false;
     [Parameter] public bool ShowBackButton { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
 

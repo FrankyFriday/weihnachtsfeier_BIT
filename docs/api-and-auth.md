@@ -46,7 +46,15 @@ Geschützte Projektendpunkte verwenden `/api/projects/{projectId}` und `Authoriz
 | **Eingeladener Co-Admin** | Berechtigungen hängen von den zugewiesenen Flags ab:<br>- `CanControlSession`: Live-Session starten, pausieren, Folien wechseln, Punkte vergeben.<br>- `CanManageParticipants`: Teilnehmer & Teams anlegen, bearbeiten, zufällig verteilen.<br>- `CanEditProjectSettings`: Projektdetails & Name bearbeiten.<br>- `CanManageShows`: Shows im Projekt verknüpfen oder entfernen. |
 | **Teilnehmer** | Projekt, eigenes Profil, Teams, Shows und Slides lesen; eigene Sitzungen ansehen/widerrufen; Antworten abgeben. |
 
-Die Hitster-Steuerungsendpunkte (Start, aktuellen Song abrufen, aufdecken und zum nächsten Song wechseln) erfordern `CanControlSession`, wie die übrigen Live-Session-Steuerungsendpunkte.
+### Teilnehmer-Berechtigungen & 3-State-Overrides
+
+Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-Nachrichten schreiben*, *Chat lesen*, *Neue Chats erstellen*, *Teamnamen vorschlagen und abstimmen*, *Musikwünsche einreichen und abstimmen*, *Sprechrecht & Interaktion erlaubt*, *Eigenen Namen ändern*) werden über folgende Endpunkte verwaltet:
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/projects/{projectId}/permissions/global` | Projektadmin | Globale Projekt-Standardberechtigungen abrufen. |
+| `PUT /api/projects/{projectId}/permissions/global` | Projektadmin | Globale Projekt-Standardberechtigungen aktualisieren. |
+| `PUT /api/projects/{projectId}/participants/{participantId}/permissions` | Projektadmin | Individuelle 3-State-Berechtigungs-Overrides für einen Teilnehmer setzen (*Global übernehmen*, *An (Erzwungen)*, *Aus (Sperre)*). |
 
 ## Projektadmins & Sharing verwalten
 
@@ -83,11 +91,34 @@ Die Hitster-Steuerungsendpunkte (Start, aktuellen Song abrufen, aufdecken und zu
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin (`CanControlSession`) | Event beenden. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion einreichen. |
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
-| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime` | Projektadmin (`CanControlSession`) | Kategorie, Begriffanzahl, Rundendauer und nicht geheime Team-Ergebnisse abrufen. |
-| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/admin/{action}` | Projektadmin (`CanControlSession`) | Alle Teams mit je einer darstellenden Person und gemeinsamer Dauer starten; die gemeinsame Runde pausieren, fortsetzen oder beenden. |
-| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/current-term` | Aktive Teilnehmer-Sitzung | Den aktuellen Begriff nur für die in der Runde zugeordnete darstellende Person abrufen. |
-| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct` | Zugeordnete darstellende Person | Den eigenen aktuellen Begriff als erraten bestätigen und einen neuen eindeutigen Begriff anfordern. |
 
-SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. Bei Unterbrechungen, Pausierung oder Session-Ende empfangen alle verbundenen Clients in Echtzeit entsprechende Nachrichten und schalten Vollbild-Overlays frei.
+## Chat-Moderation & Endpunkte
 
-Pantomime-Begriffe und interne Zuteilungsindizes werden aus Teilnehmer-, SignalR- und Beamerzuständen entfernt. Der private Begriff-Endpunkt prüft die aktive Teilnehmer-Sitzung gegen die serverseitige Team-/Darstellerzuordnung; die Bestätigungsaktion verwendet dieselbe Identität und akzeptiert keine clientseitige Teilnehmer-ID. Alle Teams verwenden eine gemeinsame Deadline. Begriffe werden während einer Runde ohne Wiederholung zugeteilt; wenn der Pool leer ist, warten die Teams ohne neuen Begriff bis zum Rundenende. Der QR-Code auf der Beamerseite führt zur Teilnehmeranmeldung mit vorausgefülltem Session-Code.
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/projects/{projectId}/chat/groups` | Admin / Teilnehmer mit `CanReadChat` | Chat-Gruppen und Supportkanäle auflisten (Admins sehen spezifische Teilnehmernamen in Support-Chats wie `Support: Max (#12)`). |
+| `GET /api/projects/{projectId}/chat/participants` | Admin / Teilnehmer mit `CanCreateChats` | Verfügbare Chat-Kontakte auflisten. |
+| `GET /api/projects/{projectId}/chat/groups/{groupId}/messages` | Admin / Teilnehmer mit `CanReadChat` | Nachrichten eines Kanals abrufen; Teilnehmer ohne Leserecht erhalten `403`. |
+| `POST /api/projects/{projectId}/chat/groups/{groupId}/messages` | Admin / Teilnehmer mit `CanSendChatMessages` und `IsMuted` | Nachricht senden (mit Enter-Taste oder Senden-Button). |
+| `POST /api/projects/{projectId}/chat/direct/{targetParticipantId}` | Admin / Teilnehmer mit `CanCreateChats` und `IsMuted` (für neue Direktchats) | Support- bzw. Direktchat öffnen oder erstellen. |
+| `POST /api/projects/{projectId}/chat/groups` | Admin / Teilnehmer mit `CanCreateChats` und `IsMuted` | Benutzerdefinierte Chat-Gruppe erstellen. |
+| `DELETE /api/projects/{projectId}/chat/messages/{messageId}` | Projektadmin | Einzelne Chat-Nachricht löschen (auch per Rechtsklick in der UI). |
+| `DELETE /api/projects/{projectId}/chat/groups/{groupId}` | Projektadmin | Chat-Gruppe löschen (außer globale Hauptgruppe). |
+| `PUT /api/projects/{projectId}/chat/groups/{groupId}` | Projektadmin | Team- oder benutzerdefinierte Chat-Gruppe umbenennen. |
+
+SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. Chat-Nachrichten, Löschungen und Umbenennungen werden nur an Admins und Teilnehmer mit effektivem `CanReadChat`-Recht ausgeliefert; Änderungen des Rechts aktualisieren offene Verbindungen sofort.
+
+## Teilnehmeraktionen
+
+| Methode/Route | Teilnehmerrecht |
+| --- | --- |
+| `PUT /api/projects/{projectId}/participants/me` | `CanChangeName` und `IsMuted` (Interaktion erlaubt). |
+| `POST /api/projects/{projectId}/teams/my/suggestions` | `CanSuggestTeamNames` und `IsMuted`. |
+| `POST /api/projects/{projectId}/teams/my/suggestions/{suggestionId}/vote` | `CanVoteTeamNames` und `IsMuted`. |
+| `POST /api/projects/{projectId}/song-wishes` | `CanSuggestSongs` und `IsMuted`. |
+| `POST /api/projects/{projectId}/song-wishes/{wishId}/vote` | `CanVoteSongs` und `IsMuted`. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | `IsMuted` (Interaktion erlaubt). |
+| `POST /api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/vote` | `IsMuted` (Interaktion erlaubt). |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct` | `IsMuted` (Interaktion erlaubt). |
+
+Die Berechtigungen werden zusätzlich zu den UI-Steuerelementen in der API geprüft. Bei unabhängigen Vorschlags- und Abstimmungsrechten wird ein neu eingereichter Vorschlag nur dann automatisch als eigene Stimme gezählt, wenn das jeweilige Abstimmungsrecht ebenfalls aktiv ist.

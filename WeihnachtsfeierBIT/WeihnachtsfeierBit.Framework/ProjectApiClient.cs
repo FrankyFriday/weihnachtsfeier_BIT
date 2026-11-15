@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace WeihnachtsfeierBit.Framework;
 
@@ -705,6 +706,18 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
             ?? throw new InvalidOperationException("Die API hat keinen Session-Zustand zurückgegeben.");
     }
 
+    public async Task<ParticipantSummary> GetCurrentParticipantAsync(
+        string accessToken,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/participants/me", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantSummary>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Teilnehmerprofil zurückgegeben.");
+    }
+
     public async Task<ChatGroupSummary[]> GetChatGroupsAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/chat/groups", accessToken);
@@ -1144,15 +1157,82 @@ public record ParticipantSessionResponse(
     string DisplayName,
     Guid? ParticipantId = null,
     Guid? TeamId = null);
+[JsonConverter(typeof(ParticipantPermissionsJsonConverter))]
 public sealed record ParticipantPermissions(Dictionary<string, bool> Values)
 {
     public bool HasPermission(string key)
     {
+        var values = Values;
+        if (values is null)
+        {
+            return key != ParticipantPermissionKeys.IsMuted;
+        }
+
         if (key == ParticipantPermissionKeys.IsMuted)
         {
-            return Values.TryGetValue(ParticipantPermissionKeys.IsMuted, out var val) ? val : true;
+            return values.TryGetValue(ParticipantPermissionKeys.IsMuted, out var val) ? val : true;
         }
-        return !Values.TryGetValue(key, out var allowed) || allowed;
+        return !values.TryGetValue(key, out var allowed) || allowed;
+    }
+}
+
+public sealed class ParticipantPermissionsJsonConverter : JsonConverter<ParticipantPermissions>
+{
+    public override ParticipantPermissions Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Teilnehmer-Berechtigungen müssen ein JSON-Objekt sein.");
+        }
+
+        foreach (var property in root.EnumerateObject())
+        {
+            if (string.Equals(property.Name, nameof(ParticipantPermissions.Values), StringComparison.OrdinalIgnoreCase))
+            {
+                return new ParticipantPermissions(ReadValues(property.Value));
+            }
+        }
+
+        return new ParticipantPermissions(ReadValues(root));
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        ParticipantPermissions value,
+        JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WritePropertyName(
+            options.PropertyNamingPolicy?.ConvertName(nameof(ParticipantPermissions.Values))
+            ?? nameof(ParticipantPermissions.Values));
+        JsonSerializer.Serialize(writer, value.Values, options);
+        writer.WriteEndObject();
+    }
+
+    private static Dictionary<string, bool> ReadValues(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Die Berechtigungswerte müssen ein JSON-Objekt sein.");
+        }
+
+        var values = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                throw new JsonException($"Die Berechtigung '{property.Name}' muss einen booleschen Wert haben.");
+            }
+
+            values[property.Name] = property.Value.GetBoolean();
+        }
+
+        return values;
     }
 }
 
