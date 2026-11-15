@@ -689,6 +689,21 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task SetCanvasDisplaySettingsAsync(
+        string accessToken,
+        Guid projectId,
+        CanvasDisplaySettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Put,
+            $"/api/projects/{projectId}/session/canvas-settings",
+            accessToken,
+            settings);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<CanvasGameState> GetCanvasStateAsync(string accessCode, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.GetAsync($"/api/game-instances/by-code/{Uri.EscapeDataString(accessCode)}/canvas", cancellationToken);
@@ -1343,16 +1358,72 @@ public sealed record ProjectGameState(
     DateTime UpdatedAtUtc,
     bool IsPaused = false,
     bool IsEnded = false,
-    Guid? ActiveTeamId = null);
+    Guid? ActiveTeamId = null,
+    CanvasDisplaySettings? CanvasSettings = null);
 public sealed record CanvasTeamState(Guid Id, string DisplayName, int Points, int Rank);
 public sealed record CanvasEventState(Guid EventId, string SlideType, string Title, JsonElement Parameters);
+public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCodeMode)
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public const int MinimumScalePercent = 60;
+    public const int MaximumScalePercent = 160;
+
+    public const string ScoreboardRight = "right";
+    public const string ScoreboardBottom = "bottom";
+    public const string ScoreboardHidden = "hidden";
+    public const string QrCodeCard = "card";
+    public const string QrCodeHidden = "hidden";
+    public const string QrCodePopup = "popup";
+
+    public static CanvasDisplaySettings Default { get; } = new(ScoreboardRight, QrCodeCard);
+
+    public int FontScalePercent { get; init; } = 100;
+    public int EventScalePercent { get; init; } = 100;
+    public int ScoreboardScalePercent { get; init; } = 100;
+    public int QrCodeScalePercent { get; init; } = 100;
+
+    [JsonIgnore]
+    public bool IsValid =>
+        (ScoreboardLayout is ScoreboardRight or ScoreboardBottom or ScoreboardHidden) &&
+        (QrCodeMode is QrCodeCard or QrCodeHidden or QrCodePopup) &&
+        IsScaleValid(FontScalePercent) &&
+        IsScaleValid(EventScalePercent) &&
+        IsScaleValid(ScoreboardScalePercent) &&
+        IsScaleValid(QrCodeScalePercent);
+
+    private static bool IsScaleValid(int scalePercent) =>
+        scalePercent is >= MinimumScalePercent and <= MaximumScalePercent;
+
+    public static CanvasDisplaySettings FromJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return Default;
+        }
+
+        try
+        {
+            var settings = JsonSerializer.Deserialize<CanvasDisplaySettings>(json, JsonOptions);
+            return settings?.IsValid == true ? settings : Default;
+        }
+        catch (JsonException)
+        {
+            return Default;
+        }
+    }
+
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+}
+
 public sealed record CanvasGameState(
     Guid ProjectId,
     string ProjectName,
     CanvasTeamState[] Teams,
     CanvasEventState? Event,
     DateTime UpdatedAtUtc,
-    TeamPointLogDto[] PointLogs);
+    TeamPointLogDto[] PointLogs,
+    CanvasDisplaySettings? DisplaySettings = null);
 
 public sealed record ChatGroupSummary(
     Guid Id,

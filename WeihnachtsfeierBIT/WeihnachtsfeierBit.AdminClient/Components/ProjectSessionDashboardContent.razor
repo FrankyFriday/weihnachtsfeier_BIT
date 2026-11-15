@@ -16,7 +16,6 @@
     {
         <SessionToolbar Instance="_state.Instance"
                         HubConnection="_state.HubConnection"
-                        CanvasUrl="@GetCanvasUrl()"
                         SessionOptions="_sessionOptions"
                         OnSessionOptionSelect="HandleSessionOptionSelect"
                         OnStartSession="OpenStartSessionModal"
@@ -75,6 +74,8 @@
                                Participants="_state.Participants"
                                Teams="_state.Teams"
                                Instance="_state.Instance"
+                               SessionState="_state.SessionState"
+                               ActiveCanvasEventId="_state.ActiveCanvasEventId"
                                PointLogs="_state.PointLogs"
                                ProjectId="@ProjectId"
                                AccessToken="@_accessToken"
@@ -82,6 +83,12 @@
                                RunAuthenticated="RunAuthenticatedAsync"
                                OnOpenPermissions="OpenPermissionsModal"
                                OnOpenAwardPoints="OpenAwardPointsForTeam"
+                               OnSetCanvasEvent="id => _state.SetCanvasEventAsync(id)"
+                               CanvasUrl="@GetCanvasUrl()"
+                               CanvasSettings="_state.CanvasSettings"
+                               IsProcessing="_state.IsProcessing"
+                               ActionError="_state.ActionError"
+                               OnSaveCanvasSettings="settings => _state.SetCanvasDisplaySettingsAsync(settings)"
                                OnDrawerStateChanged="state => _isRegieDrawerOpen = state" />
         </div>
 

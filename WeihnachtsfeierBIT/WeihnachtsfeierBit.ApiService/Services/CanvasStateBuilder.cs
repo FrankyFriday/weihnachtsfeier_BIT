@@ -105,7 +105,8 @@ public static class CanvasStateBuilder
             teams,
             activeEvent,
             DateTime.UtcNow,
-            pointLogs);
+            pointLogs,
+            CanvasDisplaySettings.FromJson(instance.CanvasSettingsJson));
     }
 
     private static (string Type, JsonElement Parameters)? GetCurrentSlide(GameInstanceEvent gameEvent)

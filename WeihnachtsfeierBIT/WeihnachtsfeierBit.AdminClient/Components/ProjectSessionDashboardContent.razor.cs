@@ -96,7 +96,9 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
         });
     }
 
-    private string GetCanvasUrl() => _state?.Instance?.AccessCode is not null ? Navigation.ToAbsoluteUri($"/play/beamer/{_state.Instance.AccessCode}").ToString() : Navigation.BaseUri;
+    private string? GetCanvasUrl() => _state?.Instance?.AccessCode is not null
+        ? Navigation.ToAbsoluteUri($"/play/beamer/{_state.Instance.AccessCode}").ToString()
+        : null;
 
     private async Task HandleSessionOptionSelect(string optionValue)
     {

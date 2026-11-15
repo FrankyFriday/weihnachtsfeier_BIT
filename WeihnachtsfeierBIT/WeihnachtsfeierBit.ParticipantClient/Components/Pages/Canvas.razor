@@ -3,7 +3,9 @@
 @layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
 @using System.Text.Json
 @using System.Text
+@using System.Globalization
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.JSInterop
 @using QRCoder
 @using WeihnachtsfeierBit.Framework
 @implements IAsyncDisposable
@@ -11,10 +13,11 @@
 @inject IConfiguration Configuration
 @inject ILogger<Canvas> Logger
 @inject NavigationManager Navigation
+@inject IJSRuntime JavaScript
 
-<PageTitle>@(_state?.ProjectName ?? "Beamer") | WeihnachtsfeierBIT</PageTitle>
+<PageTitle>@(_state?.ProjectName ?? "Beamer")</PageTitle>
 
-<main class="canvas-page">
+<main class="canvas-page" style="@CanvasScaleStyle">
     @if (_isLoading)
     {
         <div class="canvas-message">Beameransicht wird geladen …</div>
@@ -33,13 +36,15 @@
     }
     else if (_state is not null)
     {
+        var displaySettings = _state.DisplaySettings ?? CanvasDisplaySettings.Default;
+
         <header class="canvas-header">
             <div class="canvas-brand">
-                <div class="canvas-eyebrow">LIVE · @_state.ProjectName</div>
-                <h1>WeihnachtsfeierBIT</h1>
+                <h1>@_state.ProjectName</h1>
             </div>
             <div class="canvas-header-actions">
-                @if (!string.IsNullOrEmpty(_qrCodeDataUri))
+                @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
+                     !string.IsNullOrEmpty(_qrCodeDataUri))
                 {
                     <aside class="canvas-join-card" aria-label="Session beitreten">
                         <div class="canvas-join-copy">
@@ -50,139 +55,179 @@
                         <img class="canvas-join-qr" src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
                     </aside>
                 }
-                <div class="canvas-connection">
-                    <span class="canvas-connection-dot @(_isConnected ? "connected" : "")"></span>
-                    @_connectionStatus
-                </div>
             </div>
         </header>
 
-        <div class="canvas-content">
-            <section class="canvas-event" aria-live="polite">
-                @if (_state.Event is CanvasEventState activeEvent)
-                {
-                    <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
-                    <h2>@GetEventHeading(activeEvent)</h2>
-                    @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
+        <div class="canvas-content scoreboard-@displaySettings.ScoreboardLayout">
+            <section class="canvas-event" aria-live="polite" @ref="_eventContainerElement">
+                <div class="canvas-event-fit" @ref="_eventContentElement">
+                    @if (_state.Event is CanvasEventState activeEvent)
                     {
-                        <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "message")</p>
-                    }
-                    else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ||
-                             activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var options = ReadStringList(activeEvent.Parameters,
-                            activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ? "options" : "answers");
-                        @if (options.Length > 0)
+                        <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
+                        <h2>@GetEventHeading(activeEvent)</h2>
+                        @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
                         {
-                            <ol class="canvas-options">
-                                @foreach (var option in options)
-                                {
-                                    <li>@option</li>
-                                }
-                            </ol>
+                            <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "message")</p>
                         }
-                    }
-                    else if (activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
-                    }
-                    else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <div style="margin-top: 16px; width: 100%;">
-                            <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
-                        </div>
-                    }
-                    else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
-                    }
-                    else if (activeEvent.SlideType.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <PantomimeCanvasView Parameters="activeEvent.Parameters" />
-                    }
-                    else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var game = ReadObject(activeEvent.Parameters, "game");
-                        @if (ReadBool(game, "started"))
+                        else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ||
+                                 activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
                         {
-                            @if (ReadBool(game, "finished"))
+                            var options = ReadStringList(activeEvent.Parameters,
+                                activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ? "options" : "answers");
+                            @if (options.Length > 0)
                             {
-                                <p class="canvas-message-text">
-                                    @if (ReadStringList(game, "winnerNames") is { Length: > 0 } winners)
+                                <ol class="canvas-options">
+                                    @foreach (var option in options)
                                     {
-                                        <span>Spiel beendet · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
+                                        <li>@option</li>
                                     }
-                                    else
+                                </ol>
+                            }
+                        }
+                        else if (activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
+                        }
+                        else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div style="margin-top: 16px; width: 100%;">
+                                <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
+                            </div>
+                        }
+                        else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
+                        }
+                        else if (activeEvent.SlideType.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <PantomimeCanvasView Parameters="activeEvent.Parameters" />
+                        }
+                        else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var game = ReadObject(activeEvent.Parameters, "game");
+                            @if (ReadBool(game, "started"))
+                            {
+                                @if (ReadBool(game, "finished"))
+                                {
+                                    <p class="canvas-message-text">
+                                        @if (ReadStringList(game, "winnerNames") is { Length: > 0 } winners)
+                                        {
+                                            <span>Spiel beendet · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Spiel beendet.</span>
+                                        }
+                                    </p>
+                                }
+                                else
+                                {
+                                    <p class="canvas-message-text">Runde @ReadInt(game, "round") · @ReadString(game, "currentTeamName") ist dran</p>
+                                }
+                                @if (ReadString(game, "phase") == "revealed")
+                                {
+                                    var song = ReadObject(game, "currentSong");
+                                    <h3>@ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))</h3>
+                                }
+                                <div class="canvas-hitster-teams">
+                                    @if (game.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
                                     {
-                                        <span>Spiel beendet.</span>
+                                        @foreach (var team in teams.EnumerateArray())
+                                        {
+                                            <div>
+                                                <strong>@ReadString(team, "name")</strong>
+                                                <ol class="canvas-options">
+                                                    @if (team.TryGetProperty("timeline", out var timeline) && timeline.ValueKind == JsonValueKind.Array)
+                                                    {
+                                                        @foreach (var card in timeline.EnumerateArray())
+                                                        {
+                                                            <li>@ReadString(card, "title") · @ReadInt(card, "year")</li>
+                                                        }
+                                                    }
+                                                </ol>
+                                            </div>
+                                        }
                                     }
-                                </p>
+                                </div>
                             }
                             else
                             {
-                                <p class="canvas-message-text">Runde @ReadInt(game, "round") · @ReadString(game, "currentTeamName") ist dran</p>
+                                <p class="canvas-message-text">Die Spielleitung bereitet Hitster vor.</p>
                             }
-                            @if (ReadString(game, "phase") == "revealed")
+                        }
+                    }
+                    else
+                    {
+                        <div class="canvas-event-type">BEREIT</div>
+                        <h2>Die nächste Runde startet gleich</h2>
+                        <p class="canvas-message-text">Der aktuelle Punktestand wird hier angezeigt.</p>
+                    }
+                </div>
+            </section>
+
+            @if (displaySettings.ScoreboardLayout == CanvasDisplaySettings.ScoreboardRight)
+            {
+                <section class="canvas-scoreboard" aria-label="Punktestand" @ref="_scoreboardContainerElement">
+                    <div class="canvas-scoreboard-fit" @ref="_scoreboardContentElement">
+                        <div class="canvas-scoreboard-heading">
+                            <div class="canvas-event-type">PUNKTSTAND</div>
+                            <h2>Teams</h2>
+                            @if (_state.Teams.Length > 0)
                             {
-                                var song = ReadObject(game, "currentSong");
-                                <h3>@ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))</h3>
+                                <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
                             }
-                            <div class="canvas-hitster-teams">
-                                @if (game.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
-                                {
-                                    @foreach (var team in teams.EnumerateArray())
-                                    {
-                                        <div>
-                                            <strong>@ReadString(team, "name")</strong>
-                                            <ol class="canvas-options">
-                                                @if (team.TryGetProperty("timeline", out var timeline) && timeline.ValueKind == JsonValueKind.Array)
-                                                {
-                                                    @foreach (var card in timeline.EnumerateArray())
-                                                    {
-                                                        <li>@ReadString(card, "title") · @ReadInt(card, "year")</li>
-                                                    }
-                                                }
-                                            </ol>
-                                        </div>
-                                    }
-                                }
-                            </div>
+                        </div>
+                        @if (_state.Teams.Length == 0)
+                        {
+                            <p class="canvas-empty">Noch keine Teams angelegt.</p>
                         }
                         else
                         {
-                            <p class="canvas-message-text">Die Spielleitung bereitet Hitster vor.</p>
+                            <div style="margin-top: 12px;">
+                                <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
+                            </div>
                         }
-                    }
-                }
-                else
-                {
-                    <div class="canvas-event-type">BEREIT</div>
-                    <h2>Die nächste Runde startet gleich</h2>
-                    <p class="canvas-message-text">Der aktuelle Punktestand wird live angezeigt.</p>
-                }
-            </section>
-
-            <section class="canvas-scoreboard" aria-label="Live-Punktestand">
-                <div class="canvas-scoreboard-heading">
-                    <div class="canvas-event-type">LIVE-PUNKTSTAND</div>
-                    <h2>Teams</h2>
-                    @if (_state.Teams.Length > 0)
-                    {
-                        <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
-                    }
-                </div>
-                @if (_state.Teams.Length == 0)
-                {
-                    <p class="canvas-empty">Noch keine Teams angelegt.</p>
-                }
-                else
-                {
-                    <div style="margin-top: 12px;">
-                        <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
                     </div>
-                }
-            </section>
+                </section>
+            }
+            else if (displaySettings.ScoreboardLayout == CanvasDisplaySettings.ScoreboardBottom)
+            {
+                <section class="canvas-scoreboard canvas-scoreboard-bottom" aria-label="Team-Punkte" @ref="_scoreboardContainerElement">
+                    <div class="canvas-scoreboard-fit" @ref="_scoreboardContentElement">
+                        @if (_state.Teams.Length == 0)
+                        {
+                            <span class="canvas-empty">Noch keine Teams angelegt.</span>
+                        }
+                        else
+                        {
+                            @foreach (var team in _state.Teams.OrderBy(team => team.Rank))
+                            {
+                                <div class="canvas-score-point">
+                                    <span class="canvas-score-rank">@team.Rank</span>
+                                    <span class="canvas-score-team">@team.DisplayName</span>
+                                    <strong>@team.Points Pkt.</strong>
+                                </div>
+                            }
+                        }
+                    </div>
+                </section>
+            }
         </div>
+
+        @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodePopup &&
+             !string.IsNullOrEmpty(_qrCodeDataUri))
+        {
+            <aside class="canvas-join-overlay" aria-label="Teilnahmeinformationen" @ref="_popupContainerElement">
+                <div class="canvas-join-popup" @ref="_popupContentElement">
+                    <div class="canvas-event-type">JETZT MITMACHEN</div>
+                    <h2>Mit dem Smartphone teilnehmen</h2>
+                    <p>Scanne den QR-Code oder öffne die Teilnehmerseite und gib den Session-Code ein.</p>
+                    <img src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
+                    <div class="canvas-join-code-label">SESSION-CODE</div>
+                    <strong class="canvas-join-code">@Code</strong>
+                </div>
+            </aside>
+        }
     }
 </main>
 
@@ -191,14 +236,43 @@
 
     private CanvasGameState? _state;
     private HubConnection? _hubConnection;
+    private IJSObjectReference? _canvasFitModule;
+    private IJSObjectReference? _eventFitObserver;
+    private IJSObjectReference? _scoreboardFitObserver;
+    private IJSObjectReference? _popupFitObserver;
+    private string? _scoreboardFitLayout;
+    private ElementReference _eventContainerElement;
+    private ElementReference _eventContentElement;
+    private ElementReference _scoreboardContainerElement;
+    private ElementReference _scoreboardContentElement;
+    private ElementReference _popupContainerElement;
+    private ElementReference _popupContentElement;
     private CancellationTokenSource? _connectionCancellation;
     private Task? _connectionRecoveryTask;
     private bool _isLoading = true;
-    private bool _isConnected;
     private bool _sessionEnded;
-    private string _connectionStatus = "Verbinde …";
     private string? _errorMessage;
     private string? _qrCodeDataUri;
+
+    private string CanvasScaleStyle
+    {
+        get
+        {
+            var settings = _state?.DisplaySettings ?? CanvasDisplaySettings.Default;
+            return $"--canvas-font-scale:{Scale(settings.FontScalePercent)};" +
+                   $"--canvas-event-scale:{Scale(settings.FontScalePercent, settings.EventScalePercent)};" +
+                   $"--canvas-scoreboard-scale:{Scale(settings.FontScalePercent, settings.ScoreboardScalePercent)};" +
+                   $"--canvas-qr-scale:{Scale(settings.QrCodeScalePercent)};" +
+                   $"--canvas-popup-scale:{Scale(settings.FontScalePercent, settings.QrCodeScalePercent)};";
+        }
+    }
+
+    private static string Scale(int percent) =>
+        (percent / 100d).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Scale(int firstPercent, int secondPercent) =>
+        ((firstPercent / 100d) * (secondPercent / 100d))
+            .ToString("0.####", CultureInfo.InvariantCulture);
 
     private TeamSummary[] _mappedTeams =>
         _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, "#105c4d", t.Points)).ToArray() ?? [];
@@ -211,7 +285,6 @@
         _errorMessage = null;
         _state = null;
         _sessionEnded = false;
-        _isConnected = false;
 
         if (Code.Length != 6 || !Code.All(char.IsAsciiDigit))
         {
@@ -268,7 +341,6 @@
         connection.On("CanvasSessionEnded", () => InvokeAsync(() =>
         {
             _sessionEnded = true;
-            _connectionStatus = "Session beendet";
             StateHasChanged();
         }));
 
@@ -294,15 +366,97 @@
                 });
             },
             exception => Logger.LogWarning(exception, "Die Live-Verbindung der Beameransicht wird erneut aufgebaut."),
-            isConnected => InvokeAsync(() =>
-            {
-                _isConnected = isConnected;
-                _connectionStatus = isConnected
-                    ? "Live aktualisiert"
-                    : "Verbindung wird automatisch wiederhergestellt";
-                StateHasChanged();
-            }),
+            _ => Task.CompletedTask,
             cancellationToken);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_state is null || _sessionEnded)
+        {
+            _eventFitObserver = await DisposeFitObserverAsync(_eventFitObserver);
+            _scoreboardFitObserver = await DisposeFitObserverAsync(_scoreboardFitObserver);
+            _popupFitObserver = await DisposeFitObserverAsync(_popupFitObserver);
+            _scoreboardFitLayout = null;
+            return;
+        }
+
+        try
+        {
+            _canvasFitModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", "./js/canvas-fit.js");
+
+            if (_eventFitObserver is null)
+            {
+                _eventFitObserver = await _canvasFitModule.InvokeAsync<IJSObjectReference>(
+                    "observeCanvasFit", _eventContainerElement, _eventContentElement);
+            }
+            else
+            {
+                await _eventFitObserver.InvokeVoidAsync("refresh");
+            }
+
+            var displaySettings = _state.DisplaySettings ?? CanvasDisplaySettings.Default;
+            if (displaySettings.ScoreboardLayout == CanvasDisplaySettings.ScoreboardHidden)
+            {
+                _scoreboardFitObserver = await DisposeFitObserverAsync(_scoreboardFitObserver);
+                _scoreboardFitLayout = displaySettings.ScoreboardLayout;
+            }
+            else if (_scoreboardFitObserver is null ||
+                     _scoreboardFitLayout != displaySettings.ScoreboardLayout)
+            {
+                _scoreboardFitObserver = await DisposeFitObserverAsync(_scoreboardFitObserver);
+                _scoreboardFitObserver = await _canvasFitModule.InvokeAsync<IJSObjectReference>(
+                    "observeCanvasFit", _scoreboardContainerElement, _scoreboardContentElement);
+                _scoreboardFitLayout = displaySettings.ScoreboardLayout;
+            }
+            else
+            {
+                await _scoreboardFitObserver.InvokeVoidAsync("refresh");
+            }
+
+            if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodePopup &&
+                !string.IsNullOrEmpty(_qrCodeDataUri))
+            {
+                if (_popupFitObserver is null)
+                {
+                    _popupFitObserver = await _canvasFitModule.InvokeAsync<IJSObjectReference>(
+                        "observeCanvasFit", _popupContainerElement, _popupContentElement);
+                }
+                else
+                {
+                    await _popupFitObserver.InvokeVoidAsync("refresh");
+                }
+            }
+            else
+            {
+                _popupFitObserver = await DisposeFitObserverAsync(_popupFitObserver);
+            }
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Beamer-Größenanpassung wurde wegen einer getrennten UI-Verbindung übersprungen.");
+        }
+    }
+
+    private async Task<IJSObjectReference?> DisposeFitObserverAsync(IJSObjectReference? observer)
+    {
+        if (observer is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            await observer.InvokeVoidAsync("dispose");
+            await observer.DisposeAsync();
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Beamer-Größenanpassung konnte nach dem Trennen der UI-Verbindung nicht bereinigt werden.");
+        }
+
+        return null;
     }
 
     private async Task StopConnectionAsync()
@@ -340,7 +494,7 @@
         "hitster" => "HITSTER · SPOTIFY",
         "jeopardy" => "JEOPARDY",
         "pantomime" => "PANTOMIME",
-        _ => "LIVE-EVENT"
+        _ => "EVENT"
     };
 
     private static string GetEventHeading(CanvasEventState activeEvent)
@@ -403,5 +557,19 @@
     public async ValueTask DisposeAsync()
     {
         await StopConnectionAsync();
+        _eventFitObserver = await DisposeFitObserverAsync(_eventFitObserver);
+        _scoreboardFitObserver = await DisposeFitObserverAsync(_scoreboardFitObserver);
+        _popupFitObserver = await DisposeFitObserverAsync(_popupFitObserver);
+        if (_canvasFitModule is not null)
+        {
+            try
+            {
+                await _canvasFitModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Das Beamer-JavaScript-Modul konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
+        }
     }
 }
