@@ -3,7 +3,10 @@
 @using Microsoft.Extensions.Configuration
 @using Microsoft.Extensions.Logging
 @using Microsoft.JSInterop
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework.Services
 @inject ProjectApiClient ProjectApiClient
+@inject ClientDiagnosticLogger DiagnosticLogger
 @inject IConfiguration Configuration
 @inject IJSRuntime JS
 @inject ILogger<FrameworkChat> Logger
@@ -24,19 +27,21 @@
         <div style="flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span class="mobile-eyebrow">UNTERHALTUNGEN</span>
-                <span style="font-size: 12px; color: #657276;">@_groups.Length Chats</span>
+                <span style="font-size: 12px; color: #657276;">@_filteredGroups.Length Chats</span>
             </div>
 
-            @if (_groups.Length == 0)
+            <FrameworkInputText @bind-Value="_groupSearchQuery" Placeholder="Chats durchsuchen..." style="margin-bottom: 4px;" />
+
+            @if (_filteredGroups.Length == 0)
             {
                 <div style="margin: auto; text-align: center; color: #657276; padding: 32px;">
                     <span class="material-symbols-outlined" style="font-size: 40px; color: #cbd7d3; margin-bottom: 8px; display: block;">forum</span>
-                    <strong style="font-size: 15px;">Keine Chats vorhanden</strong>
+                    <strong style="font-size: 15px;">Keine Chats gefunden</strong>
                 </div>
             }
             else
             {
-                @foreach (var g in _groups)
+                @foreach (var g in _filteredGroups)
                 {
                     string iconName = g.Type switch
                     {
@@ -61,7 +66,21 @@
                                     }
                                 </div>
                                 <span style="font-size: 13px; color: #657276; display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    @(string.IsNullOrEmpty(g.LastMessageText) ? "Noch keine Nachrichten" : g.LastMessageText)
+                                    @if (!string.IsNullOrEmpty(g.LastMessageText))
+                                    {
+                                        @if (!string.IsNullOrEmpty(g.LastMessageSenderName))
+                                        {
+                                            @:@g.LastMessageSenderName: @g.LastMessageText
+                                        }
+                                        else
+                                        {
+                                            @g.LastMessageText
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @:Noch keine Nachrichten
+                                    }
                                 </span>
                             </div>
                         </div>
@@ -70,6 +89,18 @@
                             @if (g.UnreadCount > 0)
                             {
                                 <span style="background: #197b67; color: #fff; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 10px;">@g.UnreadCount</span>
+                            }
+                            @if (IsAdmin && (g.Type == "custom" || g.Type == "team"))
+                            {
+                                <button type="button" class="btn-icon-small" title="Gruppe umbenennen" @onclick:stopPropagation="true" @onclick="() => RequestRenameGroup(g)" style="color: #197b67;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
+                                </button>
+                            }
+                            @if (IsAdmin && g.Type != "global")
+                            {
+                                <button type="button" class="btn-icon-small" title="Chat-Gruppe löschen" @onclick:stopPropagation="true" @onclick="() => RequestDeleteGroup(g.Id)" style="color: #991b1b;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+                                </button>
                             }
                             <span class="material-symbols-outlined" style="color: #94a3b8;">chevron_right</span>
                         </div>
@@ -95,7 +126,7 @@
         </div>
 
         <!-- MESSAGES STREAM CONTAINER -->
-        <div style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box;">
+        <div @ref="_messagesContainer" @onscroll="OnMessagesScroll" style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 12px; margin-bottom: 12px; box-sizing: border-box; position: relative;">
             @if (_messages.Length == 0)
             {
                 <div style="margin: auto; text-align: center; color: #657276; padding: 24px;">
@@ -119,7 +150,14 @@
                                 {
                                     <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @msg.TeamColor; display: inline-block;"></span>
                                 }
-                                <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
+                                @if (IsAdmin && msg.SenderParticipantId.HasValue)
+                                {
+                                    <span @onclick="() => OpenDirectChatWithParticipant(msg.SenderParticipantId.Value)" style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#197b67"); cursor: pointer; text-decoration: underline;" title="Direktchat mit Teilnehmer öffnen">@msg.SenderName</span>
+                                }
+                                else
+                                {
+                                    <span style="font-weight: 700; color: @(isAdmin ? "#d97706" : "#1d2528");">@msg.SenderName</span>
+                                }
                                 @if (isAdmin)
                                 {
                                     <FrameworkBadge Text="Moderator" Variant="warning" />
@@ -128,11 +166,25 @@
                             <span>@msg.SentAtUtc.ToLocalTime().ToString("HH:mm")</span>
                         </div>
 
-                        <div style="max-width: 82%; padding: 10px 14px; border-radius: 12px; background: @(isMe ? "#197b67" : (isAdmin ? "#fffbeb" : "#ffffff")); color: @(isMe ? "#ffffff" : "#1d2528"); border: 1.5px solid @(isMe ? "#197b67" : (isAdmin ? "#f59e0b" : "#dce5e2")); box-shadow: 0 1px 3px rgba(0,0,0,0.03); word-break: break-word; font-size: 14px;">
-                            @msg.MessageText
+                        <div style="max-width: 82%; padding: 10px 14px; border-radius: 12px; background: @(isMe ? "#197b67" : (isAdmin ? "#fffbeb" : "#ffffff")); color: @(isMe ? "#ffffff" : "#1d2528"); border: 1.5px solid @(isMe ? "#197b67" : (isAdmin ? "#f59e0b" : "#dce5e2")); box-shadow: 0 1px 3px rgba(0,0,0,0.03); word-break: break-word; font-size: 14px; position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;" @oncontextmenu:preventDefault="true" @oncontextmenu="() => RequestDeleteMessage(msg.Id)" title="@(IsAdmin ? "Rechtsklick zum Löschen" : null)">
+                            <span>@msg.MessageText</span>
+                            @if (IsAdmin)
+                            {
+                                <button type="button" class="btn-icon-small" title="Nachricht löschen" @onclick="() => RequestDeleteMessage(msg.Id)" style="color: @(isMe ? "#e2e8f0" : "#991b1b"); background: transparent; border: none; cursor: pointer; padding: 0; font-size: 16px; opacity: 0.7; transition: opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+                                </button>
+                            }
                         </div>
                     </div>
                 }
+            }
+
+            @if (_isScrolledUp)
+            {
+                <button type="button" @onclick="ScrollToBottom" style="position: sticky; bottom: 8px; left: 50%; transform: translateX(-50%); background: #197b67; color: #fff; border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; z-index: 5; margin: auto;">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">arrow_downward</span>
+                    <span>Neue Nachrichten</span>
+                </button>
             }
         </div>
 
@@ -144,56 +196,117 @@
         }
         else
         {
-            <!-- MESSAGE INPUT BAR -->
-            <form @onsubmit="SubmitMessageAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; flex-shrink: 0; position: relative; z-index: 5;">
-                <div style="flex: 1;">
-                    <FrameworkInputText @bind-Value="_newMessageInput" MaxLength="1000" Placeholder="Nachricht schreiben..." />
-                </div>
-                <FrameworkButton Label="Senden" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newMessageInput))" />
-            </form>
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                <FrameworkInputText @bind-Value="_newMessageInput" Placeholder="Nachricht schreiben..." @onkeydown="HandleKeyDownAsync" style="flex: 1;" />
+                <FrameworkButton Label="Senden" Variant="primary" OnClick="SubmitMessageAsync" />
+            </div>
         }
     }
 
-    <!-- CREATE CHAT / GROUP MODAL -->
-    <FrameworkModal IsOpen="_isCreateModalOpen" Title="Neuen Chat oder Gruppe starten" OnClose="CloseCreateModal">
-        <div style="display: grid; gap: 16px; max-height: 65vh; overflow-y: auto; padding-right: 4px;">
-            <FrameworkFormGroup Label="Gruppenname (optional bei Direktchat)">
-                <FrameworkInputText @bind-Value="_newGroupName" Placeholder="z. B. Projektteam IT" />
-            </FrameworkFormGroup>
+    <!-- CREATE CHAT MODAL -->
+    @if (_isCreateModalOpen)
+    {
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+            <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #dce5e2;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                    <strong style="font-size: 16px; color: #1d2528;">Neuen Chat starten</strong>
+                    <button type="button" class="btn-icon-small" @onclick="CloseCreateModal">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
 
-            <FrameworkFormGroup Label="Teilnehmer & Moderatoren durchsuchen">
-                <FrameworkInputText @bind-Value="_searchFilter" Placeholder="Name oder Nummer eingeben..." />
-            </FrameworkFormGroup>
+                <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto;">
+                    <FrameworkInputText @bind-Value="_newGroupName" Placeholder="Gruppenname (optional bei 1 Teilnehmer)" Label="Gruppenname" />
 
-            <div style="border: 1px solid #dce5e2; border-radius: 8px; max-height: 220px; overflow-y: auto; padding: 8px; background: #fafcfb;">
-                @if (_filteredContacts.Length == 0)
-                {
-                    <p style="text-align: center; color: #657276; font-size: 13px; margin: 12px 0;">Keine Kontakte gefunden.</p>
-                }
-                else
-                {
-                    @foreach (var contact in _filteredContacts)
-                    {
-                        bool isSelected = _selectedContactIds.Contains(contact.Id);
-                        <div @onclick="() => ToggleContact(contact.Id)" style="padding: 10px 12px; border-radius: 6px; background: @(isSelected ? "#e8f3ef" : "#fff"); border: 1px solid @(isSelected ? "#197b67" : "#e2e8f0"); margin-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 600; font-size: 14px; color: #1d2528;">@contact.Name</span>
-                            <span class="material-symbols-outlined" style="color: @(isSelected ? "#197b67" : "#cbd5e1");">@(isSelected ? "check_box" : "check_box_outline_blank")</span>
+                    <div>
+                        <label style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Teilnehmer & Moderatoren auswählen:</label>
+                        <FrameworkInputText @bind-Value="_searchFilter" Placeholder="Suchen..." style="margin-bottom: 8px;" />
+
+                        <div style="display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px;">
+                            @foreach (var c in _filteredContacts)
+                            {
+                                bool isSelected = _selectedContactIds.Contains(c.Id);
+                                <button type="button" @onclick="() => ToggleContact(c.Id)" style="width: 100%; padding: 8px 10px; border: 1px solid @(isSelected ? "#197b67" : "#e2e8f0"); border-radius: 6px; background: @(isSelected ? "#e8f3ef" : "#ffffff"); display: flex; justify-content: space-between; align-items: center; cursor: pointer; text-align: left;">
+                                    <span style="font-size: 13px; font-weight: 600; color: #1d2528;">@c.Name</span>
+                                    <span class="material-symbols-outlined" style="font-size: 18px; color: @(isSelected ? "#197b67" : "#cbd5e1");">
+                                        @(isSelected ? "check_box" : "check_box_outline_blank")
+                                    </span>
+                                </button>
+                            }
                         </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <FrameworkNotice Message="@_modalError" Severity="error" />
                     }
-                }
-            </div>
+                </div>
 
-            @if (!string.IsNullOrEmpty(_modalError))
-            {
-                <FrameworkNotice Message="@_modalError" Severity="error" />
-            }
-
-            <div class="modal-footer-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
-                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseCreateModal" />
-                <FrameworkButton Label="Chat starten" Variant="primary" Type="button" OnClick="CreateChatOrGroupAsync" Busy="_isCreating" />
+                <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseCreateModal" />
+                    <FrameworkButton Label="Chat starten" Variant="primary" OnClick="CreateChatOrGroupAsync" Busy="_isCreating" />
+                </div>
             </div>
         </div>
-    </FrameworkModal>
+    }
+
+    <!-- RENAME GROUP MODAL -->
+    @if (_isRenameModalOpen)
+    {
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+            <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #dce5e2;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                    <strong style="font-size: 16px; color: #1d2528;">Chat umbenennen</strong>
+                    <button type="button" class="btn-icon-small" @onclick="CloseRenameModal">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+                    <FrameworkInputText @bind-Value="_newGroupRenameInput" Placeholder="Neuer Gruppenname..." Label="Gruppenname" />
+                    @if (!string.IsNullOrEmpty(_renameModalError))
+                    {
+                        <FrameworkNotice Message="@_renameModalError" Severity="error" />
+                    }
+                </div>
+                <div style="padding: 12px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseRenameModal" />
+                    <FrameworkButton Label="Speichern" Variant="primary" OnClick="ConfirmRenameGroupAsync" Busy="_isRenaming" />
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- DELETE MESSAGE CONFIRMATION MODAL -->
+    @if (_messageToDeleteId.HasValue)
+    {
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+            <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 20px; border: 1.5px solid #dce5e2; text-align: center;">
+                <span class="material-symbols-outlined" style="font-size: 40px; color: #dc2626; margin-bottom: 8px; display: block;">delete_forever</span>
+                <strong style="font-size: 16px; color: #1d2528; display: block; margin-bottom: 6px;">Nachricht löschen?</strong>
+                <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b;">Möchtest du diese Nachricht wirklich unwiderruflich löschen?</p>
+                <div style="display: flex; justify-content: center; gap: 8px;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelDeleteMessage" />
+                    <FrameworkButton Label="Löschen" Variant="primary" OnClick="ConfirmDeleteMessageAsync" />
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- DELETE GROUP CONFIRMATION MODAL -->
+    @if (_groupToDeleteId.HasValue)
+    {
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+            <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 20px; border: 1.5px solid #dce5e2; text-align: center;">
+                <span class="material-symbols-outlined" style="font-size: 40px; color: #dc2626; margin-bottom: 8px; display: block;">folder_delete</span>
+                <strong style="font-size: 16px; color: #1d2528; display: block; margin-bottom: 6px;">Chat-Gruppe löschen?</strong>
+                <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b;">Möchtest du diesen gesamten Chat-Kanal und alle Nachrichten wirklich löschen?</p>
+                <div style="display: flex; justify-content: center; gap: 8px;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelDeleteGroup" />
+                    <FrameworkButton Label="Löschen" Variant="primary" OnClick="ConfirmDeleteGroupAsync" />
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -202,12 +315,14 @@
     [Parameter] public Guid? ParticipantId { get; set; }
     [Parameter] public bool IsAdmin { get; set; }
     [Parameter] public ParticipantPermissions? Permissions { get; set; }
+    [Parameter] public HubConnection? HubConnection { get; set; }
 
     private string _currentView = "overview"; // "overview" or "room"
     private ChatGroupSummary[] _groups = [];
     private Guid? _selectedGroupId;
     private ChatMessageResponse[] _messages = [];
     private string _newMessageInput = string.Empty;
+    private string _groupSearchQuery = string.Empty;
 
     private bool _isCreateModalOpen;
     private string _newGroupName = string.Empty;
@@ -217,7 +332,21 @@
     private string? _modalError;
     private bool _isCreating;
 
-    private HubConnection? _hubConnection;
+    private bool _isRenameModalOpen;
+    private ChatGroupSummary? _groupToRename;
+    private string _newGroupRenameInput = string.Empty;
+    private string? _renameModalError;
+    private bool _isRenaming;
+
+    private Guid? _messageToDeleteId;
+    private Guid? _groupToDeleteId;
+
+    private ElementReference _messagesContainer;
+    private bool _isScrolledUp;
+
+    private HubConnection? _activeConnection;
+    private bool _isLocalHubConnection;
+    private bool _handlersRegistered;
     private CancellationTokenSource? _connectionCancellation;
     private Task? _connectionRecoveryTask;
 
@@ -228,29 +357,85 @@
             ? _allContacts
             : _allContacts.Where(c => c.Name.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
+    private ChatGroupSummary[] _filteredGroups =>
+        string.IsNullOrWhiteSpace(_groupSearchQuery)
+            ? _groups
+            : _groups.Where(g => g.Name.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase) || (g.LastMessageText is not null && g.LastMessageText.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase)) || (g.LastMessageSenderName is not null && g.LastMessageSenderName.Contains(_groupSearchQuery, StringComparison.OrdinalIgnoreCase))).ToArray();
+
+    private string? _lastLoadedToken;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(AccessToken) && (AccessToken != _lastLoadedToken || _groups.Length == 0))
+        {
+            _lastLoadedToken = AccessToken;
+            await LoadGroupsAsync();
+        }
+
+        if (!_handlersRegistered)
+        {
+            await SetupSignalRAsync();
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadGroupsAsync();
+        if (!string.IsNullOrEmpty(AccessToken))
+        {
+            _lastLoadedToken = AccessToken;
+            await LoadGroupsAsync();
+        }
         await SetupSignalRAsync();
     }
 
+    private async Task ReconnectSignalRAsync()
+    {
+        if (_activeConnection is not null && _isLocalHubConnection)
+        {
+            try
+            {
+                _connectionCancellation?.Cancel();
+                await _activeConnection.DisposeAsync();
+            }
+            catch
+            {
+            }
+            _activeConnection = null;
+            _handlersRegistered = false;
+        }
+
+        await SetupSignalRAsync();
+    }
+
+    private bool _isLoadingGroups;
+
     private async Task LoadGroupsAsync()
     {
-        if (string.IsNullOrEmpty(AccessToken)) return;
+        if (string.IsNullOrEmpty(AccessToken) || _isLoadingGroups) return;
+        _isLoadingGroups = true;
         try
         {
+            var tokenSnippet = AccessToken.Length > 8 ? $"{AccessToken[..4]}...{AccessToken[^4..]}" : AccessToken;
+            DiagnosticLogger.LogInfo("Chat", $"Lade Chat-Gruppen für Projekt {ProjectId} (TokenLen: {AccessToken.Length}, Token: {tokenSnippet})...");
             _groups = await ProjectApiClient.GetChatGroupsAsync(AccessToken, ProjectId);
+            DiagnosticLogger.LogInfo("Chat", $"{_groups.Length} Chat-Gruppen geladen.");
             StateHasChanged();
         }
-        catch
+        catch (Exception ex)
         {
+            DiagnosticLogger.LogError("Chat", $"Fehler beim Laden der Chat-Gruppen: {ex.Message}", null, ex.ToString());
+            Logger.LogWarning(ex, "Fehler beim Laden der Chatgruppen.");
+        }
+        finally
+        {
+            _isLoadingGroups = false;
         }
     }
 
     private async Task OpenChatRoom(Guid groupId)
     {
         // Optimistic UI update: instantly set unread count to 0 locally
-        _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0) : g).ToArray();
+        _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, g.Name, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, 0, g.LastMessageSenderName) : g).ToArray();
 
         _selectedGroupId = groupId;
         _currentView = "room";
@@ -263,6 +448,7 @@
                 await ProjectApiClient.MarkGroupAsReadAsync(AccessToken, ProjectId, groupId);
                 _messages = await ProjectApiClient.GetChatMessagesAsync(AccessToken, ProjectId, groupId);
                 StateHasChanged();
+                await ScrollToBottom();
             }
         }
         catch
@@ -357,12 +543,75 @@
         }
     }
 
+    private async Task OpenDirectChatWithParticipant(Guid participantId)
+    {
+        if (string.IsNullOrEmpty(AccessToken)) return;
+        try
+        {
+            var directGroup = await ProjectApiClient.GetOrCreateDirectChatAsync(AccessToken, ProjectId, participantId);
+            await LoadGroupsAsync();
+            await OpenChatRoom(directGroup.Id);
+        }
+        catch
+        {
+        }
+    }
+
+    private void RequestRenameGroup(ChatGroupSummary group)
+    {
+        if (!IsAdmin || group.Type == "global") return;
+        _groupToRename = group;
+        _newGroupRenameInput = group.Name;
+        _renameModalError = null;
+        _isRenameModalOpen = true;
+    }
+
+    private void CloseRenameModal() => _isRenameModalOpen = false;
+
+    private async Task ConfirmRenameGroupAsync()
+    {
+        if (_groupToRename is null || !IsAdmin || string.IsNullOrEmpty(AccessToken)) return;
+        var newName = _newGroupRenameInput?.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || newName.Length > 60)
+        {
+            _renameModalError = "Gruppenname muss zwischen 1 und 60 Zeichen lang sein.";
+            return;
+        }
+
+        _isRenaming = true;
+        _renameModalError = null;
+        try
+        {
+            await ProjectApiClient.RenameChatGroupAsync(AccessToken, ProjectId, _groupToRename.Id, newName);
+            _isRenameModalOpen = false;
+            await LoadGroupsAsync();
+        }
+        catch (Exception ex)
+        {
+            _renameModalError = "Fehler beim Umbenennen: " + ex.Message;
+        }
+        finally
+        {
+            _isRenaming = false;
+        }
+    }
+
     private async Task SubmitMessageAsync()
     {
         if (string.IsNullOrWhiteSpace(_newMessageInput) || !_selectedGroupId.HasValue) return;
         var text = _newMessageInput.Trim();
         _newMessageInput = string.Empty;
         StateHasChanged();
+
+        await Task.Delay(10);
+
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('input[placeholder=\"Nachricht schreiben...\"]').value = ''");
+        }
+        catch
+        {
+        }
 
         try
         {
@@ -381,20 +630,130 @@
         }
 
         await LoadGroupsAsync();
+        await ScrollToBottom();
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SubmitMessageAsync();
+        }
+    }
+
+    private void RequestDeleteMessage(Guid messageId)
+    {
+        if (IsAdmin) _messageToDeleteId = messageId;
+    }
+
+    private void CancelDeleteMessage()
+    {
+        _messageToDeleteId = null;
+    }
+
+    private async Task ConfirmDeleteMessageAsync()
+    {
+        if (!_messageToDeleteId.HasValue || !IsAdmin || string.IsNullOrEmpty(AccessToken)) return;
+        var messageId = _messageToDeleteId.Value;
+        _messageToDeleteId = null;
+
+        try
+        {
+            await ProjectApiClient.DeleteChatMessageAsync(AccessToken, ProjectId, messageId);
+            _messages = _messages.Where(m => m.Id != messageId).ToArray();
+            StateHasChanged();
+            await LoadGroupsAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private void RequestDeleteGroup(Guid groupId)
+    {
+        if (IsAdmin) _groupToDeleteId = groupId;
+    }
+
+    private void CancelDeleteGroup()
+    {
+        _groupToDeleteId = null;
+    }
+
+    private async Task ConfirmDeleteGroupAsync()
+    {
+        if (!_groupToDeleteId.HasValue || !IsAdmin || string.IsNullOrEmpty(AccessToken)) return;
+        var groupId = _groupToDeleteId.Value;
+        _groupToDeleteId = null;
+
+        try
+        {
+            await ProjectApiClient.DeleteChatGroupAsync(AccessToken, ProjectId, groupId);
+            _groups = _groups.Where(g => g.Id != groupId).ToArray();
+            if (_selectedGroupId == groupId)
+            {
+                _currentView = "overview";
+                _selectedGroupId = null;
+            }
+            StateHasChanged();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task OnMessagesScroll(EventArgs e)
+    {
+        try
+        {
+            var res = await JS.InvokeAsync<JsonElement>("eval", "(() => { const el = document.querySelector('div[style*=\"overflow-y: auto\"]'); if(!el) return {scrollTop:0, scrollHeight:0, clientHeight:0}; return {scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight}; })()");
+            double scrollTop = res.GetProperty("scrollTop").GetDouble();
+            double scrollHeight = res.GetProperty("scrollHeight").GetDouble();
+            double clientHeight = res.GetProperty("clientHeight").GetDouble();
+
+            _isScrolledUp = (scrollHeight - scrollTop - clientHeight) > 100;
+            StateHasChanged();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "(() => { const el = document.querySelector('div[style*=\"overflow-y: auto\"]'); if(el) el.scrollTop = el.scrollHeight; })()");
+            _isScrolledUp = false;
+            StateHasChanged();
+        }
+        catch
+        {
+        }
     }
 
     private async Task SetupSignalRAsync()
     {
-        if (_hubConnection is not null) return;
-        var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
-        var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
+        if (_handlersRegistered) return;
 
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl(hubUrl, options =>
-                options.AccessTokenProvider = () => Task.FromResult<string?>(AccessToken))
-            .Build();
+        if (HubConnection is not null)
+        {
+            _activeConnection = HubConnection;
+            _isLocalHubConnection = false;
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(AccessToken)) return;
+            var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
+            var hubUrl = $"{apiBaseUrl.TrimEnd('/')}/hubs/gamestate";
 
-        _hubConnection.On<ChatMessageResponse>("ReceiveChatMessage", async msg =>
+            _activeConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl, options =>
+                    options.AccessTokenProvider = () => Task.FromResult<string?>(AccessToken))
+                .Build();
+            _isLocalHubConnection = true;
+        }
+
+        _activeConnection.On<ChatMessageResponse>("ReceiveChatMessage", async msg =>
         {
             await InvokeAsync(async () =>
             {
@@ -402,14 +761,56 @@
                 {
                     _messages = [.. _messages, msg];
                     StateHasChanged();
+                    if (!_isScrolledUp)
+                    {
+                        await ScrollToBottom();
+                    }
                 }
 
                 await LoadGroupsAsync();
             });
         });
 
-        _connectionCancellation = new CancellationTokenSource();
-        _connectionRecoveryTask = RecoverConnectionAsync(_hubConnection, _connectionCancellation.Token);
+        _activeConnection.On<Guid>("ReceiveMessageDeleted", async messageId =>
+        {
+            await InvokeAsync(() =>
+            {
+                _messages = _messages.Where(m => m.Id != messageId).ToArray();
+                StateHasChanged();
+            });
+            await LoadGroupsAsync();
+        });
+
+        _activeConnection.On<Guid>("ReceiveGroupDeleted", async groupId =>
+        {
+            await InvokeAsync(() =>
+            {
+                _groups = _groups.Where(g => g.Id != groupId).ToArray();
+                if (_selectedGroupId == groupId)
+                {
+                    _currentView = "overview";
+                    _selectedGroupId = null;
+                }
+                StateHasChanged();
+            });
+        });
+
+        _activeConnection.On<Guid, string>("ReceiveGroupRenamed", async (groupId, newName) =>
+        {
+            await InvokeAsync(() =>
+            {
+                _groups = _groups.Select(g => g.Id == groupId ? new ChatGroupSummary(g.Id, newName, g.Type, g.AssociatedTeamId, g.MemberCount, g.LastMessageText, g.LastMessageAtUtc, g.UnreadCount, g.LastMessageSenderName) : g).ToArray();
+                StateHasChanged();
+            });
+        });
+
+        _handlersRegistered = true;
+
+        if (_isLocalHubConnection && _activeConnection is not null)
+        {
+            _connectionCancellation = new CancellationTokenSource();
+            _connectionRecoveryTask = RecoverConnectionAsync(_activeConnection, _connectionCancellation.Token);
+        }
     }
 
     private async Task RecoverConnectionAsync(HubConnection connection, CancellationToken cancellationToken)
@@ -436,22 +837,25 @@
 
     public async ValueTask DisposeAsync()
     {
-        _connectionCancellation?.Cancel();
-        if (_connectionRecoveryTask is not null)
+        if (_isLocalHubConnection)
         {
-            await _connectionRecoveryTask;
-        }
-
-        _connectionCancellation?.Dispose();
-        if (_hubConnection is not null)
-        {
-            try
+            _connectionCancellation?.Cancel();
+            if (_connectionRecoveryTask is not null)
             {
-                await _hubConnection.SendAsync("LeaveProject", ProjectId);
-                await _hubConnection.DisposeAsync();
+                await _connectionRecoveryTask;
             }
-            catch
+
+            _connectionCancellation?.Dispose();
+            if (_activeConnection is not null)
             {
+                try
+                {
+                    await _activeConnection.SendAsync("LeaveProject", ProjectId);
+                    await _activeConnection.DisposeAsync();
+                }
+                catch
+                {
+                }
             }
         }
     }

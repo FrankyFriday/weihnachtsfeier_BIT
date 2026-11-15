@@ -1,0 +1,72 @@
+@namespace WeihnachtsfeierBit.Framework.Components.Modals
+@using Microsoft.JSInterop
+@using WeihnachtsfeierBit.Framework.Services
+@inject ClientDiagnosticLogger DiagnosticLogger
+@inject IJSRuntime JS
+@implements IDisposable
+
+<FrameworkModal IsOpen="IsOpen" Title="System-Diagnose & Protokoll" OnClose="OnClose">
+    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 70vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-chip @(_filterLevel == null ? "active" : "")" @onclick="() => _filterLevel = null">
+                    Alle (@_allLogs.Count)
+                </button>
+                <button type="button" class="btn-chip @(_filterLevel == DiagnosticLogLevel.Error ? "active" : "")" @onclick="() => _filterLevel = DiagnosticLogLevel.Error" style="color: #991b1b;">
+                    Fehler (@_errorCount)
+                </button>
+                <button type="button" class="btn-chip @(_filterLevel == DiagnosticLogLevel.Warning ? "active" : "")" @onclick="() => _filterLevel = DiagnosticLogLevel.Warning" style="color: #b45309;">
+                    Warnungen (@_warningCount)
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-chip" @onclick="CopyLogsAsync" style="background: #e0f2fe; color: #0284c7; border-color: #0284c7; font-weight: 700;">
+                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 2px;">content_copy</span>
+                    @(_copied ? "Kopiert!" : "Protokoll kopieren")
+                </button>
+                <button type="button" class="btn-chip" @onclick="ClearLogs" style="color: #64748b;">
+                    Leeren
+                </button>
+            </div>
+        </div>
+
+        <div style="flex: 1; min-height: 300px; max-height: 480px; overflow-y: auto; background: #0f172a; color: #f8fafc; font-family: monospace; font-size: 12px; padding: 12px; border-radius: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px;">
+            @if (FilteredLogs.Count == 0)
+            {
+                <div style="margin: auto; text-align: center; color: #64748b; padding: 24px;">
+                    Keine Log-Einträge vorhanden.
+                </div>
+            }
+            else
+            {
+                @foreach (var log in FilteredLogs)
+                {
+                    var color = log.Level switch
+                    {
+                        DiagnosticLogLevel.Error => "#f87171",
+                        DiagnosticLogLevel.Warning => "#fbbf24",
+                        _ => "#38bdf8"
+                    };
+
+                    <div style="border-bottom: 1px solid #1e293b; padding-bottom: 4px;">
+                        <div style="display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;">
+                            <span style="color: #64748b;">@log.TimestampUtc.ToLocalTime().ToString("HH:mm:ss.fff")</span>
+                            <span style="color: @color; font-weight: 700;">[@log.Level.ToString().ToUpper()]</span>
+                            <span style="color: #94a3b8;">[@log.Category]</span>
+                            @if (log.HttpStatusCode.HasValue)
+                            {
+                                <span style="color: @(log.HttpStatusCode >= 400 ? "#f87171" : "#4ade80"); font-weight: 700;">HTTP @log.HttpStatusCode</span>
+                            }
+                            <span style="color: #f8fafc;">@log.Message</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(log.Details))
+                        {
+                            <pre style="margin: 2px 0 0 16px; color: #cbd5e1; font-size: 11px; white-space: pre-wrap; word-break: break-all;">@log.Details</pre>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</FrameworkModal>

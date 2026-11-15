@@ -14,6 +14,10 @@
     </div>
 
     <div class="framework-button-row" style="align-items: center;">
+        <button type="button" class="btn-chip" @onclick="OnOpenDiagnostics" style="background: #f1f5f9; color: #475569; border-color: #cbd5e1; font-weight: 600;" title="System-Diagnose & Logs">
+            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 2px;">build</span>
+            <span>Diagnose</span>
+        </button>
         <FrameworkConnectionStatus HubConnection="HubConnection" ShowLabel="true" />
         @if (Instance is not null)
         {
@@ -44,6 +48,7 @@
 @code {
     [Parameter] public GameInstanceSummary? Instance { get; set; }
     [Parameter] public HubConnection? HubConnection { get; set; }
+    [Parameter] public EventCallback OnOpenDiagnostics { get; set; }
     [Parameter] public string? CanvasUrl { get; set; }
     [Parameter] public FrameworkDropdownOption[] SessionOptions { get; set; } = [];
     [Parameter] public EventCallback<string> OnSessionOptionSelect { get; set; }

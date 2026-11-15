@@ -18,6 +18,11 @@ public sealed class GameStateHub(
             token = queryToken.ToString();
         }
 
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new HubException("Kein Zugriffstoken an den Hub übergeben.");
+        }
+
         var access = await accessService.AuthenticateAsync(projectId, token, Context.ConnectionAborted);
         if (access is null)
         {

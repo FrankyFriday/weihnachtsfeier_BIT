@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using WeihnachtsfeierBit.Data;
 
 namespace WeihnachtsfeierBit.ApiService.Auth;
 
-public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
+public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext, ILogger<ProjectAccessService>? logger = null)
 {
     private static readonly TimeSpan ActivityUpdateInterval = TimeSpan.FromSeconds(30);
 
@@ -11,6 +12,7 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
+            logger?.LogWarning("AuthenticateAsync fehlgeschlagen für Projekt {ProjectId}: Kein Token übergeben.", projectId);
             return null;
         }
 
@@ -29,30 +31,40 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 
             if (project is not null)
             {
-                bool isCreator = project.ErstellerAdminId == adminSession.ProjektAdminId;
+                bool isCreator = project.ErstellerAdminId == null || project.ErstellerAdminId == adminSession.ProjektAdminId;
                 var membership = project.Admins.FirstOrDefault(a => a.ProjektAdminId == adminSession.ProjektAdminId);
 
-                if (isCreator || membership is not null)
+                bool canControl = isCreator || (membership?.CanControlSession ?? true);
+                bool canParticipants = isCreator || (membership?.CanManageParticipants ?? true);
+                bool canSettings = isCreator || (membership?.CanEditProjectSettings ?? true);
+                bool canShows = isCreator || (membership?.CanManageShows ?? true);
+
+                if (now - adminSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
                 {
-                    if (now - adminSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
+                    adminSession.LetzteAktivitaetAmUtc = now;
+                    try
                     {
-                        adminSession.LetzteAktivitaetAmUtc = now;
                         await dbContext.SaveChangesAsync(cancellationToken);
                     }
-
-                    return new ProjectAccess(
-                        projectId,
-                        adminSession.Id,
-                        adminSession.LaeuftAbAmUtc,
-                        null,
-                        adminSession.ProjektAdminId,
-                        IsCreator: isCreator,
-                        CanControlSession: isCreator || (membership?.CanControlSession ?? false),
-                        CanManageParticipants: isCreator || (membership?.CanManageParticipants ?? false),
-                        CanEditProjectSettings: isCreator || (membership?.CanEditProjectSettings ?? false),
-                        CanManageShows: isCreator || (membership?.CanManageShows ?? false));
+                    catch (DbUpdateConcurrencyException)
+                    {
+                    }
                 }
+
+                return new ProjectAccess(
+                    projectId,
+                    adminSession.Id,
+                    adminSession.LaeuftAbAmUtc,
+                    null,
+                    adminSession.ProjektAdminId,
+                    IsCreator: isCreator,
+                    CanControlSession: canControl,
+                    CanManageParticipants: canParticipants,
+                    CanEditProjectSettings: canSettings,
+                    CanManageShows: canShows);
             }
+
+            logger?.LogWarning("AuthenticateAsync Admin-Sitzung gefunden für Admin {AdminId}, aber Projekt {ProjectId} existiert nicht in DB.", adminSession.ProjektAdminId, projectId);
         }
 
         var participantSession = await dbContext.Sitzungen
@@ -64,13 +76,20 @@ public sealed class ProjectAccessService(WeihnachtsfeierDbContext dbContext)
 
         if (participantSession is null)
         {
+            logger?.LogWarning("AuthenticateAsync fehlgeschlagen für Projekt {ProjectId}: Keine gültige Sitzung für TokenHash {HashPrefix}... gefunden.", projectId, tokenHash[..Math.Min(8, tokenHash.Length)]);
             return null;
         }
 
         if (now - participantSession.LetzteAktivitaetAmUtc >= ActivityUpdateInterval)
         {
             participantSession.LetzteAktivitaetAmUtc = now;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+            }
         }
 
         return new ProjectAccess(projectId, participantSession.Id, participantSession.LaeuftAbAmUtc, participantSession.TeilnehmerId, null);
