@@ -34,11 +34,11 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | --- | --- |
 | Poll | Frage, Optionen, Mehrfachauswahl, Verdeckte Ergebnisse, Prozentuale Anzeige, Nachträgliche Meinungsänderung erlauben (`allowChangeVote`) |
 | Announcement | Titel, Nachricht |
-| Quiz | Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Zeitlimit, Erklärung |
+| Quiz | Frage, Antworten, Richtige Antwortindizes, Punkte, Speed-Bonus, Antwortzeitlimit (`timeLimitSeconds`), optionale Fragezeit (`questionTimeLimitSeconds`), Modus (`teamMode`), Erklärung; Laufzeitphase und Timer liegen in `state.questionWorkflow`. |
 | Ranking | Titel (automatischer Projekt-Punktestand), Top-X Begrenzung, Podium-Animation und Diagrammtyp (`bar_chart` oder `line_graph`) |
 | PointAward | Punktevergabe-Slide mit echtem vertikalem Säulendiagramm, automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges |
 | Hitster | Spotify-Integration, Song-Titel, Interpret, Veröffentlichungsjahr, Musikplayer-Steuerung |
-| Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
+| Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte, Antwortzeitlimit (`timeLimitSeconds`), optionale Fragezeit (`questionTimeLimitSeconds`), Modus (`teamMode`), Erklärung; Laufzeitphase, offizieller Teamwert und Timer liegen in `state.questionWorkflow`. |
 | Buzzer | Buzzer-Frage, Punkte, Zeitlimit |
 | Jeopardy | Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. |
 | Pantomime | Kategorie, 3–100 eindeutige Begriffe, Rundendauer (10–600 Sekunden) und Skip-Limit pro darstellender Person (0–100; fehlend bei älteren Slides entspricht 0); Laufzeitstatus mit Teamzuordnungen, Darstellenden, gemeinsamer Startzeit/Deadline, Team-Punktzahlen, verwendeten regulären Skips und zufälliger Begriffszuteilung. Ein bestätigter kostenloser Admin-Skip erhöht den Skip-Zähler nicht. Der Laufzeitstatus speichert nur interne Begriffsindizes, keine Klartextbegriffe. |
@@ -47,6 +47,8 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | Ordering / Countdown | Reihenfolge-Sortierung & visuelle Timer |
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration.
+
+Quiz- und Schätzfragen speichern ihren Liveablauf ohne Schemaänderung in `SlidesJson`: `state.questionWorkflow` enthält Phase, Timerzustand, offizielle Teamantwort bzw. offiziellen Schätzwert und die nachvollziehbaren automatischen Punktebuchungen. Die Phasen sind `question`, `answers`, `locked` und `results`. Einzel- und Teamantworten liegen als Upserts in `GameInstanceEventResponse`; die Datensätze bleiben nach der Ergebnisfreigabe zur Überprüfung erhalten. Automatische Punktebuchungen werden anhand des gespeicherten Wertungsstands angepasst, wenn die Moderation Ergebnisse korrigiert. Team-exklusive Beiträge werden nur an Admins und das aktive Team verteilt; Lösung und Erklärung werden in öffentlichen Zuständen erst in der Ergebnisphase freigegeben.
 
 Pantomime-Rundendaten liegen im `state`-Objekt der Event-Slide-Parameter und benötigen keine Schemaänderung. Die öffentliche Event-/Beameransicht erhält ausschließlich freigegebene Teamfortschritte; Begriffspool und interne Zuteilungsindizes werden herausgefiltert. Der aktuelle Klartextbegriff wird nur über den Teilnehmer-Endpunkt für die zugewiesene darstellende Person oder die geschützte Admin-Regie ausgegeben. Skip-Limits und Moderatorbestätigung werden serverseitig geprüft.
 

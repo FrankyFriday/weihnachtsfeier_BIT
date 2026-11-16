@@ -16,6 +16,18 @@
     <FrameworkInputNumber Id="estimation-points" @bind-Value="Slide.EstimationPoints" Min="0" Placeholder="100" />
 </FrameworkFormGroup>
 
+<FrameworkFormGroup Label="Frage anzeigen für (Sekunden)" HelpText="optional; danach beginnt automatisch die Antwortphase" ForId="estimation-question-time-limit">
+    <FrameworkInputNumber Id="estimation-question-time-limit" @bind-Value="Slide.EstimationQuestionTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 10" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Antwortzeit (Sekunden)" HelpText="optional; danach werden Antworten gesperrt" ForId="estimation-time-limit">
+    <FrameworkInputNumber Id="estimation-time-limit" @bind-Value="Slide.EstimationTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 30" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Lösungserklärung" HelpText="optional; wird in der Ergebnisphase angezeigt" ForId="estimation-explanation">
+    <FrameworkTextArea Id="estimation-explanation" @bind-Value="Slide.EstimationExplanation" Rows="3" Placeholder="Zusätzliche Infos zur Lösung..." />
+</FrameworkFormGroup>
+
 @code {
     [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;
 }

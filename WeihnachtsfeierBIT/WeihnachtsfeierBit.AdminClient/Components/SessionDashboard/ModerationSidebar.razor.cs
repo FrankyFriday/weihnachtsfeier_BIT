@@ -16,7 +16,9 @@ public partial class ModerationSidebar : ComponentBase
         new("participants", "Teilnehmer & Rechte", "group"),
         new("leaderboard", "Punkte & Rangliste", "leaderboard"),
         new("chat", "Quick-Chat", "chat"),
-        new("beamer", "Beamer-Steuerung", "present_to_all")
+        new("beamer", "Beamer-Steuerung", "present_to_all"),
+        new("notes", "Regie-Notizen", "sticky_note_2"),
+        new("responses", "Antworten", "forum")
     ];
 
     private const int MinimumCanvasPreviewWidth = 320;
@@ -35,6 +37,7 @@ public partial class ModerationSidebar : ComponentBase
     [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
     [Parameter] public ProjectGameState? SessionState { get; set; }
+    [Parameter] public EventState? SelectedEvent { get; set; }
     [Parameter] public Guid? ActiveCanvasEventId { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public string AccessToken { get; set; } = string.Empty;
@@ -76,12 +79,20 @@ public partial class ModerationSidebar : ComponentBase
     private string? _canvasPreviewResolutionError;
     private ElementReference _canvasPreviewStage;
     private ElementReference _canvasPreviewFrame;
+    private ElementReference _drawerResizeHandle;
+    private IJSObjectReference? _drawerResizeModule;
+    private IJSObjectReference? _drawerResizeController;
     private IJSObjectReference? _canvasPreviewModule;
     private IJSObjectReference? _canvasPreviewObserver;
     private int _observedCanvasPreviewWidth;
     private int _observedCanvasPreviewHeight;
 
     private string CanvasPreviewResolutionLabel => $"{_canvasPreviewWidth} × {_canvasPreviewHeight} px";
+    private EventSlideState? CurrentSlide => SelectedEvent is { } selectedEvent
+        && selectedEvent.CurrentSlideIndex >= 0
+        && selectedEvent.CurrentSlideIndex < selectedEvent.Slides.Length
+            ? selectedEvent.Slides[selectedEvent.CurrentSlideIndex]
+            : null;
     private string CanvasPreviewStageStyle
     {
         get
@@ -364,6 +375,19 @@ public partial class ModerationSidebar : ComponentBase
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        try
+        {
+            _drawerResizeModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", "./js/drawer-resize.js");
+            _drawerResizeController ??= await _drawerResizeModule.InvokeAsync<IJSObjectReference>(
+                "attachDrawerResize",
+                _drawerResizeHandle);
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Breite der Regie-Schublade konnte nach dem Trennen der UI-Verbindung nicht angepasst werden.");
+        }
+
         if (_activeCompartment != "beamer" || Instance is null || string.IsNullOrWhiteSpace(CanvasUrl))
         {
             _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
@@ -469,6 +493,29 @@ public partial class ModerationSidebar : ComponentBase
     public async ValueTask DisposeAsync()
     {
         _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
+        if (_drawerResizeController is not null)
+        {
+            try
+            {
+                await _drawerResizeController.InvokeVoidAsync("dispose");
+                await _drawerResizeController.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Die Regie-Schublade konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
+        }
+        if (_drawerResizeModule is not null)
+        {
+            try
+            {
+                await _drawerResizeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Das Regie-Schubladen-Modul konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
+        }
         if (_canvasPreviewModule is not null)
         {
             try

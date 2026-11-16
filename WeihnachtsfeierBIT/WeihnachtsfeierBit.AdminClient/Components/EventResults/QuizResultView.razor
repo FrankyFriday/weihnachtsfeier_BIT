@@ -1,51 +1,30 @@
 @using System.Text.Json
-@using Microsoft.AspNetCore.Components.Authorization
 @using WeihnachtsfeierBit.Framework
-@inject ProjectApiClient ProjectApiClient
-@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div style="margin-top: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Quiz-Auswertung (@TotalAnswers Antworten)</h3>
-        <FrameworkBadge Text="@($"{CorrectCount} / {TotalAnswers} Richtig ({Accuracy.ToString("F0")}%)")" Variant="@(Accuracy >= 50 ? "primary" : "secondary")" />
-    </div>
-
-    @if (TotalAnswers == 0)
+    @if (IsResolutionPhase)
     {
-        <p style="color: #657276; font-size: 14px;">Noch keine Antworten von Teilnehmern eingegangen.</p>
-    }
-    else
-    {
-        <div style="display: grid; gap: 8px; margin-top: 12px;">
-            @foreach (var resp in AnswerList)
-            {
-                <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: @(resp.IsCorrect ? "#f0f8f4" : "#fff6f5"); display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
-                        @if (!string.IsNullOrEmpty(resp.TeamName))
-                        {
-                            <span style="font-size: 12px; color: #657276; margin-left: 6px;">• Team @resp.TeamName</span>
-                        }
-                        <div style="font-size: 13px; color: #333; margin-top: 2px;">
-                            Gewählt: <strong>@resp.AnswerText</strong>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <FrameworkBadge Text="@(resp.IsCorrect ? "Richtig" : "Falsch")" Variant="@(resp.IsCorrect ? "primary" : "danger")" />
-                        <button type="button" class="btn-icon-small" title="Antwort löschen" @onclick="() => DeleteResponseAsync(resp.ResponseId)">
-                            <span class="material-symbols-outlined" style="font-size: 18px; color: #dc2626;">delete</span>
-                        </button>
-                    </div>
-                </div>
-            }
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Quiz-Auswertung (@TotalAnswers Antworten)</h3>
+            <FrameworkBadge Text="@($"{CorrectCount} / {TotalAnswers} Richtig ({Accuracy.ToString("F0")}%)")" Variant="@(Accuracy >= 50 ? "primary" : "secondary")" />
         </div>
+
+        @if (TotalAnswers == 0)
+        {
+            <p style="color: #657276; font-size: 14px;">Noch keine Antworten von Teilnehmern eingegangen.</p>
+        }
+        else
+        {
+            <p style="margin: 8px 0 0; color: #657276; font-size: 13px;">
+                Einzelstimmen werden in der Antwortverwaltung unten angezeigt.
+            </p>
+        }
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
-    [Parameter] public Guid ProjectId { get; set; }
 
     private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
     private int TotalAnswers => SlideResponses.Count();
@@ -55,6 +34,7 @@
 
     private int CorrectCount => AnswerList.Count(a => a.IsCorrect);
     private double Accuracy => TotalAnswers == 0 ? 0 : (double)CorrectCount / TotalAnswers * 100.0;
+    private bool IsResolutionPhase => QuestionWorkflowViewState.Read(CurrentSlide.Parameters).Phase == "results";
 
     private List<ParticipantQuizAnswer> AnswerList
     {
@@ -76,16 +56,6 @@
                 result.Add(new ParticipantQuizAnswer(r.Id, r.ParticipantNumber, r.ParticipantName, r.TeamName, ansText, isCorrect));
             }
             return result;
-        }
-    }
-
-    private async Task DeleteResponseAsync(Guid responseId)
-    {
-        var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var token = auth.User.FindFirst("api_access_token")?.Value;
-        if (!string.IsNullOrEmpty(token) && ProjectId != Guid.Empty)
-        {
-            await ProjectApiClient.AdminDeleteResponseAsync(token, ProjectId, Event.EventId, responseId);
         }
     }
 

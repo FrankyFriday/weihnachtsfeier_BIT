@@ -1,27 +1,92 @@
+@using System.Globalization
 @using System.Text.Json
+@using WeihnachtsfeierBit.Framework
 @inject ParticipantNotificationService Notifications
 
 <div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: #ffffff;">
     <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">SCHÄTZFRAGE</span>
-    <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 24px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "question")</h1>
-
-    @if (_submitted)
+    <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 12px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "question")</h1>
+    @if (_workflow.TimerEndsAtUtc.HasValue || _workflow.TimerPaused)
     {
-        <div style="font-size: 18px; color: #1d2528; text-align: center;">
-            Dein Schätzwert: <strong>@_estimationInput @_unit</strong>
-        </div>
+        <QuestionWorkflowTimer TimerEndsAtUtc="_workflow.TimerEndsAtUtc" TimerPaused="_workflow.TimerPaused" RemainingSeconds="_workflow.RemainingSeconds" />
     }
-    else
+
+    @if (_workflow.Phase == "question")
     {
-        <form @onsubmit="SubmitEstimation" @onsubmit:preventDefault="true" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;">
-            <div class="mobile-field" style="text-align: left;">
-                <label for="est-val" style="font-size: 15px; font-weight: 700;">Dein Schätzwert (@_unit)</label>
-                <input id="est-val" type="number" step="any" class="mobile-input large-text" @bind="_estimationInput" required style="font-size: 28px; text-align: center; min-height: 60px;" />
+        <p style="color: #657276;">Die Antwortphase beginnt automatisch oder durch die Spielleitung.</p>
+    }
+    else if (_workflow.Phase == "results")
+    {
+        @if (IsTeamExclusive && _workflow.OfficialEstimationValue is double officialValue)
+        {
+            <div style="font-size: 18px; color: #1d2528;">
+                Offizielle Team-Schätzung: <strong>@officialValue @_unit</strong>
+                <div style="margin-top: 8px; color: #536164;">Abweichung zum Ziel: @Math.Abs(officialValue - TargetValue).ToString("F1") @_unit</div>
             </div>
-            <button type="submit" class="mobile-button primary" disabled="@_isSubmitting" style="min-height: 52px; font-size: 18px;">
-                Schätzung abgeben
-            </button>
-        </form>
+        }
+        else if (GetMyEstimation() is double ownEstimate)
+        {
+            <div style="font-size: 18px; color: #1d2528;">
+                Deine Schätzung: <strong>@ownEstimate @_unit</strong>
+                <div style="margin-top: 8px; color: #536164;">Abweichung zum Ziel: @Math.Abs(ownEstimate - TargetValue).ToString("F1") @_unit</div>
+            </div>
+        }
+        else
+        {
+            <p style="color: #657276;">Du hast keine Schätzung abgegeben.</p>
+        }
+
+        <div style="margin-top: 12px; font-weight: 800; color: #105c4d;">Richtiger Wert: @TargetValue @_unit</div>
+        @if (!string.IsNullOrWhiteSpace(ReadString(CurrentSlide.Parameters, "explanation")))
+        {
+            <p style="max-width: 550px; margin-top: 12px; color: #536164;">@ReadString(CurrentSlide.Parameters, "explanation")</p>
+        }
+    }
+    else if (_workflow.Phase is "answers" or "locked")
+    {
+        @if (_workflow.Phase == "locked")
+        {
+            <p style="color: #657276; font-weight: 700;">Die Antwortzeit ist beendet. Die abgegebenen Schätzungen bleiben bis zur Auflösung sichtbar.</p>
+        }
+        @if (IsTeamExclusive && TeamResponses.Any())
+        {
+            <div style="width: 100%; max-width: 520px; display: grid; gap: 8px; margin-bottom: 16px; text-align: left;">
+                <strong>@(_workflow.Phase == "answers" ? "Team-Schätzungen · Beiträge können gemeinsam geändert werden" : "Team-Schätzungen")</strong>
+                @foreach (var response in TeamResponses)
+                {
+                    var item = response;
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid #dce5e2; border-radius: 8px;">
+                        <span>#@item.ParticipantNumber: @FormatEstimate(ReadEstimate(item)) @_unit</span>
+                        @if (_workflow.Phase == "answers")
+                        {
+                            <button type="button" class="mobile-button secondary" disabled="@_isSubmitting" @onclick="() => BeginEditing(item)">Ändern</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (_workflow.Phase == "answers")
+        {
+            @if (_editingParticipantId is Guid targetParticipantId && IsTeamExclusive)
+            {
+                <p style="margin: 0 0 8px; color: #536164;">Schätzung für #@GetParticipantNumber(targetParticipantId) festlegen:</p>
+            }
+            else if (GetMyEstimation() is double currentEstimate)
+            {
+                <p style="margin: 0 0 12px; color: #536164;">Dein aktueller Schätzwert: <strong>@currentEstimate @_unit</strong></p>
+            }
+
+            <form @onsubmit="SubmitEstimation" @onsubmit:preventDefault="true" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;">
+                <div class="mobile-field" style="text-align: left;">
+                    <label for="est-val" style="font-size: 15px; font-weight: 700;">Schätzwert (@_unit)</label>
+                    <input id="est-val" type="number" step="any" class="mobile-input large-text" @bind="_estimationInput" required style="font-size: 28px; text-align: center; min-height: 60px;" />
+                </div>
+                <button type="submit" class="mobile-button primary" disabled="@_isSubmitting" style="min-height: 52px; font-size: 18px;">
+                    Schätzung speichern
+                </button>
+            </form>
+        }
     }
 </div>
 
@@ -34,56 +99,65 @@
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     private double _estimationInput;
-    private bool _submitted;
     private bool _isSubmitting;
+    private Guid? _editingParticipantId;
+    private QuestionWorkflowViewState _workflow = new("question", null, false, 0, null, null);
 
     private string _unit => ReadString(CurrentSlide.Parameters, "unit");
+    private bool IsTeamExclusive => ReadString(CurrentSlide.Parameters, "teamMode") == "team_exclusive";
+    private double TargetValue => ReadDouble(CurrentSlide.Parameters, "correctValue");
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(item => item.SlideId == CurrentSlide.SlideId);
+    private IEnumerable<EventResponseState> TeamResponses => SlideResponses
+        .Where(item => item.TeamId == Event.ActiveTeamId)
+        .OrderBy(item => item.ParticipantNumber);
 
     protected override void OnParametersSet()
     {
-        CheckExistingResponse();
-    }
-
-    private void CheckExistingResponse()
-    {
-        if (ParticipantId == Guid.Empty) return;
-
-        var myResp = Event.Responses.FirstOrDefault(r => r.SlideId == CurrentSlide.SlideId && r.ParticipantId == ParticipantId);
-        if (myResp is not null && myResp.ResponseData.ValueKind == JsonValueKind.Object)
+        _workflow = QuestionWorkflowViewState.Read(CurrentSlide.Parameters);
+        if (GetMyEstimation() is double estimate)
         {
-            if (myResp.ResponseData.TryGetProperty("estimationValue", out var estVal) && estVal.ValueKind == JsonValueKind.Number)
-            {
-                _estimationInput = estVal.GetDouble();
-                _submitted = true;
-            }
+            _estimationInput = estimate;
         }
-        else
+        if (_workflow.Phase != "answers")
         {
-            _submitted = false;
+            _editingParticipantId = null;
         }
     }
 
     private async Task SubmitEstimation()
     {
-        if (_isSubmitting) return;
+        if (_isSubmitting || _workflow.Phase != "answers")
+        {
+            return;
+        }
+
         _isSubmitting = true;
         try
         {
-            if (!string.IsNullOrEmpty(AccessToken))
+            if (string.IsNullOrEmpty(AccessToken))
             {
-                var payload = JsonSerializer.SerializeToElement(new { estimationValue = _estimationInput });
-                await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
-                _submitted = true;
-                Notifications.Show("Dein Schätzwert wurde gespeichert.", ParticipantToastSeverity.Success);
+                Notifications.Show("Keine aktive Sitzung vorhanden.", ParticipantToastSeverity.Error);
+                return;
+            }
+
+            var payload = JsonSerializer.SerializeToElement(new { estimationValue = _estimationInput });
+            if (IsTeamExclusive && _editingParticipantId is Guid targetParticipantId && targetParticipantId != ParticipantId)
+            {
+                await ProjectApiClient.UpdateTeamEventResponseAsync(
+                    AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, targetParticipantId, payload);
             }
             else
             {
-                Notifications.Show("Keine aktive Sitzung vorhanden.", ParticipantToastSeverity.Error);
+                await ProjectApiClient.SubmitEventResponseAsync(
+                    AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
             }
+
+            _editingParticipantId = null;
+            Notifications.Show("Team-Schätzung gespeichert.", ParticipantToastSeverity.Success);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Notifications.Show("Fehler beim Übertragen: " + ex.Message, ParticipantToastSeverity.Error);
+            Notifications.Show("Fehler beim Übertragen: " + exception.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
@@ -91,8 +165,44 @@
         }
     }
 
-    private static string ReadString(JsonElement elem, string prop) =>
-        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
-            ? val.GetString() ?? string.Empty
+    private void BeginEditing(EventResponseState response)
+    {
+        _editingParticipantId = response.ParticipantId;
+        _estimationInput = ReadEstimate(response) ?? 0;
+    }
+
+    private double? GetMyEstimation()
+    {
+        var response = SlideResponses.FirstOrDefault(item => item.ParticipantId == ParticipantId);
+        return response is null ? null : ReadEstimate(response);
+    }
+
+    private int GetParticipantNumber(Guid participantId) =>
+        SlideResponses.FirstOrDefault(item => item.ParticipantId == participantId)?.ParticipantNumber ?? 0;
+
+    private static double? ReadEstimate(EventResponseState response) =>
+        response.ResponseData.ValueKind == JsonValueKind.Object
+        && response.ResponseData.TryGetProperty("estimationValue", out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetDouble(out var estimate)
+            ? estimate
+            : null;
+
+    private static string FormatEstimate(double? value) =>
+        value?.ToString("G", CultureInfo.CurrentCulture) ?? "—";
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
             : string.Empty;
+
+    private static double ReadDouble(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetDouble(out var number)
+            ? number
+            : 0;
 }

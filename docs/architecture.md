@@ -36,6 +36,7 @@ Zur Schonung von Serverressourcen und Vermeidung redundanter WebSocket-Verbindun
 - Der Chat registriert seine Event-Listener (`ReceiveChatMessage`, `ReceiveMessageDeleted`, `ReceiveGroupDeleted`, `ReceiveGroupRenamed`) direkt auf der bestehenden Verbindung, anstatt einen zweiten WebSocket zu öffnen.
 - Bei Betrieb als Standalone-Chat-Seite (ohne Elternkonnektor) baut die Komponente eigenständig eine Verbindung auf.
 - Chat-Events werden über eine separate SignalR-Projektgruppe ausgeliefert. Teilnehmer gelangen nur mit effektivem Leserecht in diese Gruppe; Änderungen globaler oder individueller Rechte aktualisieren offene Verbindungen und leeren bei Entzug die Chatansicht.
+- Das Session-Dashboard empfängt den vollständigen Livezustand über die Admin-Projektgruppe. Änderungen an Antworten, Slide-Phasen und Timern werden auf den Blazor-Renderer-Thread überführt, damit Hauptansicht und Regie-Schublade ohne erneute Navigation aktualisieren.
 
 ## End-to-End Diagnose-System
 

@@ -50,6 +50,7 @@ public sealed class EditableSlide
     public string QuizQuestion { get; set; } = string.Empty;
     public List<string> QuizAnswers { get; set; } = [];
     public List<int> QuizCorrectAnswerIndices { get; set; } = [];
+    public int? QuizQuestionTimeLimitSeconds { get; set; }
     public int? QuizTimeLimitSeconds { get; set; }
     public int QuizPoints { get; set; } = 100;
     public bool QuizEnableSpeedBonus { get; set; }
@@ -65,7 +66,10 @@ public sealed class EditableSlide
     public string EstimationQuestion { get; set; } = string.Empty;
     public double EstimationCorrectValue { get; set; }
     public string EstimationUnit { get; set; } = string.Empty;
+    public int? EstimationQuestionTimeLimitSeconds { get; set; }
+    public int? EstimationTimeLimitSeconds { get; set; }
     public int EstimationPoints { get; set; } = 100;
+    public string EstimationExplanation { get; set; } = string.Empty;
 
     // Buzzer
     public string BuzzerQuestion { get; set; } = string.Empty;
@@ -148,6 +152,7 @@ public sealed class EditableSlide
                 QuizQuestion = ReadString(parameters, "question");
                 QuizAnswers = ReadStringList(parameters, "answers");
                 QuizCorrectAnswerIndices = ReadIntList(parameters, "correctAnswerIndices");
+                QuizQuestionTimeLimitSeconds = ReadNullableInt(parameters, "questionTimeLimitSeconds");
                 QuizTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
                 QuizPoints = ReadNullableInt(parameters, "points") ?? 100;
                 QuizEnableSpeedBonus = ReadBool(parameters, "enableSpeedBonus");
@@ -163,7 +168,10 @@ public sealed class EditableSlide
                 EstimationQuestion = ReadString(parameters, "question");
                 EstimationCorrectValue = ReadDouble(parameters, "correctValue");
                 EstimationUnit = ReadString(parameters, "unit");
+                EstimationQuestionTimeLimitSeconds = ReadNullableInt(parameters, "questionTimeLimitSeconds");
+                EstimationTimeLimitSeconds = ReadNullableInt(parameters, "timeLimitSeconds");
                 EstimationPoints = ReadNullableInt(parameters, "points") ?? 100;
+                EstimationExplanation = ReadString(parameters, "explanation");
                 break;
             case "buzzer":
                 BuzzerQuestion = ReadString(parameters, "question");
@@ -414,6 +422,7 @@ public sealed class EditableSlide
                 dict["question"] = QuizQuestion.Trim();
                 dict["answers"] = cleanAnswers;
                 dict["correctAnswerIndices"] = QuizCorrectAnswerIndices;
+                dict["questionTimeLimitSeconds"] = QuizQuestionTimeLimitSeconds;
                 dict["timeLimitSeconds"] = QuizTimeLimitSeconds;
                 dict["points"] = QuizPoints;
                 dict["enableSpeedBonus"] = QuizEnableSpeedBonus;
@@ -436,7 +445,10 @@ public sealed class EditableSlide
                 dict["question"] = EstimationQuestion.Trim();
                 dict["correctValue"] = EstimationCorrectValue;
                 dict["unit"] = EstimationUnit.Trim();
+                dict["questionTimeLimitSeconds"] = EstimationQuestionTimeLimitSeconds;
+                dict["timeLimitSeconds"] = EstimationTimeLimitSeconds;
                 dict["points"] = EstimationPoints;
+                dict["explanation"] = EstimationExplanation.Trim();
                 break;
 
             case "buzzer":

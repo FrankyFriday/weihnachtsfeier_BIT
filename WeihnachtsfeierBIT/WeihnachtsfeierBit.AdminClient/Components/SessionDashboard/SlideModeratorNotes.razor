@@ -1,0 +1,25 @@
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<section aria-label="Moderator-Notizen" style="margin: 12px 0; padding: 14px 16px; border: 1px solid #d6e0dc; border-left: 4px solid #197b67; border-radius: 8px; background: #f5f9f7;">
+    <strong style="display: block; margin-bottom: 6px; color: #105c4d;">Moderator-Notizen</strong>
+    @if (string.IsNullOrWhiteSpace(Notes))
+    {
+        <span style="color: #657276; font-size: 13px;">Keine Notizen hinterlegt.</span>
+    }
+    else
+    {
+        <div style="color: #273538; font-size: 14px; white-space: pre-wrap;">@Notes</div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+
+    private string Notes =>
+        CurrentSlide.Parameters.ValueKind == JsonValueKind.Object
+        && CurrentSlide.Parameters.TryGetProperty("adminNotes", out var notes)
+        && notes.ValueKind == JsonValueKind.String
+            ? notes.GetString() ?? string.Empty
+            : string.Empty;
+}

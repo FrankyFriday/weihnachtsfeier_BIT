@@ -919,7 +919,7 @@
 }
 
 .overview-toolbar.drawer-open {
-    margin-right: 380px;
+    margin-right: var(--regie-drawer-width, 380px);
 }
 
 .regie-dashboard-layout {
@@ -938,7 +938,7 @@
 }
 
 .regie-dashboard-layout.drawer-open .regie-dashboard-main {
-    margin-right: 380px;
+    margin-right: var(--regie-drawer-width, 380px);
 }
 
 .regie-drawer-backdrop {
@@ -965,7 +965,7 @@
 }
 
 .regie-dock-strip.drawer-open {
-    right: 380px;
+    right: var(--regie-drawer-width, 380px);
 }
 
 .regie-dock-item {
@@ -998,7 +998,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 380px;
+    width: var(--regie-drawer-width, 380px);
     max-width: calc(100vw - 70px);
     z-index: 9998;
     background: #ffffff;
@@ -1008,6 +1008,21 @@
     flex-direction: column;
     transform: translateX(100%);
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.regie-drawer-resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -5px;
+    z-index: 1;
+    width: 10px;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.regie-drawer-resize-handle:hover {
+    background: linear-gradient(90deg, transparent, rgba(25, 123, 103, 0.2), transparent);
 }
 
 .regie-drawer-panel.open {
@@ -1024,6 +1039,7 @@
     .regie-dashboard-layout.drawer-open .regie-dashboard-main {
         margin-right: 0 !important;
     }
+
 }
 
 .regie-sidebar-header {

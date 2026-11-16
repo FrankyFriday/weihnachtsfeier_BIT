@@ -297,6 +297,8 @@ public sealed class QuizSlideParameters : SlideParameters
 
     public List<int> CorrectAnswerIndices { get; set; } = [];
 
+    public int? QuestionTimeLimitSeconds { get; set; }
+
     public int? TimeLimitSeconds { get; set; }
 
     public int Points { get; set; } = 100;
@@ -325,7 +327,13 @@ public sealed class EstimationSlideParameters : SlideParameters
 
     public string Unit { get; set; } = string.Empty;
 
+    public int? QuestionTimeLimitSeconds { get; set; }
+
+    public int? TimeLimitSeconds { get; set; }
+
     public int Points { get; set; } = 100;
+
+    public string Explanation { get; set; } = string.Empty;
 }
 
 public sealed class BuzzerSlideParameters : SlideParameters

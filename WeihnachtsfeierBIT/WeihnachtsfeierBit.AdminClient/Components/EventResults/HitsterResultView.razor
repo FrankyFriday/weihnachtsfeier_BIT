@@ -38,19 +38,6 @@
         }
     </div>
 
-    @if (GameStarted && ReadString(Game, "phase", "") == "playing")
-    {
-        <div style="padding:12px 14px;border-radius:10px;background:#211d35;">
-            @ReadInt(VoteSummary, "submittedVotes") von @ReadInt(VoteSummary, "eligibleVoters") Teammitgliedern haben abgestimmt.
-            Noch offen: @ReadInt(VoteSummary, "remainingVotes").
-            @if (HasVotes)
-            {
-                <span> Die Spielleitung kann die Abstimmung jederzeit beenden.</span>
-            }
-            <div style="margin-top:4px;color:#c6c4d0;">Bei Gleichstand zählt die früheste Position in der Zeitleiste.</div>
-        </div>
-    }
-
     @if (ReadString(Game, "phase", "") == "revealed")
     {
         var song = ReadObject(Game, "currentSong");

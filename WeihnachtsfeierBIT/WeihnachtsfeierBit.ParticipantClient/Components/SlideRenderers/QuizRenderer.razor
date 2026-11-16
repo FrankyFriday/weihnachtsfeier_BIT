@@ -1,29 +1,130 @@
 @using System.Text.Json
+@using WeihnachtsfeierBit.Framework
 @inject ParticipantNotificationService Notifications
 
-<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: #ffffff;">
+<div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: @ScreenBackground; transition: background-color 0.25s ease;">
     <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">QUIZ-FRAGE</span>
-    <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 24px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "question")</h1>
-
-    @if (_submitted)
+    <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 12px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "question")</h1>
+    @if (_workflow.TimerEndsAtUtc.HasValue || _workflow.TimerPaused)
     {
-        <div style="font-size: 14px; color: #536164; text-align: center;">
-            @if (_selectedAnswerText is not null)
-            {
-                <div style="font-size: 16px; margin-top: 8px; color: #1d2528; font-weight: 700;">Deine Auswahl: @_selectedAnswerText</div>
-            }
+        <QuestionWorkflowTimer TimerEndsAtUtc="_workflow.TimerEndsAtUtc" TimerPaused="_workflow.TimerPaused" RemainingSeconds="_workflow.RemainingSeconds" />
+    }
+
+    @if (_workflow.Phase == "question")
+    {
+        <p style="color: #657276;">Die Antwortphase beginnt automatisch oder durch die Spielleitung.</p>
+    }
+    else if (_workflow.Phase == "results")
+    {
+        <div style="width: 100%; max-width: 560px; display: grid; gap: 16px; justify-items: center; color: #1d2528;">
+            <div style="display: grid; justify-items: center; gap: 4px; color: @(ResultIsCorrect ? "#137547" : "#b42318");">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 76px;">
+                    @(ResultIsCorrect ? "check_circle" : "cancel")
+                </span>
+                <h2 style="margin: 0; font-size: 34px; font-weight: 900;">@(ResultIsCorrect ? "Richtig" : "Falsch")</h2>
+            </div>
+
+            <div style="width: 100%; display: grid; gap: 8px; text-align: left;">
+                @if (IsTeamExclusive)
+                {
+                    <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.82);">
+                        <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+                        <div>
+                            <span style="display: block; font-size: 12px; color: #536164;">Offizielle Teamantwort</span>
+                            <strong>@GetAnswerText(_workflow.OfficialAnswerIndex)</strong>
+                        </div>
+                    </div>
+                    @if (GetMyAnswerIndex() is int ownTeamVote)
+                    {
+                        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.72);">
+                            <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                            <div>
+                                <span style="display: block; font-size: 12px; color: #536164;">Deine Stimme</span>
+                                <strong>@GetAnswerText(ownTeamVote)</strong>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.82);">
+                        <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                        <div>
+                            <span style="display: block; font-size: 12px; color: #536164;">Deine Antwort</span>
+                            <strong>@GetAnswerText(GetMyAnswerIndex())</strong>
+                        </div>
+                    </div>
+                }
+
+                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.82);">
+                    <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+                    <div>
+                        <span style="display: block; font-size: 12px; color: #536164;">Richtige Antwort</span>
+                        <strong>@string.Join(" / ", CorrectIndices.Select(index => GetAnswerText(index)))</strong>
+                    </div>
+                </div>
+            </div>
+
+        @if (!string.IsNullOrWhiteSpace(ReadString(CurrentSlide.Parameters, "explanation")))
+        {
+                <div style="width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.82); text-align: left;">
+                    <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+                    <p style="margin: 0; color: #536164;">@ReadString(CurrentSlide.Parameters, "explanation")</p>
+                </div>
+        }
         </div>
     }
     else
     {
+        @if (_workflow.Phase == "locked")
+        {
+            <div role="status" style="width: 100%; max-width: 450px; display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 14px; border: 1px solid #f0c98c; border-radius: 10px; background: #fff7e8; color: #7a4b00; text-align: left;">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 28px;">lock</span>
+                <div>
+                    <strong style="display: block;">Abstimmung beendet</strong>
+                    <span>Du kannst keine Antwort mehr ändern. Die Stimmen bleiben bis zur Auflösung sichtbar.</span>
+                </div>
+            </div>
+        }
+        @if (IsTeamExclusive && _workflow.Phase == "answers")
+        {
+            <p style="margin: 0 0 12px; color: #536164;">Wählt eure Teamantwort. Jede Person kann nur die eigene Stimme ändern.</p>
+        }
+
         <div style="display: grid; gap: 12px; width: 100%; max-width: 450px;">
-            @for (int i = 0; i < ReadStringList(CurrentSlide.Parameters, "answers").Count; i++)
+            @for (int i = 0; i < Answers.Count; i++)
             {
                 var index = i;
-                var ans = ReadStringList(CurrentSlide.Parameters, "answers")[index];
-                <button type="button" class="mobile-button secondary" @onclick="() => SubmitQuiz(index)" disabled="@_isSubmitting" style="min-height: 52px; font-size: 17px; font-weight: 700;">
-                    @(index + 1). @ans
-                </button>
+                var votes = GetResponsesForAnswer(index).ToArray();
+                <div style="display: grid; gap: 6px; text-align: left;">
+                    <button type="button"
+                            class="mobile-button @(_selectedAnswerIndex == index ? "primary" : "secondary")"
+                            @onclick="() => SubmitQuiz(index)"
+                            disabled="@(_isSubmitting || _workflow.Phase != "answers")"
+                            aria-pressed="@(_selectedAnswerIndex == index)"
+                            style="min-height: 52px; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        @if (_selectedAnswerIndex == index)
+                        {
+                            <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                        }
+                        <span>@(index + 1). @Answers[index]</span>
+                    </button>
+                    @if (IsTeamExclusive)
+                    {
+                        <div style="display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 4px; text-align: left;">
+                            <strong style="min-width: 76px; color: #536164; font-size: 12px;">@votes.Length @(votes.Length == 1 ? "Stimme" : "Stimmen")</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                @foreach (var vote in votes)
+                                {
+                                    <span title="@GetParticipantLabel(vote)"
+                                          style="padding: 3px 8px; border-radius: 999px; background: #e8f3ef; color: #105c4d; font-size: 12px; font-weight: 700;">
+                                        @GetParticipantLabel(vote)
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
             }
         </div>
     }
@@ -37,66 +138,55 @@
     [Parameter] public Guid ParticipantId { get; set; }
     [Inject] private ProjectApiClient ProjectApiClient { get; set; } = null!;
 
-    private bool _submitted;
-    private string? _selectedAnswerText;
     private bool _isSubmitting;
+    private int? _selectedAnswerIndex;
+    private QuestionWorkflowViewState _workflow = new("question", null, false, 0, null, null);
+
+    private bool IsTeamExclusive => ReadString(CurrentSlide.Parameters, "teamMode") == "team_exclusive";
+    private int? ResultAnswerIndex => IsTeamExclusive ? _workflow.OfficialAnswerIndex : GetMyAnswerIndex();
+    private bool ResultIsCorrect => ResultAnswerIndex is int answerIndex && IsCorrect(answerIndex);
+    private string ScreenBackground => _workflow.Phase == "results"
+        ? ResultIsCorrect ? "#e8f5e9" : "#ffebee"
+        : "#ffffff";
+    private List<string> Answers => ReadStringList(CurrentSlide.Parameters, "answers");
+    private List<int> CorrectIndices => ReadIntList(CurrentSlide.Parameters, "correctAnswerIndices");
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(item => item.SlideId == CurrentSlide.SlideId);
+    private IEnumerable<EventResponseState> TeamResponses => SlideResponses
+        .Where(item => item.TeamId == Event.ActiveTeamId)
+        .OrderBy(item => item.ParticipantNumber);
 
     protected override void OnParametersSet()
     {
-        CheckExistingResponse();
-    }
-
-    private void CheckExistingResponse()
-    {
-        if (ParticipantId == Guid.Empty) return;
-
-        var myResp = Event.Responses.FirstOrDefault(r => r.SlideId == CurrentSlide.SlideId && r.ParticipantId == ParticipantId);
-        if (myResp is not null && myResp.ResponseData.ValueKind == JsonValueKind.Object)
-        {
-            if (myResp.ResponseData.TryGetProperty("answerIndex", out var ansVal) && ansVal.ValueKind == JsonValueKind.Number)
-            {
-                int ansIdx = ansVal.GetInt32();
-                var answers = ReadStringList(CurrentSlide.Parameters, "answers");
-                if (ansIdx >= 0 && ansIdx < answers.Count)
-                {
-                    _selectedAnswerText = $"{ansIdx + 1}. {answers[ansIdx]}";
-                }
-                _submitted = true;
-            }
-        }
-        else
-        {
-            _submitted = false;
-            _selectedAnswerText = null;
-        }
+        _workflow = QuestionWorkflowViewState.Read(CurrentSlide.Parameters);
+        _selectedAnswerIndex = GetMyAnswerIndex();
     }
 
     private async Task SubmitQuiz(int answerIndex)
     {
-        if (_isSubmitting) return;
+        if (_isSubmitting || _workflow.Phase != "answers")
+        {
+            return;
+        }
+
         _isSubmitting = true;
         try
         {
-            if (!string.IsNullOrEmpty(AccessToken))
-            {
-                var payload = JsonSerializer.SerializeToElement(new { answerIndex });
-                await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
-                var answers = ReadStringList(CurrentSlide.Parameters, "answers");
-                if (answerIndex >= 0 && answerIndex < answers.Count)
-                {
-                    _selectedAnswerText = $"{answerIndex + 1}. {answers[answerIndex]}";
-                }
-                _submitted = true;
-                Notifications.Show("Deine Antwort wurde eingereicht!", ParticipantToastSeverity.Success);
-            }
-            else
+            if (string.IsNullOrEmpty(AccessToken))
             {
                 Notifications.Show("Keine aktive Sitzung vorhanden.", ParticipantToastSeverity.Error);
+                return;
             }
+
+            var payload = JsonSerializer.SerializeToElement(new { answerIndex });
+            await ProjectApiClient.SubmitEventResponseAsync(
+                AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
+
+            _selectedAnswerIndex = answerIndex;
+            Notifications.Show("Deine Antwort wurde gespeichert.", ParticipantToastSeverity.Success);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Notifications.Show("Fehler beim Übertragen: " + ex.Message, ParticipantToastSeverity.Error);
+            Notifications.Show("Fehler beim Übertragen: " + exception.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
@@ -104,24 +194,66 @@
         }
     }
 
-    private static string ReadString(JsonElement elem, string prop) =>
-        elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var val) && val.ValueKind == JsonValueKind.String
-            ? val.GetString() ?? string.Empty
+    private int? GetMyAnswerIndex()
+    {
+        var response = SlideResponses.FirstOrDefault(item => item.ParticipantId == ParticipantId);
+        return response is null ? null : ReadAnswerIndex(response);
+    }
+
+    private IEnumerable<EventResponseState> GetResponsesForAnswer(int answerIndex) =>
+        TeamResponses.Where(response => ReadAnswerIndex(response) == answerIndex);
+
+    private string GetParticipantLabel(EventResponseState response) =>
+        string.IsNullOrWhiteSpace(response.ParticipantName)
+            ? $"#{response.ParticipantNumber}"
+            : $"{response.ParticipantName} · #{response.ParticipantNumber}";
+
+    private static int? ReadAnswerIndex(EventResponseState response) =>
+        response.ResponseData.ValueKind == JsonValueKind.Object
+        && response.ResponseData.TryGetProperty("answerIndex", out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var answer)
+            ? answer
+            : null;
+
+    private bool IsCorrect(int index) => CorrectIndices.Contains(index);
+    private string GetAnswerText(int? index) =>
+        index is int value && value >= 0 && value < Answers.Count
+            ? $"{value + 1}. {Answers[value]}"
+            : "Keine Antwort";
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
             : string.Empty;
 
-    private static List<string> ReadStringList(JsonElement elem, string prop)
+    private static List<string> ReadStringList(JsonElement element, string property)
     {
-        var list = new List<string>();
-        if (elem.ValueKind == JsonValueKind.Object && elem.TryGetProperty(prop, out var arr) && arr.ValueKind == JsonValueKind.Array)
+        var result = new List<string>();
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var array)
+            && array.ValueKind == JsonValueKind.Array)
         {
-            foreach (var item in arr.EnumerateArray())
-            {
-                if (item.ValueKind == JsonValueKind.String)
-                {
-                    list.Add(item.GetString() ?? string.Empty);
-                }
-            }
+            result.AddRange(array.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString() ?? string.Empty));
         }
-        return list;
+        return result;
+    }
+
+    private static List<int> ReadIntList(JsonElement element, string property)
+    {
+        var result = new List<int>();
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var array)
+            && array.ValueKind == JsonValueKind.Array)
+        {
+            result.AddRange(array.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.Number)
+                .Select(item => item.GetInt32()));
+        }
+        return result;
     }
 }

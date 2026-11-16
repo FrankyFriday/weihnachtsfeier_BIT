@@ -132,8 +132,7 @@
             </div>
         }
 
-        <!-- EMBEDDED RESULT VIEW FOR CURRENT SLIDE -->
-        @if (Event.Slides.Length > Event.CurrentSlideIndex)
+        @if (Event.CurrentSlideIndex >= 0 && Event.Slides.Length > Event.CurrentSlideIndex)
         {
             var currentSlide = Event.Slides[Event.CurrentSlideIndex];
             <FrameworkDivider />
@@ -142,38 +141,15 @@
                 case "announcement":
                     <AnnouncementResultView Event="Event" CurrentSlide="currentSlide" />
                     break;
-                case "poll":
-                    <PollResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
                 case "quiz":
-                    <QuizResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
+                case "estimation":
+                    <QuestionWorkflowControls Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                     break;
                 case "ranking":
                     <RankingResultView Event="Event" CurrentSlide="currentSlide" />
                     break;
-                case "estimation":
-                    <EstimationResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "buzzer":
-                    <BuzzerResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
                 case "hitster":
                     <HitsterResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "text":
-                    <TextResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "word_cloud":
-                    <WordCloudResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "slider":
-                    <SliderResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "rating":
-                    <RatingResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                case "ordering":
-                    <OrderingResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
                     break;
                 case "countdown":
                     <CountdownResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
@@ -186,9 +162,6 @@
                     break;
                 case "pantomime":
                     <PantomimeResultView Event="Event" CurrentSlide="currentSlide" ProjectId="ProjectId" />
-                    break;
-                default:
-                    <FallbackResultView Event="Event" CurrentSlide="currentSlide" />
                     break;
             }
         }

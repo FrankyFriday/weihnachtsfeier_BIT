@@ -151,7 +151,7 @@
         var teamMode = tmProp.GetString();
         if (!string.Equals(teamMode, "team_exclusive", StringComparison.OrdinalIgnoreCase)) return false;
 
-        if (!Event.ActiveTeamId.HasValue) return false;
+        if (!Event.ActiveTeamId.HasValue) return true;
         if (!TeamId.HasValue) return true;
 
         return TeamId.Value != Event.ActiveTeamId.Value;

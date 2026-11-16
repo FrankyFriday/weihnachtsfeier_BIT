@@ -1,0 +1,651 @@
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeihnachtsfeierBit.Framework
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<section style="display: grid; gap: 14px; margin: 12px 0; padding: 16px; border: 1px solid #dce5e2; border-radius: 10px; background: #f8faf9;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+        <strong style="font-size: 17px;">Fragen-Regie</strong>
+        <FrameworkBadge Text="@PhaseLabel" Variant="@(_currentStep == 3 ? "primary" : "secondary")" />
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+        <nav aria-label="Fragenphasen" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+            <FrameworkButton Label="1 · Frage" Variant="@StepVariant(0)" OnClick="() => NavigateToStepAsync(0)" Disabled="@_busy" />
+            <FrameworkButton Label="2 · Antworten" Variant="@StepVariant(1)" OnClick="() => NavigateToStepAsync(1)" Disabled="@_busy" />
+            <FrameworkButton Label="3 · Antwortzeit beendet" Variant="@StepVariant(2)" OnClick="() => NavigateToStepAsync(2)" Disabled="@_busy" />
+            <FrameworkButton Label="4 · Auflösung" Variant="@StepVariant(3)" OnClick="() => NavigateToStepAsync(3)" Disabled="@_busy" />
+        </nav>
+        @if (_workflow.Phase is "question" or "answers")
+        {
+            <QuestionWorkflowTimerControl TimerEndsAtUtc="_workflow.TimerEndsAtUtc"
+                                          TimerPaused="_workflow.TimerPaused"
+                                          RemainingSeconds="_workflow.RemainingSeconds"
+                                          HasConfiguredTimer="@HasConfiguredTimer"
+                                          IsActive="true"
+                                          Disabled="@_busy"
+                                          OnPause="@(() => RunWorkflowAsync("pause-timer"))"
+                                          OnResume="@(() => RunWorkflowAsync("resume-timer"))"
+                                          OnReset="@(() => RunWorkflowAsync("reset-timer"))"
+                                          OnDisableTimer="@(() => RunWorkflowAsync("disable-timer"))"
+                                          OnSetSeconds="SetTimerAsync" />
+        }
+    </div>
+
+    <div style="padding: 14px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+        <strong style="display: block; margin-bottom: 10px; color: #1d2528;">@Question</strong>
+        @if (IsQuiz)
+        {
+            <div style="display: grid; gap: 6px;">
+                @for (int index = 0; index < Answers.Count; index++)
+                {
+                    var answerIndex = index;
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: @(IsResolution && CorrectIndices.Contains(answerIndex) ? "#e8f3ef" : "#f8faf9");">
+                        @if (IsResolution && CorrectIndices.Contains(answerIndex))
+                        {
+                            <FrameworkBadge Text="Richtig" Variant="primary" />
+                        }
+                        else
+                        {
+                            <FrameworkBadge Text="@($"{answerIndex + 1}")" Variant="secondary" />
+                        }
+                        <span>@Answers[answerIndex]</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <span style="color: #657276;">Einheit: @ReadString(CurrentSlide.Parameters, "unit")</span>
+        }
+    </div>
+
+    @if (_currentStep == 2 && IsTeamExclusive && IsQuiz)
+    {
+        <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+            <strong>Antwortzeit beendet · offizielle Teamantwort festlegen</strong>
+            <FrameworkSelect Id="official-quiz-answer"
+                             Label="Antwort für die Wertung"
+                             Value="@_selectedAnswer"
+                             ValueChanged="OnSelectedAnswerChanged"
+                             Options="@OfficialAnswerOptions" />
+            <FrameworkButton Label="Teamantwort übernehmen" Variant="secondary" OnClick="SaveOfficialAnswerAsync" Disabled="@_busy" />
+            @if (_workflow.OfficialAnswerIndex is null)
+            {
+                <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss eine offizielle Antwort festgelegt werden.</span>
+            }
+        </div>
+    }
+
+    @if (_currentStep == 2 && IsTeamExclusive && IsEstimation)
+    {
+        <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+            <strong>Antwortzeit beendet · offizielle Team-Schätzung festlegen</strong>
+            <label for="official-estimation">Offizieller Wert</label>
+            <FrameworkInputDouble Id="official-estimation" @bind-Value="_officialEstimationValue" />
+            <FrameworkButton Label="Teamwert festlegen" Variant="secondary" OnClick="SaveOfficialEstimationAsync" Disabled="@_busy" />
+            @if (_workflow.OfficialEstimationValue is null)
+            {
+                <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss ein offizieller Teamwert festgelegt werden.</span>
+            }
+        </div>
+    }
+
+    @if (IsResolution)
+    {
+        <div style="display: grid; gap: 8px; padding: 14px; border: 1px solid #b9d8cd; border-radius: 8px; background: #ffffff;">
+            <strong>Auflösung</strong>
+            @if (IsQuiz)
+            {
+                <span>Richtige Antwort: <strong>@string.Join(" / ", CorrectIndices.Select(GetAnswerText))</strong></span>
+                @if (IsTeamExclusive && _workflow.OfficialAnswerIndex is int officialAnswerIndex)
+                {
+                    <span>Offizielle Teamantwort: <strong>@GetAnswerText(officialAnswerIndex)</strong></span>
+                }
+            }
+            else
+            {
+                <span>Richtiger Wert: <strong>@ReadDouble(CurrentSlide.Parameters, "correctValue").ToString("G", CultureInfo.CurrentCulture) @ReadString(CurrentSlide.Parameters, "unit")</strong></span>
+                @if (IsTeamExclusive && _workflow.OfficialEstimationValue is double officialValue)
+                {
+                    <span>Offizielle Team-Schätzung: <strong>@officialValue.ToString("G", CultureInfo.CurrentCulture) @ReadString(CurrentSlide.Parameters, "unit")</strong></span>
+                }
+            }
+            @if (!string.IsNullOrWhiteSpace(ReadString(CurrentSlide.Parameters, "explanation")))
+            {
+                <p style="margin: 2px 0 0; color: #536164;">@ReadString(CurrentSlide.Parameters, "explanation")</p>
+            }
+        </div>
+    }
+
+    @if (IsResolution && _teams.Length > 0)
+    {
+        <div style="display: grid; gap: 8px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+            <strong>Schnelle Punkteanpassung</strong>
+            <FrameworkInputNumber Id="point-adjustment" @bind-Value="_pointAdjustment" Min="1" Style="max-width: 120px;" />
+            @foreach (var team in _teams)
+            {
+                var selectedTeam = team;
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <strong style="min-width: 100px;">@selectedTeam.DisplayName</strong>
+                    <span>@selectedTeam.Points Pkt</span>
+                    <FrameworkButton Label="@($"+{_pointAdjustment}")" Variant="secondary" OnClick="() => AdjustPointsAsync(selectedTeam, _pointAdjustment)" Disabled="@_busy" />
+                    <FrameworkButton Label="@($"−{_pointAdjustment}")" Variant="secondary" OnClick="() => AdjustPointsAsync(selectedTeam, -_pointAdjustment)" Disabled="@_busy" />
+                </div>
+            }
+        </div>
+    }
+
+    <div style="display: flex; justify-content: space-between; gap: 8px;">
+        <FrameworkButton Label="Zurück" Variant="secondary" OnClick="PreviousStepAsync" Disabled="@(_busy || _currentStep == 0)" />
+        <FrameworkButton Label="@(_currentStep == 2 ? "Auflösung anzeigen" : "Weiter")"
+                         Variant="primary"
+                         OnClick="NextStepAsync"
+                         Disabled="@(_busy || _currentStep == 3 || (_currentStep == 2 && !CanRevealResults))" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FrameworkNotice Message="@_error" Severity="error" />
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private TeamSummary[] _teams = [];
+    private bool _busy;
+    private string? _error;
+    private int _pointAdjustment = 10;
+    private int _currentStep;
+    private string _selectedAnswer = "majority";
+    private double _officialEstimationValue;
+    private Guid _loadedProjectId;
+    private Guid _loadedSlideId;
+    private string _lastObservedPhase = string.Empty;
+    private QuestionWorkflowViewState _workflow = new("question", null, false, 0, null, null);
+
+    private bool IsQuiz => string.Equals(CurrentSlide.Type, "quiz", StringComparison.OrdinalIgnoreCase);
+    private bool IsEstimation => string.Equals(CurrentSlide.Type, "estimation", StringComparison.OrdinalIgnoreCase);
+    private bool IsTeamExclusive => ReadString(CurrentSlide.Parameters, "teamMode") == "team_exclusive";
+    private bool IsResolution => _currentStep == 3;
+    private string Question => ReadString(CurrentSlide.Parameters, "question");
+    private string PhaseLabel => _workflow.Phase switch
+    {
+        "question" => "Frage",
+        "answers" => "Antworten",
+        "locked" => "Antwortzeit beendet",
+        "results" => "Auflösung",
+        _ => _workflow.Phase
+    };
+    private List<string> Answers => ReadStringList(CurrentSlide.Parameters, "answers");
+    private List<int> CorrectIndices => ReadIntList(CurrentSlide.Parameters, "correctAnswerIndices");
+    private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(item => item.SlideId == CurrentSlide.SlideId);
+    private IEnumerable<EventResponseState> TeamResponses => SlideResponses.Where(item => item.TeamId == Event.ActiveTeamId);
+    private int? MajorityAnswerIndex
+    {
+        get
+        {
+            var counts = TeamResponses
+                .Select(ReadAnswerIndex)
+                .Where(index => index.HasValue)
+                .GroupBy(index => index!.Value)
+                .Select(group => (Index: group.Key, Count: group.Count()))
+                .OrderByDescending(item => item.Count)
+                .ToArray();
+            return counts.Length > 0 && (counts.Length == 1 || counts[0].Count > counts[1].Count)
+                ? counts[0].Index
+                : null;
+        }
+    }
+    private bool CanRevealResults =>
+        !IsTeamExclusive
+        || (IsQuiz && _workflow.OfficialAnswerIndex.HasValue)
+        || (IsEstimation && _workflow.OfficialEstimationValue.HasValue);
+    private bool HasConfiguredTimer =>
+        ReadInt(CurrentSlide.Parameters, _workflow.Phase == "question" ? "questionTimeLimitSeconds" : "timeLimitSeconds") is > 0;
+    private FrameworkSelectOption[] OfficialAnswerOptions =>
+        new[] { new FrameworkSelectOption("majority", MajorityAnswerIndex is int majority ? $"Mehrheit: {GetAnswerText(majority)}" : "Mehrheit: noch nicht eindeutig") }
+        .Concat(Answers.Select((answer, index) => new FrameworkSelectOption(
+            index.ToString(CultureInfo.InvariantCulture),
+            $"{index + 1}. {answer}")))
+        .ToArray();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var previousWorkflow = _workflow;
+        _workflow = QuestionWorkflowViewState.Read(CurrentSlide.Parameters);
+        var slideChanged = CurrentSlide.SlideId != _loadedSlideId;
+        if (slideChanged || _workflow.Phase != _lastObservedPhase)
+        {
+            _currentStep = StepFromPhase(_workflow.Phase);
+            _lastObservedPhase = _workflow.Phase;
+        }
+        if (slideChanged || previousWorkflow.OfficialAnswerIndex != _workflow.OfficialAnswerIndex)
+        {
+            _selectedAnswer = _workflow.OfficialAnswerIndex?.ToString(CultureInfo.InvariantCulture) ?? "majority";
+        }
+        if (slideChanged || previousWorkflow.OfficialEstimationValue != _workflow.OfficialEstimationValue)
+        {
+            _officialEstimationValue = _workflow.OfficialEstimationValue ?? 0;
+        }
+        _loadedSlideId = CurrentSlide.SlideId;
+
+        if (ProjectId != Guid.Empty && ProjectId != _loadedProjectId)
+        {
+            try
+            {
+                var token = await GetTokenAsync();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
+                    _loadedProjectId = ProjectId;
+                }
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+            }
+        }
+    }
+
+    private async Task NavigateToStepAsync(int targetStep)
+    {
+        if (_busy || targetStep is < 0 or > 3 || targetStep == _currentStep)
+        {
+            return;
+        }
+
+        if (targetStep == 0)
+        {
+            if (await RunWorkflowRequestAsync("back-to-question"))
+            {
+                _currentStep = 0;
+            }
+            return;
+        }
+
+        if (targetStep == 1)
+        {
+            if (_workflow.Phase == "question")
+            {
+                if (await RunWorkflowRequestAsync("open-answers"))
+                {
+                    _currentStep = 1;
+                }
+            }
+            else if (_workflow.Phase is "locked" or "results")
+            {
+                if (await RunWorkflowRequestAsync("reopen-answers"))
+                {
+                    _currentStep = 1;
+                }
+            }
+            else
+            {
+                _currentStep = 1;
+            }
+            return;
+        }
+
+        if (targetStep == 2)
+        {
+            if (_workflow.Phase == "question")
+            {
+                _error = "Öffne zuerst die Antwortphase.";
+                return;
+            }
+            if (_workflow.Phase is "answers" or "results")
+            {
+                if (await RunWorkflowRequestAsync("lock-answers"))
+                {
+                    _currentStep = 2;
+                }
+            }
+            else
+            {
+                _currentStep = 2;
+            }
+            return;
+        }
+
+        if (_workflow.Phase == "results")
+        {
+            _currentStep = 3;
+            return;
+        }
+        if (_workflow.Phase != "locked")
+        {
+            _error = _workflow.Phase == "question"
+                ? "Öffne zuerst die Antwortphase."
+                : "Beende zuerst die Antwortzeit, bevor du die Auflösung freigibst.";
+            return;
+        }
+        if (IsTeamExclusive && !CanRevealResults)
+        {
+            _error = "Lege zuerst die offizielle Teamantwort bzw. den offiziellen Teamwert fest.";
+            return;
+        }
+        if (await RunWorkflowRequestAsync("reveal"))
+        {
+            _currentStep = 3;
+        }
+    }
+
+    private Task NextStepAsync() => NavigateToStepAsync(_currentStep + 1);
+    private Task PreviousStepAsync() => NavigateToStepAsync(_currentStep - 1);
+    private string StepVariant(int step) => _currentStep == step ? "primary" : "secondary";
+
+    private async Task SaveOfficialAnswerAsync()
+    {
+        int? answerIndex = _selectedAnswer == "majority"
+            ? MajorityAnswerIndex
+            : int.TryParse(_selectedAnswer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var selectedIndex)
+                ? selectedIndex
+                : null;
+        if (!answerIndex.HasValue)
+        {
+            _error = "Die Stimmen sind noch nicht eindeutig. Wähle eine Antwort manuell aus.";
+            return;
+        }
+
+        if (await RunWorkflowRequestAsync("set-official-answer", officialAnswerIndex: answerIndex))
+        {
+            _workflow = _workflow with { OfficialAnswerIndex = answerIndex };
+        }
+    }
+
+    private async Task SaveOfficialEstimationAsync()
+    {
+        if (!double.IsFinite(_officialEstimationValue))
+        {
+            _error = "Bitte einen gültigen offiziellen Schätzwert eingeben.";
+            return;
+        }
+
+        if (await RunWorkflowRequestAsync("set-official-estimation", officialEstimationValue: _officialEstimationValue))
+        {
+            _workflow = _workflow with { OfficialEstimationValue = _officialEstimationValue };
+        }
+    }
+
+    private Task OnSelectedAnswerChanged(string? value)
+    {
+        _selectedAnswer = value ?? "majority";
+        return Task.CompletedTask;
+    }
+
+    private Task SetTimerAsync(int seconds) => RunWorkflowAsync("set-timer", seconds: seconds);
+
+    private Task RunWorkflowAsync(
+        string action,
+        int? seconds = null,
+        int? officialAnswerIndex = null,
+        double? officialEstimationValue = null) =>
+        RunWorkflowRequestAsync(action, seconds, officialAnswerIndex, officialEstimationValue);
+
+    private async Task<bool> RunWorkflowRequestAsync(
+        string action,
+        int? seconds = null,
+        int? officialAnswerIndex = null,
+        double? officialEstimationValue = null)
+    {
+        var succeeded = await RunAsync(token => ProjectApiClient.UpdateQuestionWorkflowAsync(
+            token,
+            ProjectId,
+            Event.EventId,
+            CurrentSlide.SlideId,
+            action,
+            seconds,
+            officialAnswerIndex,
+            officialEstimationValue));
+        if (!succeeded)
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        switch (action)
+        {
+            case "back-to-question":
+                _workflow = StartLocalPhase("question", "questionTimeLimitSeconds", now);
+                break;
+            case "open-answers":
+            case "reopen-answers":
+                _workflow = StartLocalPhase("answers", "timeLimitSeconds", now);
+                if (IsTeamExclusive)
+                {
+                    _workflow = _workflow with { OfficialAnswerIndex = null, OfficialEstimationValue = null };
+                }
+                break;
+            case "lock-answers":
+                _workflow = _workflow with
+                {
+                    Phase = "locked",
+                    TimerEndsAtUtc = null,
+                    TimerPaused = false,
+                    RemainingSeconds = 0
+                };
+                break;
+            case "reveal":
+                _workflow = _workflow with
+                {
+                    Phase = "results",
+                    TimerEndsAtUtc = null,
+                    TimerPaused = false,
+                    RemainingSeconds = 0
+                };
+                break;
+            case "pause-timer":
+                _workflow = _workflow with
+                {
+                    TimerEndsAtUtc = null,
+                    TimerPaused = true,
+                    RemainingSeconds = GetLocalRemainingSeconds(now)
+                };
+                break;
+            case "resume-timer":
+                _workflow = _workflow with
+                {
+                    TimerEndsAtUtc = now.AddSeconds(_workflow.RemainingSeconds),
+                    TimerPaused = false
+                };
+                break;
+            case "set-timer":
+                if (seconds == 0 && _workflow.Phase == "question")
+                {
+                    _workflow = StartLocalPhase("answers", "timeLimitSeconds", now);
+                }
+                else if (seconds == 0 && _workflow.Phase == "answers")
+                {
+                    _workflow = _workflow with
+                    {
+                        Phase = "locked",
+                        TimerEndsAtUtc = null,
+                        TimerPaused = false,
+                        RemainingSeconds = 0
+                    };
+                }
+                else
+                {
+                    _workflow = _workflow with
+                    {
+                        TimerEndsAtUtc = seconds is > 0 ? now.AddSeconds(seconds.Value) : null,
+                        TimerPaused = false,
+                        RemainingSeconds = seconds ?? 0
+                    };
+                }
+                break;
+            case "reset-timer":
+                var timerProperty = _workflow.Phase == "question" ? "questionTimeLimitSeconds" : "timeLimitSeconds";
+                _workflow = StartLocalPhase(_workflow.Phase, timerProperty, now);
+                break;
+            case "disable-timer":
+                _workflow = _workflow with
+                {
+                    TimerEndsAtUtc = null,
+                    TimerPaused = false,
+                    RemainingSeconds = 0
+                };
+                break;
+            case "set-official-answer":
+                _workflow = _workflow with { OfficialAnswerIndex = officialAnswerIndex };
+                break;
+            case "clear-official-answer":
+                _workflow = _workflow with { OfficialAnswerIndex = null };
+                break;
+            case "set-official-estimation":
+                _workflow = _workflow with { OfficialEstimationValue = officialEstimationValue };
+                break;
+        }
+
+        return true;
+    }
+
+    private QuestionWorkflowViewState StartLocalPhase(string phase, string timerProperty, DateTimeOffset now)
+    {
+        var duration = ReadInt(CurrentSlide.Parameters, timerProperty) ?? 0;
+        return _workflow with
+        {
+            Phase = phase,
+            TimerEndsAtUtc = duration > 0 ? now.AddSeconds(duration) : null,
+            TimerPaused = false,
+            RemainingSeconds = duration
+        };
+    }
+
+    private int GetLocalRemainingSeconds(DateTimeOffset now) =>
+        _workflow.TimerPaused
+            ? _workflow.RemainingSeconds
+            : _workflow.TimerEndsAtUtc.HasValue
+                ? Math.Max(0, (int)Math.Ceiling((_workflow.TimerEndsAtUtc.Value - now).TotalSeconds))
+                : 0;
+
+    private async Task AdjustPointsAsync(TeamSummary team, int delta)
+    {
+        if (delta == 0 || _pointAdjustment < 1)
+        {
+            return;
+        }
+
+        if (await RunAsync(async token =>
+        {
+            await ProjectApiClient.AwardTeamPointsAsync(
+                token,
+                ProjectId,
+                team.Id,
+                delta,
+                $"{(IsQuiz ? "Quiz" : "Schätzfrage")}: manuelle Regieanpassung");
+            _teams = await ProjectApiClient.GetTeamsAsync(token, ProjectId);
+        }))
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task<bool> RunAsync(Func<string, Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Die Admin-Sitzung ist nicht verfügbar.";
+                return false;
+            }
+            await action(token);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+            return false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task<string> GetTokenAsync()
+    {
+        var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
+    }
+
+    private static int StepFromPhase(string phase) => phase switch
+    {
+        "answers" => 1,
+        "locked" => 2,
+        "results" => 3,
+        _ => 0
+    };
+
+    private string GetAnswerText(int index) =>
+        index >= 0 && index < Answers.Count ? $"{index + 1}. {Answers[index]}" : "—";
+
+    private static int? ReadAnswerIndex(EventResponseState response) =>
+        response.ResponseData.ValueKind == JsonValueKind.Object
+        && response.ResponseData.TryGetProperty("answerIndex", out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var index)
+            ? index
+            : null;
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static int? ReadInt(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var number)
+            ? number
+            : null;
+
+    private static double ReadDouble(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetDouble(out var number)
+            ? number
+            : 0;
+
+    private static List<string> ReadStringList(JsonElement element, string property)
+    {
+        var values = new List<string>();
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var array)
+            && array.ValueKind == JsonValueKind.Array)
+        {
+            values.AddRange(array.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString() ?? string.Empty));
+        }
+        return values;
+    }
+
+    private static List<int> ReadIntList(JsonElement element, string property)
+    {
+        var values = new List<int>();
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var array)
+            && array.ValueKind == JsonValueKind.Array)
+        {
+            values.AddRange(array.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.Number)
+                .Select(item => item.GetInt32()));
+        }
+        return values;
+    }
+}

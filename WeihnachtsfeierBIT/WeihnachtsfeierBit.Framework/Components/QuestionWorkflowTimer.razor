@@ -1,0 +1,41 @@
+@implements IDisposable
+
+<span class="question-workflow-timer" role="timer" aria-live="off">
+    @if (TimerPaused)
+    {
+        <span>Pausiert · @Format(Remaining)</span>
+    }
+    else if (TimerEndsAtUtc.HasValue)
+    {
+        <span>@Format(Remaining)</span>
+    }
+</span>
+
+@code {
+    [Parameter] public DateTimeOffset? TimerEndsAtUtc { get; set; }
+    [Parameter] public bool TimerPaused { get; set; }
+    [Parameter] public int RemainingSeconds { get; set; }
+
+    private System.Threading.Timer? _timer;
+    private int Remaining => TimerPaused
+        ? Math.Max(0, RemainingSeconds)
+        : TimerEndsAtUtc.HasValue
+            ? Math.Max(0, (int)Math.Ceiling((TimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalSeconds))
+            : 0;
+
+    protected override void OnInitialized()
+    {
+        _timer = new System.Threading.Timer(
+            _ => _ = InvokeAsync(StateHasChanged),
+            null,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+
+    private static string Format(int seconds) => $"{seconds / 60:00}:{seconds % 60:00}";
+}

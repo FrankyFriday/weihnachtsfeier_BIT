@@ -29,7 +29,11 @@
 
 <FrameworkCheckbox @bind-Value="Slide.QuizEnableSpeedBonus" Label="Geschwindigkeits-Bonus aktivieren" />
 
-<FrameworkFormGroup Label="Zeitlimit in Sekunden" HelpText="optional" ForId="quiz-time-limit">
+<FrameworkFormGroup Label="Frage anzeigen für (Sekunden)" HelpText="optional; danach beginnt automatisch die Antwortphase" ForId="quiz-question-time-limit">
+    <FrameworkInputNumber Id="quiz-question-time-limit" @bind-Value="Slide.QuizQuestionTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 10" />
+</FrameworkFormGroup>
+
+<FrameworkFormGroup Label="Antwortzeit (Sekunden)" HelpText="optional; danach werden Antworten gesperrt" ForId="quiz-time-limit">
     <FrameworkInputNumber Id="quiz-time-limit" @bind-Value="Slide.QuizTimeLimitSeconds" Min="5" Max="300" Placeholder="z. B. 30" />
 </FrameworkFormGroup>
 

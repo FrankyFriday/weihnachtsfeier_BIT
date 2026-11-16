@@ -1,0 +1,118 @@
+@namespace WeihnachtsfeierBit.Framework
+
+<div style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+    <button type="button"
+            title="Verbleibende Zeit bearbeiten"
+            aria-label="Verbleibende Zeit bearbeiten"
+            disabled="@(!CanControl)"
+            @onclick="OpenEditor"
+            style="display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 8px; border: 1px solid #dce5e2; border-radius: 7px; background: #ffffff; color: #1d2528; font: inherit; font-variant-numeric: tabular-nums; cursor: @(CanControl ? "pointer" : "default");">
+        @if (TimerPaused || TimerEndsAtUtc.HasValue)
+        {
+            <QuestionWorkflowTimer TimerEndsAtUtc="TimerEndsAtUtc"
+                                  TimerPaused="TimerPaused"
+                                  RemainingSeconds="RemainingSeconds" />
+        }
+        else
+        {
+            <span class="question-workflow-timer" role="timer" aria-live="off">00:00</span>
+        }
+        @if (CanControl)
+        {
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 16px;">edit</span>
+        }
+    </button>
+
+    <FrameworkIconButton Icon="@(TimerPaused ? "play_arrow" : "pause")"
+                         Title="@(TimerPaused ? "Timer fortsetzen" : "Timer pausieren")"
+                         OnClick="@(TimerPaused ? OnResume : OnPause)"
+                         Disabled="@(!CanControl || Disabled || (!TimerPaused && !TimerEndsAtUtc.HasValue))"
+                         Style="width: 36px; height: 36px; padding: 0;" />
+    <FrameworkIconButton Icon="timer_off"
+                         Title="Timer ablaufen lassen und zum nächsten Schritt wechseln"
+                         OnClick="SetToZeroAsync"
+                         Disabled="@(!CanControl || Disabled)"
+                         Style="width: 36px; height: 36px; padding: 0;" />
+    <FrameworkIconButton Icon="restart_alt"
+                         Title="Timer neu starten"
+                         OnClick="OnReset"
+                         Disabled="@(!CanControl || Disabled || !HasConfiguredTimer)"
+                         Style="width: 36px; height: 36px; padding: 0;" />
+</div>
+
+<FrameworkModal IsOpen="_editorOpen" Title="Timerzeit festlegen" OnClose="CloseEditor">
+    <div style="display: grid; gap: 12px;">
+        <label for="workflow-timer-seconds">Verbleibende Zeit in Sekunden</label>
+        <FrameworkInputNumber TValue="int"
+                              Id="workflow-timer-seconds"
+                              @bind-Value="_seconds"
+                              Min="0"
+                              Max="3600"
+                              Step="1"
+                              Disabled="@Disabled"
+                              Style="max-width: 180px;" />
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <FrameworkButton Label="Timer deaktivieren"
+                             Variant="secondary"
+                             OnClick="DisableTimerAsync"
+                             Disabled="@Disabled" />
+            <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseEditor" />
+            <FrameworkButton Label="Zeit setzen" Variant="primary" OnClick="ApplySecondsAsync" Disabled="@Disabled" />
+        </div>
+    </div>
+</FrameworkModal>
+
+@code {
+    [Parameter] public DateTimeOffset? TimerEndsAtUtc { get; set; }
+    [Parameter] public bool TimerPaused { get; set; }
+    [Parameter] public int RemainingSeconds { get; set; }
+    [Parameter] public bool HasConfiguredTimer { get; set; }
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnPause { get; set; }
+    [Parameter] public EventCallback OnResume { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public EventCallback OnDisableTimer { get; set; }
+    [Parameter] public EventCallback<int> OnSetSeconds { get; set; }
+
+    private bool _editorOpen;
+    private int _seconds;
+    private bool CanControl => IsActive && !Disabled;
+
+    private int CurrentSeconds => TimerPaused
+        ? Math.Max(0, RemainingSeconds)
+        : TimerEndsAtUtc.HasValue
+            ? Math.Max(0, (int)Math.Ceiling((TimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalSeconds))
+            : 0;
+
+    private void OpenEditor()
+    {
+        _seconds = CurrentSeconds;
+        _editorOpen = true;
+    }
+
+    private Task CloseEditor()
+    {
+        _editorOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplySecondsAsync()
+    {
+        if (_seconds is < 0 or > 3600 || Disabled)
+        {
+            return;
+        }
+
+        await OnSetSeconds.InvokeAsync(_seconds);
+        _editorOpen = false;
+    }
+
+    private Task SetToZeroAsync() => OnSetSeconds.InvokeAsync(0);
+
+    private async Task DisableTimerAsync()
+    {
+        await OnDisableTimer.InvokeAsync();
+        _editorOpen = false;
+    }
+}

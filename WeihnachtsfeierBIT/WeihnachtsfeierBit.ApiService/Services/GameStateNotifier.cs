@@ -18,7 +18,8 @@ public interface IGameStateNotifier
 public sealed class GameStateNotifier(
     IServiceScopeFactory scopeFactory,
     IHubContext<GameStateHub> hubContext,
-    IHubContext<CanvasHub> canvasHubContext) : IGameStateNotifier
+    IHubContext<CanvasHub> canvasHubContext,
+    ProjectHubConnectionManager connectionManager) : IGameStateNotifier
 {
     public async Task NotifyProjectChangedAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -28,8 +29,23 @@ public sealed class GameStateNotifier(
         var gameState = await BuildProjectGameStateAsync(projectId, dbContext, cancellationToken);
         if (gameState is null) return;
 
+        var participantTeams = await dbContext.Teilnehmer.AsNoTracking()
+            .Where(participant => participant.ProjektId == projectId)
+            .ToDictionaryAsync(participant => participant.Id, participant => participant.TeamId, cancellationToken);
+        await connectionManager.SyncParticipantTeamGroupsAsync(projectId, participantTeams, cancellationToken);
+
         var groupName = GameStateHub.GetGroupName(projectId);
-        await hubContext.Clients.Group(groupName).SendAsync("GameStateUpdated", gameState, cancellationToken);
+        var publicState = QuestionWorkflowService.FilterProjectState(gameState, null);
+        await hubContext.Clients.Group(groupName).SendAsync("GameStateUpdated", publicState, cancellationToken);
+        await hubContext.Clients.Group(GameStateHub.GetAdminGroupName(projectId))
+            .SendAsync("GameStateUpdated", gameState, cancellationToken);
+
+        if (gameState.ActiveEvent?.ActiveTeamId is Guid activeTeamId)
+        {
+            var activeTeamState = QuestionWorkflowService.FilterProjectState(gameState, activeTeamId);
+            await hubContext.Clients.Group(GameStateHub.GetTeamGroupName(projectId, activeTeamId))
+                .SendAsync("GameStateUpdated", activeTeamState, cancellationToken);
+        }
 
         var accessCode = await dbContext.GameInstances.AsNoTracking()
             .Where(instance => instance.ProjektId == projectId)
@@ -156,6 +172,21 @@ public sealed class GameStateNotifier(
                 : CanvasDisplaySettings.FromJson(instance.CanvasSettingsJson));
     }
 
+    private static JsonElement PreserveAdminNotes(JsonElement originalParameters, JsonElement filteredParameters)
+    {
+        if (originalParameters.ValueKind != JsonValueKind.Object
+            || !originalParameters.TryGetProperty("adminNotes", out var notes)
+            || filteredParameters.ValueKind != JsonValueKind.Object)
+        {
+            return filteredParameters;
+        }
+
+        var result = filteredParameters.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value.Clone());
+        result["adminNotes"] = notes.Clone();
+        return JsonSerializer.SerializeToElement(result);
+    }
+
     private static EventState ToEventState(
         GameInstanceEvent gie,
         IReadOnlyDictionary<Guid, HashSet<Guid>> teamParticipantIds)
@@ -174,11 +205,15 @@ public sealed class GameStateNotifier(
                     JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
                     if (type.Equals("hitster", StringComparison.OrdinalIgnoreCase))
                     {
-                        paramsElem = HitsterGameService.PublicParameters(paramsElem, teamParticipantIds);
+                        paramsElem = PreserveAdminNotes(
+                            paramsElem,
+                            HitsterGameService.PublicParameters(paramsElem, teamParticipantIds));
                     }
                     else if (type.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
                     {
-                        paramsElem = PantomimeGameService.PublicParameters(paramsElem);
+                        paramsElem = PreserveAdminNotes(
+                            paramsElem,
+                            PantomimeGameService.PublicParameters(paramsElem));
                     }
 
                     slideStates.Add(new EventSlideState(slideId, type, pos, paramsElem));
@@ -213,7 +248,8 @@ public sealed class GameStateNotifier(
                     r.Participant.Team?.DisplayName,
                     r.Participant.Team?.Color,
                     responseData,
-                    r.SubmittedAtUtc);
+                    r.SubmittedAtUtc,
+                    r.Participant.TeamId);
             })
             .ToArray();
 

@@ -85,7 +85,7 @@
             _accessToken = token;
             if (_state is not null && _state.ProjectId != ProjectId)
             {
-                _state.OnStateChanged -= StateHasChanged;
+                _state.OnStateChanged -= HandleStateChanged;
                 await _state.DisposeAsync();
                 _state = null;
             }
@@ -98,11 +98,13 @@
                     Configuration,
                     Logger,
                     async action => await RunAuthenticatedAsync(action));
-                _state.OnStateChanged += StateHasChanged;
+                _state.OnStateChanged += HandleStateChanged;
                 await _state.InitializeAsync();
             }
         });
     }
+
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
     private string? GetCanvasUrl() => _state?.Instance is { } instance
         ? Navigation.ToAbsoluteUri($"/play/beamer/{instance.AccessCode}").ToString()
@@ -136,7 +138,7 @@
     {
         if (_state is not null)
         {
-            _state.OnStateChanged -= StateHasChanged;
+            _state.OnStateChanged -= HandleStateChanged;
             await _state.DisposeAsync();
         }
     }

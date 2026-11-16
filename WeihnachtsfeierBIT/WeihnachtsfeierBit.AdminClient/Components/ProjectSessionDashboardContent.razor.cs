@@ -90,11 +90,13 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
             if (_state is null)
             {
                 _state = new SessionDashboardState(ProjectId, ProjectApiClient, Configuration, Logger, async action => await RunAuthenticatedAsync(action));
-                _state.OnStateChanged += StateHasChanged;
+                _state.OnStateChanged += HandleStateChanged;
                 await _state.InitializeAsync();
             }
         });
     }
+
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
     private string? GetCanvasUrl() => _state?.Instance?.AccessCode is not null
         ? Navigation.ToAbsoluteUri($"/play/beamer/{_state.Instance.AccessCode}").ToString()
@@ -181,7 +183,7 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
     {
         if (_state is not null)
         {
-            _state.OnStateChanged -= StateHasChanged;
+            _state.OnStateChanged -= HandleStateChanged;
             await _state.DisposeAsync();
         }
     }
