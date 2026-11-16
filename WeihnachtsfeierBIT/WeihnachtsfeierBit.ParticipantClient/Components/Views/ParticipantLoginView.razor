@@ -1,54 +1,142 @@
-<div style="max-width: 480px; margin: 40px auto; padding: 0 16px;">
-    <Card Class="settings-card">
-        <PageHeading Eyebrow="TEILNEHMER-LOGIN" Title="@(ResolvedSession?.ProjectName ?? Project?.Name ?? "Willkommen!")" Description="@LoginDescription" />
+<main class="participant-login-page">
+    <Card Class="settings-card participant-login-card">
+        <div @key="LoginStepKey" class="participant-login-step">
+            @if (ResolvedSession is null)
+            {
+                <PageHeading Eyebrow="TEILNEHMER-LOGIN" Title="Willkommen!" Description="Gib den Session-Code ein." />
+            }
+            else
+            {
+                <PageHeading Eyebrow="@ResolvedSession.ProjectName" Title="Dabei sein" Description="Gib deine Teilnehmernummer ein." />
+            }
 
-        @if (!string.IsNullOrEmpty(ErrorMessage))
-        {
-            <div style="margin-bottom: 16px;">
-                <FrameworkNotice Message="@ErrorMessage" Severity="error" />
-            </div>
-        }
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="participant-login-error">
+                    <FrameworkNotice Message="@ErrorMessage" Severity="error" />
+                </div>
+            }
 
-        @if (ResolvedSession is null)
-        {
-            <form @onsubmit="OnCheckCode" @onsubmit:preventDefault="true">
-                <FrameworkFormGroup Label="6-stelliger Session-Code" ForId="session-code">
-                    <FrameworkInputText Id="session-code" Value="@SessionCodeInput" ValueChanged="SessionCodeChanged" Placeholder="z. B. 482910" MaxLength="6" />
-                </FrameworkFormGroup>
-                <div style="margin-top: 20px;">
-                    <FrameworkButton Label="@(IsSubmitting ? "Prüfe Code ..." : "Session-Code prüfen")" Variant="primary" Type="submit" Disabled="@IsSubmitting" />
-                </div>
-            </form>
-        }
-        else
-        {
-            <form @onsubmit="OnLogin" @onsubmit:preventDefault="true">
-                <FrameworkFormGroup Label="Deine Teilnehmernummer" ForId="participant-number">
-                    <FrameworkInputNumber Id="participant-number" Value="ParticipantNumberInput" ValueChanged="ParticipantNumberChanged" Min="1" />
-                </FrameworkFormGroup>
-                <div class="framework-button-row" style="margin-top: 20px; display: flex; gap: 10px;">
-                    <FrameworkButton Label="Code ändern" Variant="secondary" OnClick="OnResetCode" />
-                    <FrameworkButton Label="@(IsSubmitting ? "Melde an ..." : "Anmelden & Beitreten")" Variant="primary" Type="submit" Disabled="@IsSubmitting" />
-                </div>
-            </form>
-        }
+            @if (ResolvedSession is null)
+            {
+                <form @onsubmit="OnCheckCode" @onsubmit:preventDefault="true">
+                    <label class="participant-field-label" for="session-code">Session-Code</label>
+                    <div class="participant-digit-field @( _isSessionCodeFocused ? "is-focused" : string.Empty)">
+                        <div class="participant-digit-slots" aria-hidden="true">
+                            @for (var index = 0; index < 6; index++)
+                            {
+                                <span>@(SessionCodeInput is not null && index < SessionCodeInput.Length ? SessionCodeInput[index] : '—')</span>
+                            }
+                        </div>
+                        <input @ref="_sessionCodeElement"
+                               id="session-code"
+                               class="participant-digit-input"
+                               type="text"
+                               inputmode="numeric"
+                               autocomplete="one-time-code"
+                               aria-label="Sechsstelliger Session-Code"
+                               maxlength="6"
+                               value="@SessionCodeInput"
+                               @oninput="OnSessionCodeInput"
+                               @onfocus="() => _isSessionCodeFocused = true"
+                               @onblur="() => _isSessionCodeFocused = false" />
+                    </div>
+                    <button class="participant-primary-button" type="submit" disabled="@IsSubmitting">
+                        @(IsSubmitting ? "Wird geprüft ..." : "Weiter")
+                    </button>
+                </form>
+            }
+            else
+            {
+                <form @onsubmit="OnLogin" @onsubmit:preventDefault="true">
+                    <label class="participant-field-label" for="participant-number">Teilnehmernummer · @ParticipantNumberLengthHint</label>
+                    <div class="participant-digit-field participant-number-field @(_isParticipantNumberFocused ? "is-focused" : string.Empty)"
+                         style="@($"--participant-digit-count: {ParticipantDigitCount}")">
+                        <div class="participant-digit-slots" aria-hidden="true">
+                            @for (var index = 0; index < ParticipantDigitCount; index++)
+                            {
+                                <span>@(index < ParticipantNumberInput.Length ? ParticipantNumberInput[index] : '—')</span>
+                            }
+                        </div>
+                        <input @ref="_participantNumberElement"
+                               id="participant-number"
+                               class="participant-digit-input"
+                               type="text"
+                               inputmode="numeric"
+                               autocomplete="off"
+                               aria-label="@($"Teilnehmernummer, {ResolvedSession.MinParticipantNumberLength} bis {ResolvedSession.MaxParticipantNumberLength} Ziffern")"
+                               maxlength="@ResolvedSession.MaxParticipantNumberLength"
+                               value="@ParticipantNumberInput"
+                               @oninput="OnParticipantNumberInput"
+                               @onfocus="() => _isParticipantNumberFocused = true"
+                               @onblur="() => _isParticipantNumberFocused = false" />
+                    </div>
+                    <button class="participant-primary-button" type="submit" disabled="@IsSubmitting">
+                        @(IsSubmitting ? "Wird angemeldet ..." : "Beitreten")
+                    </button>
+                    <button class="participant-text-button" type="button" @onclick="OnResetCode">Anderen Code eingeben</button>
+                </form>
+            }
+        </div>
     </Card>
-</div>
+</main>
 
 @code {
     [Parameter] public string? SessionCodeInput { get; set; }
     [Parameter] public ResolveCodeResponse? ResolvedSession { get; set; }
-    [Parameter] public ProjectResponse? Project { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public bool IsSubmitting { get; set; }
-    [Parameter] public int ParticipantNumberInput { get; set; } = 10;
+    [Parameter] public string ParticipantNumberInput { get; set; } = string.Empty;
     [Parameter] public EventCallback<string?> SessionCodeChanged { get; set; }
-    [Parameter] public EventCallback<int> ParticipantNumberChanged { get; set; }
+    [Parameter] public EventCallback<string> ParticipantNumberChanged { get; set; }
     [Parameter] public EventCallback OnCheckCode { get; set; }
     [Parameter] public EventCallback OnLogin { get; set; }
     [Parameter] public EventCallback OnResetCode { get; set; }
 
-    private string LoginDescription => ResolvedSession is not null
-        ? $"Gib deine Teilnehmernummer ein, um der Session (Code: {ResolvedSession.Code}) beizutreten."
-        : "Gib den 6-stelligen Session-Code des Spielleiters ein.";
+    private ElementReference _sessionCodeElement;
+    private ElementReference _participantNumberElement;
+    private bool _isSessionCodeFocused;
+    private bool _isParticipantNumberFocused;
+    private string? _focusedStep;
+
+    private int ParticipantDigitCount => Math.Max(
+        ResolvedSession?.MaxParticipantNumberLength ?? 1,
+        ResolvedSession?.MinParticipantNumberLength ?? 1);
+    private string ParticipantNumberLengthHint =>
+        ResolvedSession?.MinParticipantNumberLength == ResolvedSession?.MaxParticipantNumberLength
+            ? $"{ResolvedSession?.MaxParticipantNumberLength} Ziffern"
+            : $"{ResolvedSession?.MinParticipantNumberLength}–{ResolvedSession?.MaxParticipantNumberLength} Ziffern";
+    private Guid LoginStepKey => ResolvedSession?.GameInstanceId ?? Guid.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var currentStep = ResolvedSession is null ? "code" : "number";
+        if (_focusedStep == currentStep)
+        {
+            return;
+        }
+
+        _focusedStep = currentStep;
+        if (ResolvedSession is null)
+        {
+            await _sessionCodeElement.FocusAsync();
+        }
+        else
+        {
+            await _participantNumberElement.FocusAsync();
+        }
+    }
+
+    private async Task OnSessionCodeInput(ChangeEventArgs args)
+    {
+        var code = new string((args.Value?.ToString() ?? string.Empty).Where(char.IsAsciiDigit).Take(6).ToArray());
+        await SessionCodeChanged.InvokeAsync(code);
+    }
+
+    private async Task OnParticipantNumberInput(ChangeEventArgs args)
+    {
+        var maxLength = ResolvedSession?.MaxParticipantNumberLength ?? 6;
+        var number = new string((args.Value?.ToString() ?? string.Empty).Where(char.IsAsciiDigit).Take(maxLength).ToArray());
+        await ParticipantNumberChanged.InvokeAsync(number);
+    }
 }

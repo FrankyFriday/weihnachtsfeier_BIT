@@ -4,7 +4,7 @@
 
 WeihnachtsfeierBIT ist eine interaktive Event-Software für Feiern, Teamevents und Spielabende. Innerhalb eines Projekts sammeln Teams über verschiedene Spiele hinweg Punkte. Spiele können spontan gestartet oder in vorbereiteten Shows durchgeführt werden. Eine Show besteht aus geordneten Slides; jede Slide beschreibt ein interaktives Spielelement, wie etwa Quizfragen, Hitster-Musikraten, Jeopardy-Kategoriengitter, Abstimmungen, Punktevergaben oder Live-Ranglisten.
 
-Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden oder zwischen Administratoren geteilt werden. Teilnehmer melden sich über einen 6-stelligen Projekt-Code und ihre Teilnehmernummer auf ihrem Smartphone an.
+Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden oder zwischen Administratoren geteilt werden. Teilnehmer melden sich über einen 6-stelligen Session-Code und ihre Teilnehmernummer auf ihrem Smartphone an.
 
 ## Rollen und Berechtigungskonzept
 
@@ -15,6 +15,12 @@ Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden o
 | **Show-Ersteller** | Eigene Shows erstellen & teilen | Besitzt die Show; kann Folien bearbeiten, die Show duplizieren, löschen oder für andere Admins freigeben. |
 | **Teilnehmer** | Mit Smartphone interaktiv teilnehmen | Login per Code & Nummer; zeigt aktive Events, Eingabemasken, Live-Ergebnisse, Chat, Musik-Wünsche und Infoseiten. Schaltet bei Verbindungsabbruch oder Pausierung automatisch Vollbild-Overlays frei. |
 | **Beamer / Leinwand (`Canvas`)** | Projektion für den Saal | Unter `/play/beamer/{SessionCode}`. Zeigt das vom Spielleiter ausgewählte Live-Event, den Beamer-Fokus sowie animierte Live-Säulendiagramme mit Punktestand. |
+
+## Teilnehmer-Client
+
+Der Einstieg unter `/play` führt in einer kurzen, mobiloptimierten Schrittfolge zur Eingabe von Session-Code und Teilnehmernummer. Der öffentliche Code-Resolver liefert die minimale und maximale Ziffernzahl der im Projekt angelegten Teilnehmernummern. Nach der Anmeldung lautet die URL `/play/{session-code}/{teilnehmernummer}`; ein Neuladen meldet anhand dieser Route erneut an, ohne ein Sitzungstoken in der URL oder im Browser-Speicher abzulegen. Abmelden widerruft die aktuelle API-Sitzung.
+
+Wenn noch kein Name gespeichert ist und die Rechte es erlauben, wird vor dem Teilnehmerbereich nach einem Anzeigenamen gefragt. Die Teilnehmenden können ihn speichern oder ohne Namen fortfahren; ein Überspringen wird für die aktuelle Browser-Session gemerkt. Der Hinweis erklärt, dass Namen für andere Teilnehmende und Moderatoren sichtbar sind. Im Teilnehmerbereich bieten die Profil-Schaltfläche und der Aktionen-Tab den Abmeldezugang. Aktionen sind in kurze, antippbare Menüpunkte gruppiert; Info-Listen erscheinen als normale Aufzählungen statt einzelner Karten.
 
 ## Teilnehmer-Berechtigungen & Overrides (3-State System)
 

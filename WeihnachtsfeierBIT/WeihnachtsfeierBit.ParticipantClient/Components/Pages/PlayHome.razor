@@ -1,10 +1,13 @@
 @page "/"
 @page "/{CodeOrParam}"
+@page "/{CodeOrParam}/{ParticipantNumber:int}"
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.JSInterop
 @inject ProjectApiClient ProjectApiClient
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
 @inject ILogger<PlayHome> Logger
+@inject IJSRuntime JavaScript
 @implements IAsyncDisposable
 
 <PageTitle>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
@@ -19,7 +22,6 @@ else if (!_isLoggedIn)
 {
     <ParticipantLoginView SessionCodeInput="@_sessionCodeInput"
                           ResolvedSession="@_resolvedSession"
-                          Project="_project"
                           ErrorMessage="@_errorMessage"
                           IsSubmitting="@_isSubmitting"
                           ParticipantNumberInput="@_participantNumberInput"
@@ -28,6 +30,15 @@ else if (!_isLoggedIn)
                           OnCheckCode="CheckCodeAsync"
                           OnLogin="LoginByCodeAsync"
                           OnResetCode="ResetCode" />
+}
+else if (_showNameOnboarding)
+{
+    <ParticipantNameOnboarding Name="@_nameInput"
+                               IsSaving="@_isSavingName"
+                               ErrorMessage="@_errorMessage"
+                               NameChanged="v => _nameInput = v"
+                               OnSaveName="SaveMyNameAsync"
+                               OnSkip="SkipNameOnboardingAsync" />
 }
 else if (_isDisconnected)
 {
@@ -46,7 +57,11 @@ else if (_isSessionEnded)
         <span class="material-symbols-outlined" style="font-size: 64px; color: #105c4d; margin-bottom: 16px;">celebration</span>
         <h2 style="font-size: 22px; font-weight: 800; color: #1d2528; margin: 0 0 8px 0;">Session beendet</h2>
         <p style="font-size: 14px; color: #64748b; margin: 0 0 24px 0; max-width: 320px;">Vielen Dank für deine Teilnahme! Die Session wurde vom Spielleiter beendet.</p>
-        <FrameworkButton Label="Neue Session beitreten" Variant="primary" OnClick="ResetSessionAndGoToJoin" />
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div style="max-width: 360px; margin-bottom: 16px;"><FrameworkNotice Message="@_errorMessage" Severity="error" /></div>
+        }
+        <FrameworkButton Label="Neue Session beitreten" Variant="primary" OnClick="LogoutAsync" />
     </div>
 }
 else if (_liveGameState?.IsPaused == true)
@@ -84,6 +99,7 @@ else
                               SuccessMessage="@_successMessage"
                               NameInputChanged="v => _nameInput = v"
                               OnSaveName="SaveMyNameAsync"
+                              OnLogout="LogoutAsync"
                               OnSelectPassiveEvent="OpenPassiveEvent"
                               HubConnection="_hubConnection"
                               ParticipantPermissions="@(_participant?.Permissions)" />
@@ -91,6 +107,7 @@ else
 
 @code {
     [Parameter] public string? CodeOrParam { get; set; }
+    [Parameter] public int? ParticipantNumber { get; set; }
 
     private Guid ProjectId { get; set; }
     private string? _sessionCodeInput;
@@ -109,12 +126,15 @@ else
     private bool _isDisconnected;
     private bool _isReconnecting;
     private bool _isSessionEnded;
+    private bool _showNameOnboarding;
+    private bool _pendingRouteLogin;
 
     private string? _errorMessage;
     private string? _successMessage;
 
-    private int _participantNumberInput = 10;
+    private string _participantNumberInput = string.Empty;
     private string _nameInput = string.Empty;
+    private IJSObjectReference? _browserStorageModule;
 
     private HubConnection? _hubConnection;
     private CancellationTokenSource? _connectionCancellation;
@@ -126,10 +146,15 @@ else
 
     private TeamSummary[] CurrentTeamsSummary => _liveGameState?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, t.Color, t.Points)).ToArray() ?? [];
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
+        if (_isLoggedIn)
+        {
+            return;
+        }
+
         _isLoading = true;
-        var autoNumber = ParseNumberQuery(Navigation.Uri);
+        var autoNumber = ParticipantNumber ?? ParseNumberQuery(Navigation.Uri);
 
         if (!string.IsNullOrWhiteSpace(CodeOrParam))
         {
@@ -141,12 +166,21 @@ else
 
                 if (_resolvedSession is not null && autoNumber.HasValue)
                 {
-                    _participantNumberInput = autoNumber.Value;
-                    await LoginByCodeAsync();
+                    _participantNumberInput = autoNumber.Value.ToString();
+                    _pendingRouteLogin = true;
                 }
             }
         }
         _isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _pendingRouteLogin)
+        {
+            _pendingRouteLogin = false;
+            await LoginByCodeAsync();
+        }
     }
 
     private int? ParseNumberQuery(string uriString)
@@ -187,29 +221,40 @@ else
         finally
         {
             _isSubmitting = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
     private async Task LoginByCodeAsync()
     {
         if (_resolvedSession is null || string.IsNullOrWhiteSpace(_sessionCodeInput)) return;
+        if (!int.TryParse(_participantNumberInput, out var participantNumber) ||
+            _participantNumberInput.Length < _resolvedSession.MinParticipantNumberLength ||
+            _participantNumberInput.Length > _resolvedSession.MaxParticipantNumberLength)
+        {
+            _errorMessage = $"Die Teilnehmernummer muss {_resolvedSession.MinParticipantNumberLength} bis {_resolvedSession.MaxParticipantNumberLength} Ziffern haben.";
+            return;
+        }
+
         _isSubmitting = true;
         _errorMessage = null;
 
         try
         {
             var login = await ProjectApiClient.LoginByCodeAsync(
-                _sessionCodeInput,
-                _participantNumberInput);
+                _resolvedSession.Code,
+                participantNumber);
 
             _accessToken = login.AccessToken;
             _participant = await ProjectApiClient.GetCurrentParticipantAsync(_accessToken, ProjectId);
-            _nameInput = login.DisplayName;
-            _isLoggedIn = true;
+            _nameInput = _participant.Name ?? string.Empty;
 
             await SetupSignalRAsync();
             _liveGameState = await ProjectApiClient.GetSessionStateAsync(_accessToken, ProjectId);
             UpdateCurrentTeamState();
+            _showNameOnboarding = await ShouldShowNameOnboardingAsync();
+            _isLoggedIn = true;
+            Navigation.NavigateTo($"/play/{Uri.EscapeDataString(_resolvedSession.Code)}/{participantNumber}");
         }
         catch (HttpRequestException ex)
         {
@@ -218,6 +263,7 @@ else
         finally
         {
             _isSubmitting = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -226,7 +272,9 @@ else
         _resolvedSession = null;
         _project = null;
         _sessionCodeInput = string.Empty;
+        _participantNumberInput = string.Empty;
         _errorMessage = null;
+        Navigation.NavigateTo("/play");
     }
 
     private void OpenPassiveEvent(EventState ev) => _selectedPassiveEvent = ev;
@@ -244,6 +292,7 @@ else
         {
             _participant = await ProjectApiClient.UpdateMyNameAsync(_accessToken, ProjectId, _nameInput.Trim());
             _successMessage = "Dein Name wurde gespeichert.";
+            _showNameOnboarding = false;
         }
         catch (HttpRequestException ex)
         {
@@ -254,6 +303,61 @@ else
             _isSavingName = false;
         }
     }
+
+    private async Task<bool> ShouldShowNameOnboardingAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_participant?.Name) ||
+            _participant?.Permissions?.HasPermission(ParticipantPermissionKeys.IsMuted) == false ||
+            _participant?.Permissions?.HasPermission(ParticipantPermissionKeys.CanChangeName) == false ||
+            _participant is null ||
+            string.IsNullOrWhiteSpace(_resolvedSession?.Code))
+        {
+            return false;
+        }
+
+        try
+        {
+            var module = await GetBrowserStorageModuleAsync();
+            return !await module.InvokeAsync<bool>("wasNamePromptSkipped", GetNamePromptSkippedKey(_resolvedSession.Code, _participant.Id));
+        }
+        catch (JSException ex)
+        {
+            Logger.LogWarning(ex, "Der Status des übersprungenen Namensdialogs konnte nicht gelesen werden.");
+            return true;
+        }
+    }
+
+    private async Task SkipNameOnboardingAsync()
+    {
+        if (_participant is null || string.IsNullOrWhiteSpace(_resolvedSession?.Code))
+        {
+            _showNameOnboarding = false;
+            return;
+        }
+
+        try
+        {
+            var module = await GetBrowserStorageModuleAsync();
+            await module.InvokeVoidAsync("markNamePromptSkipped", GetNamePromptSkippedKey(_resolvedSession.Code, _participant.Id));
+        }
+        catch (JSException ex)
+        {
+            Logger.LogWarning(ex, "Die Entscheidung, ohne Namen fortzufahren, konnte nicht gespeichert werden.");
+        }
+
+        _showNameOnboarding = false;
+    }
+
+    private async Task<IJSObjectReference> GetBrowserStorageModuleAsync()
+    {
+        _browserStorageModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+            "import",
+            Navigation.ToAbsoluteUri("js/participant-client.js").ToString());
+        return _browserStorageModule;
+    }
+
+    private static string GetNamePromptSkippedKey(string code, Guid participantId) =>
+        $"participant-name-prompt-skipped:{code}:{participantId}";
 
     private async Task SetupSignalRAsync()
     {
@@ -363,15 +467,39 @@ else
         StateHasChanged();
     }
 
-    private void ResetSessionAndGoToJoin()
+    private async Task LogoutAsync()
     {
+        if (!string.IsNullOrWhiteSpace(_accessToken) && ProjectId != Guid.Empty)
+        {
+            try
+            {
+                await ProjectApiClient.LogoutParticipantAsync(_accessToken, ProjectId);
+            }
+            catch (HttpRequestException ex)
+            {
+                _errorMessage = ex.Message;
+                return;
+            }
+        }
+
+        _connectionCancellation?.Cancel();
+        await StopParticipantConnectionAsync();
         _isLoggedIn = false;
         _accessToken = null;
         _participant = null;
         _liveGameState = null;
+        _resolvedSession = null;
+        _sessionCodeInput = string.Empty;
+        _participantNumberInput = string.Empty;
+        _nameInput = string.Empty;
+        _showNameOnboarding = false;
+        _selectedPassiveEvent = null;
+        ProjectId = Guid.Empty;
+        _errorMessage = null;
+        _successMessage = null;
         _isSessionEnded = false;
         _isDisconnected = false;
-        Navigation.NavigateTo("/", forceLoad: false);
+        Navigation.NavigateTo("/play", replace: true);
     }
 
     private void UpdateCurrentTeamState()
@@ -389,13 +517,24 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        await StopParticipantConnectionAsync();
+        if (_browserStorageModule is not null)
+        {
+            await _browserStorageModule.DisposeAsync();
+        }
+    }
+
+    private async Task StopParticipantConnectionAsync()
+    {
         _connectionCancellation?.Cancel();
         if (_connectionRecoveryTask is not null)
         {
             await _connectionRecoveryTask;
+            _connectionRecoveryTask = null;
         }
 
         _connectionCancellation?.Dispose();
+        _connectionCancellation = null;
         if (_hubConnection is not null)
         {
             try
@@ -406,6 +545,7 @@ else
             catch
             {
             }
+            _hubConnection = null;
         }
     }
 }

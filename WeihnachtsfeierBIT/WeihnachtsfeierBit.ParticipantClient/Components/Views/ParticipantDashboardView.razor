@@ -3,15 +3,27 @@
 
 <div style="position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #f6f8f7; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; z-index: 999;">
     <!-- TOP APP BAR -->
-    <div style="background: #ffffff; padding: 10px 14px; border-bottom: 1.5px solid #dce5e2; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); max-width: 100vw; box-sizing: border-box;">
+    <div class="participant-app-bar" style="background: #ffffff; padding: 10px 14px; border-bottom: 1.5px solid #dce5e2; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); max-width: 100vw; box-sizing: border-box;">
         <div style="min-width: 0; flex: 1; margin-right: 8px;">
             <span class="mobile-eyebrow" style="font-size: 10px; margin-bottom: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">@ProjectName</span>
             <strong style="display: block; font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
         </div>
         <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
             <FrameworkConnectionStatus HubConnection="HubConnection" />
-            <FrameworkBadge Text="Live" Variant="primary" />
+            <button type="button" class="participant-profile-icon" aria-label="Profil und Abmelden" aria-expanded="@_isProfileMenuOpen" @onclick="ToggleProfileMenu">
+                <span class="material-symbols-outlined">account_circle</span>
+            </button>
         </div>
+        @if (_isProfileMenuOpen)
+        {
+            <div class="participant-profile-menu">
+                <span class="participant-profile-menu-title">Teilnehmer #@ParticipantNumber</span>
+                <button type="button" @onclick="OnLogout">
+                    <span class="material-symbols-outlined">logout</span>
+                    Abmelden
+                </button>
+            </div>
+        }
     </div>
 
     <!-- MAIN SCROLLABLE CONTENT AREA -->
@@ -46,13 +58,15 @@
             }
             else if (_activeTab == "profile")
             {
-                <ParticipantProfileActions ProjectId="@ProjectId"
+                <ParticipantProfileActions @ref="_profileActions"
+                                           ProjectId="@ProjectId"
                                            AccessToken="@AccessToken"
                                            ParticipantPermissions="@ParticipantPermissions"
                                            NameInput="@NameInput"
                                            IsSavingName="@IsSavingName"
                                            NameInputChanged="@NameInputChanged"
-                                           OnSaveName="@OnSaveName" />
+                                           OnSaveName="@OnSaveName"
+                                           OnLogout="@OnLogout" />
             }
         </div>
     </div>
@@ -67,7 +81,7 @@
             <span class="material-symbols-outlined" style="font-size: 22px;">chat</span>
             <span>Chat</span>
         </button>
-        <button type="button" @onclick='() => _activeTab = "profile"' style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" @onclick="ShowActions" style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">person</span>
             <span>Aktionen</span>
         </button>
@@ -91,10 +105,25 @@
     [Parameter] public string? SuccessMessage { get; set; }
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
     [Parameter] public HubConnection? HubConnection { get; set; }
 
     private string _activeTab = "home";
+    private bool _isProfileMenuOpen;
+    private ParticipantProfileActions? _profileActions;
 
     private int TotalTeamCount => AllTeams.Length;
+
+    private void ToggleProfileMenu() => _isProfileMenuOpen = !_isProfileMenuOpen;
+
+    private async Task ShowActions()
+    {
+        _activeTab = "profile";
+        _isProfileMenuOpen = false;
+        if (_profileActions is not null)
+        {
+            await _profileActions.ReturnToActionMenuAsync();
+        }
+    }
 }

@@ -42,7 +42,24 @@ public static class GameInstanceEndpoints
             return Results.NotFound(new ApiError("Ungültiger oder abgelaufener Session-Code."));
         }
 
-        return Results.Ok(new ResolveCodeResponse(instance.Id, instance.ProjektId, instance.Projekt.Name, instance.AccessCode));
+        var participantNumbers = await dbContext.Teilnehmer.AsNoTracking()
+            .Where(participant => participant.ProjektId == instance.ProjektId)
+            .Select(participant => participant.Nummer)
+            .ToListAsync(cancellationToken);
+        var minParticipantNumberLength = participantNumbers.Count == 0
+            ? 1
+            : participantNumbers.Min(number => number.ToString().Length);
+        var maxParticipantNumberLength = participantNumbers.Count == 0
+            ? 6
+            : participantNumbers.Max(number => number.ToString().Length);
+
+        return Results.Ok(new ResolveCodeResponse(
+            instance.Id,
+            instance.ProjektId,
+            instance.Projekt.Name,
+            instance.AccessCode,
+            minParticipantNumberLength,
+            maxParticipantNumberLength));
     }
 
     private static async Task<IResult> GetActiveGameInstanceAsync(

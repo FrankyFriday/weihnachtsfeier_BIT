@@ -1,12 +1,13 @@
 @using WeihnachtsfeierBit.Framework
 @inject ProjectApiClient ProjectApiClient
 
+<div @key="ActionViewKey" class="participant-action-view @(_isLeavingAction ? "is-leaving" : string.Empty)">
 @if (_selectedInfoPage is not null)
 {
     <!-- SUB-VIEW: INFO PAGE DETAIL (e.g. SPEISEKARTE, SHUTTLE, WLAN) -->
     <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
         <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
-            <button type="button" @onclick="() => _selectedInfoPage = null" style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+            <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
                 <span class="material-symbols-outlined">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
@@ -25,7 +26,7 @@ else if (_activeActionView == "name")
     <!-- SUB-VIEW: EDIT NAME -->
     <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
         <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
-            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+            <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
                 <span class="material-symbols-outlined">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
@@ -54,7 +55,7 @@ else if (_activeActionView == "team_name")
     <!-- SUB-VIEW: TEAM NAME SUGGESTIONS & VOTING -->
     <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
         <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
-            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+            <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
                 <span class="material-symbols-outlined">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
@@ -65,7 +66,7 @@ else if (_activeActionView == "team_name")
 
         @if (CanSuggestTeamNames)
         {
-            <form @onsubmit="SubmitTeamNameSuggestionAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <form class="participant-team-form" @onsubmit="SubmitTeamNameSuggestionAsync" @onsubmit:preventDefault="true" style="display: flex; gap: 8px; margin-bottom: 14px;">
                 <div style="flex: 1;">
                     <FrameworkInputText @bind-Value="_newTeamNameInput" Placeholder="Neuer Teamname..." MaxLength="60" />
                 </div>
@@ -114,7 +115,7 @@ else if (_activeActionView == "song_wishes")
     <!-- SUB-VIEW: DJ JUKEBOX & SONG WISHES -->
     <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
         <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
-            <button type="button" @onclick='() => _activeActionView = null' style="border: none; background: transparent; color: #105c4d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+            <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
                 <span class="material-symbols-outlined">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
@@ -127,7 +128,7 @@ else if (_activeActionView == "song_wishes")
         {
             <form @onsubmit="SubmitSongWishAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
                 <FrameworkInputText @bind-Value="_newSongTitleInput" Placeholder="Songtitel..." MaxLength="100" />
-                <FrameworkFlexRow Gap="8px">
+                <FrameworkFlexRow Class="participant-song-form-row" Gap="8px">
                     <div style="flex: 1;">
                         <FrameworkInputText @bind-Value="_newSongArtistInput" Placeholder="Künstler (optional)..." MaxLength="100" />
                     </div>
@@ -176,111 +177,63 @@ else if (_activeActionView == "song_wishes")
 }
 else
 {
-    <!-- MAIN ACTIONS TAB: GROUPED BUTTON LIST -->
-    <FrameworkFlexColumn Gap="14px">
-        <!-- CATEGORY 1: DYNAMISCHE EVENT-INFOS & SPEISEKARTEN -->
+    <div class="participant-action-menu">
         @if (_infoPages.Length > 0)
         {
-            <div>
-                <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">EVENT-INFOS & MENÜS</span>
-                <FrameworkFlexColumn Gap="6px">
-                    @foreach (var infoPage in _infoPages)
-                    {
-                        <button type="button" @onclick="() => OpenInfoPage(infoPage)" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
-                            <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                                <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <span class="material-symbols-outlined" style="font-size: 18px;">@infoPage.Icon</span>
-                                </div>
-                                <div style="min-width: 0; flex: 1;">
-                                    <strong style="display: block; font-size: 14px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@infoPage.Title</strong>
-                                    <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Antippen zum Öffnen</span>
-                                </div>
-                            </FrameworkFlexRow>
-                            <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
-                        </button>
-                    }
-                </FrameworkFlexColumn>
-            </div>
+            <section class="participant-action-category">
+                <h2 class="mobile-eyebrow">EVENT-INFOS</h2>
+                @foreach (var infoPage in _infoPages)
+                {
+                    <button type="button" class="participant-action-item" @onclick="() => OpenInfoPage(infoPage)">
+                        <span class="participant-action-item-icon"><span class="material-symbols-outlined">@infoPage.Icon</span></span>
+                        <span class="participant-action-item-title">@infoPage.Title</span>
+                        <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
+                    </button>
+                }
+            </section>
         }
 
-        <!-- CATEGORY 2: PROFIL & KONTO -->
-        <div>
-            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">PROFIL-AKTIONEN</span>
-            <FrameworkFlexColumn Gap="6px">
-                @if (CanChangeName)
-                {
-                <button type="button" @onclick='() => _activeActionView = "name"' style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
-                    <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
-                        </div>
-                        <div style="min-width: 0; flex: 1;">
-                            <strong style="display: block; font-size: 14px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Name ändern</strong>
-                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                @(string.IsNullOrWhiteSpace(NameInput) ? "Kein Name eingetragen" : NameInput)
-                            </span>
-                        </div>
-                    </FrameworkFlexRow>
-                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
+        <section class="participant-action-category">
+            <h2 class="mobile-eyebrow">PROFIL</h2>
+            @if (CanChangeName)
+            {
+                <button type="button" class="participant-action-item" @onclick="OpenNameViewAsync">
+                    <span class="participant-action-item-icon"><span class="material-symbols-outlined">edit</span></span>
+                    <span class="participant-action-item-title">Name ändern</span>
+                    <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
                 </button>
-                }
-            </FrameworkFlexColumn>
-        </div>
+            }
+        </section>
 
-        <!-- CATEGORY 3: TEAM & INTERAKTION -->
-        <div>
-            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">TEAM & PARTY-AKTIONEN</span>
-            <FrameworkFlexColumn Gap="6px">
-                <button type="button" @onclick="OpenTeamNameViewAsync" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
-                    <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">lightbulb</span>
-                        </div>
-                        <div style="min-width: 0; flex: 1;">
-                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teamnamen vorschlagen & abstimmen</strong>
-                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Gemeinsam Namensideen sammeln</span>
-                        </div>
-                    </FrameworkFlexRow>
-                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
-                </button>
+        <section class="participant-action-category">
+            <h2 class="mobile-eyebrow">TEAM & PARTY</h2>
+            <button type="button" class="participant-action-item" @onclick="OpenTeamNameViewAsync">
+                <span class="participant-action-item-icon"><span class="material-symbols-outlined">lightbulb</span></span>
+                <span class="participant-action-item-title">Teamnamen</span>
+                <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
+            </button>
+            <button type="button" class="participant-action-item" @onclick="OpenSongWishesViewAsync">
+                <span class="participant-action-item-icon"><span class="material-symbols-outlined">music_note</span></span>
+                <span class="participant-action-item-title">Musikwünsche</span>
+                <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
+            </button>
+        </section>
 
-                <button type="button" @onclick="OpenSongWishesViewAsync" style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; text-align: left; transition: all 0.15s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); box-sizing: border-box;">
-                    <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">music_note</span>
-                        </div>
-                        <div style="min-width: 0; flex: 1;">
-                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">DJ-Jukebox & Musikwünsche</strong>
-                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Songs wünschen & upvoten</span>
-                        </div>
-                    </FrameworkFlexRow>
-                    <span class="material-symbols-outlined" style="color: #94a3b8; flex-shrink: 0;">chevron_right</span>
-                </button>
-            </FrameworkFlexColumn>
-        </div>
-
-        <!-- CATEGORY 4: SITZUNG -->
-        <div>
-            <span class="mobile-eyebrow" style="margin-bottom: 6px; font-size: 10px;">SITZUNGS-DETAILS</span>
-            <FrameworkFlexColumn Gap="6px">
-                <div style="width: 100%; padding: 10px 12px; border: 1.5px solid #dce5e2; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box;">
-                    <FrameworkFlexRow Gap="10px" Justify="flex-start" Style="min-width: 0; flex: 1;">
-                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #e8f3ef; color: #105c4d; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">badge</span>
-                        </div>
-                        <div style="min-width: 0; flex: 1;">
-                            <strong style="display: block; font-size: 13px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
-                            <span style="font-size: 11px; color: #657276; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Angemeldet in @ProjectName</span>
-                        </div>
-                    </FrameworkFlexRow>
-                    <div style="flex-shrink: 0;">
-                        <FrameworkBadge Text="Aktiv" Variant="primary" />
-                    </div>
-                </div>
-            </FrameworkFlexColumn>
-        </div>
-    </FrameworkFlexColumn>
+        <section class="participant-action-category">
+            <h2 class="mobile-eyebrow">SITZUNG</h2>
+            <div class="participant-action-session">
+                <span class="participant-action-item-icon"><span class="material-symbols-outlined">badge</span></span>
+                <span class="participant-action-item-title">Teilnehmer #@ParticipantNumber · @ProjectName</span>
+            </div>
+            <button type="button" class="participant-action-item participant-action-logout" @onclick="OnLogout">
+                <span class="participant-action-item-icon"><span class="material-symbols-outlined">logout</span></span>
+                <span class="participant-action-item-title">Abmelden</span>
+                <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
+            </button>
+        </section>
+    </div>
 }
+</div>
 
 @code {
     [Parameter] public Guid ProjectId { get; set; }
@@ -292,8 +245,10 @@ else
     [Parameter] public bool IsSavingName { get; set; }
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
 
     private string? _activeActionView;
+    private bool _isLeavingAction;
     private ProjectInfoPageDto[] _infoPages = [];
     private ProjectInfoPageDto? _selectedInfoPage;
 
@@ -316,6 +271,31 @@ else
         ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanSuggestSongs) != false;
     private bool CanVoteSongs => CanInteract &&
         ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanVoteSongs) != false;
+    private string ActionViewKey => _selectedInfoPage is not null
+        ? $"info:{_selectedInfoPage.Id}"
+        : _activeActionView ?? "menu";
+
+    public async Task ReturnToActionMenuAsync()
+    {
+        if (_activeActionView is null && _selectedInfoPage is null)
+        {
+            return;
+        }
+
+        _isLeavingAction = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(180);
+        _activeActionView = null;
+        _selectedInfoPage = null;
+        _isLeavingAction = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task OpenNameViewAsync()
+    {
+        _activeActionView = "name";
+        return Task.CompletedTask;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -337,6 +317,7 @@ else
     private void OpenInfoPage(ProjectInfoPageDto infoPage)
     {
         _selectedInfoPage = infoPage;
+        _activeActionView = null;
     }
 
     private async Task OpenTeamNameViewAsync()
@@ -444,6 +425,6 @@ else
         {
             await OnSaveName.InvokeAsync();
         }
-        _activeActionView = null;
+        await ReturnToActionMenuAsync();
     }
 }
