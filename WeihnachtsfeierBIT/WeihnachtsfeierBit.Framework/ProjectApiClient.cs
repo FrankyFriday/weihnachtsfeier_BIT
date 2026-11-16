@@ -1382,6 +1382,8 @@ public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCod
     public int EventScalePercent { get; init; } = 100;
     public int ScoreboardScalePercent { get; init; } = 100;
     public int QrCodeScalePercent { get; init; } = 100;
+    public bool ShowProjectTitle { get; init; } = true;
+    public bool ShowEventTypeLabel { get; init; } = true;
 
     [JsonIgnore]
     public bool IsValid =>

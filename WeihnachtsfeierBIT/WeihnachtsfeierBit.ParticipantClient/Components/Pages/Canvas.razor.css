@@ -18,9 +18,6 @@
 .canvas-header {
     display: flex;
     align-items: center;
-}
-
-.canvas-header {
     justify-content: space-between;
     min-width: 0;
     gap: clamp(0.5rem, 1.5vw, 1.25rem);
@@ -175,7 +172,9 @@
 
 .canvas-content {
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr);
+    grid-template-columns:
+        minmax(0, var(--canvas-event-column-weight, 1.25fr))
+        minmax(0, var(--canvas-scoreboard-column-weight, 0.85fr));
     grid-template-rows: minmax(0, 1fr);
     gap: clamp(0.5rem, 1.5vw, 1.25rem);
     min-height: 0;
@@ -184,7 +183,9 @@
 
 .canvas-content.scoreboard-bottom {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows:
+        minmax(0, var(--canvas-event-row-weight, 1fr))
+        minmax(48px, var(--canvas-scoreboard-row-weight, 0.18fr));
 }
 
 .canvas-content.scoreboard-hidden {
@@ -504,7 +505,9 @@
 
     .canvas-content {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-rows:
+            minmax(0, var(--canvas-event-row-weight, 1fr))
+            minmax(48px, var(--canvas-scoreboard-row-weight, 0.18fr));
     }
 
     .canvas-content.scoreboard-hidden {
@@ -517,6 +520,12 @@
 
     .canvas-scoreboard-bottom {
         max-height: 20vh;
+    }
+
+    .canvas-content.scoreboard-bottom {
+        grid-template-rows:
+            minmax(0, var(--canvas-event-row-weight, 1fr))
+            minmax(48px, var(--canvas-scoreboard-row-weight, 0.18fr));
     }
 }
 

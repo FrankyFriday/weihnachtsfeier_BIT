@@ -34,6 +34,8 @@ public sealed class CanvasDisplaySettingsTests
 
         Assert.Equal(CanvasDisplaySettings.Default, settings);
         Assert.True(settings.IsValid);
+        Assert.True(settings.ShowProjectTitle);
+        Assert.True(settings.ShowEventTypeLabel);
     }
 
     [Fact]
@@ -44,7 +46,9 @@ public sealed class CanvasDisplaySettingsTests
             FontScalePercent = 120,
             EventScalePercent = 80,
             ScoreboardScalePercent = 140,
-            QrCodeScalePercent = 90
+            QrCodeScalePercent = 90,
+            ShowProjectTitle = false,
+            ShowEventTypeLabel = false
         };
 
         Assert.Equal(settings, CanvasDisplaySettings.FromJson(settings.ToJson()));

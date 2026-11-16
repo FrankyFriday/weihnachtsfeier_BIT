@@ -1161,19 +1161,67 @@
 }
 
 .regie-beamer-preview {
-    width: 100%;
-    height: 220px;
+    position: relative;
+    flex: 0 0 auto;
+    width: min(100%, var(--canvas-preview-max-width, 391px));
+    aspect-ratio: var(--canvas-preview-aspect-ratio, 1.7778);
+    min-height: 160px;
+    max-height: 220px;
     overflow: hidden;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
     background: #0f172a;
+    align-self: center;
+}
+
+.regie-beamer-preview-resolution-button {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.regie-beamer-preview-resolution-button strong {
+    margin-left: auto;
+    color: #105c4d;
+    font-size: 11px;
+    white-space: nowrap;
 }
 
 .regie-beamer-preview iframe {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
     border: 0;
     background: #fff;
+}
+
+.regie-beamer-resolution-modal {
+    max-width: 440px;
+}
+
+.regie-beamer-resolution-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.regie-beamer-resolution-form > p {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.regie-beamer-resolution-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.regie-beamer-resolution-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .regie-beamer-settings {

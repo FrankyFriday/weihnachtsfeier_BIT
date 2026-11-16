@@ -1,5 +1,6 @@
 @namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard
 @using WeihnachtsfeierBit.Framework
+@implements IAsyncDisposable
 
 @if (CompactMode)
 {
@@ -253,9 +254,60 @@ else
                     <span>Session-Code: <strong>@Instance.AccessCode</strong></span>
                 </div>
 
-                <div class="regie-beamer-preview" aria-label="Live-Vorschau der Beameransicht">
-                    <iframe src="@CanvasUrl" title="Live-Vorschau Beamer"></iframe>
+                <button type="button"
+                        class="framework-button regie-beamer-preview-resolution-button"
+                        @onclick="OpenCanvasPreviewResolutionModal">
+                    <span class="material-symbols-outlined" aria-hidden="true">aspect_ratio</span>
+                    <span>Vorschau-Auflösung</span>
+                    <strong>@CanvasPreviewResolutionLabel</strong>
+                </button>
+
+                <div class="regie-beamer-preview"
+                     @ref="_canvasPreviewStage"
+                     style="@CanvasPreviewStageStyle"
+                     aria-label="Live-Vorschau der Beameransicht">
+                    <iframe @ref="_canvasPreviewFrame"
+                            src="@CanvasUrl"
+                            width="@_canvasPreviewWidth"
+                            height="@_canvasPreviewHeight"
+                            title="Live-Vorschau Beamer"></iframe>
                 </div>
+                <FrameworkModal IsOpen="_isCanvasPreviewResolutionModalOpen"
+                                Title="Beamer-Auflösung einstellen"
+                                OnClose="CloseCanvasPreviewResolutionModal"
+                                DialogClass="regie-beamer-resolution-modal">
+                    <div class="regie-beamer-resolution-form">
+                        <p>Gib die native Auflösung des Beamers in Pixeln ein. Die Vorschau wird im passenden Seitenverhältnis dargestellt.</p>
+                        <div class="regie-beamer-resolution-fields">
+                            <FrameworkFormGroup Label="Breite (Pixel)" ForId="canvas-preview-width">
+                                <FrameworkInputNumber Id="canvas-preview-width"
+                                                      @bind-Value="_draftCanvasPreviewWidth"
+                                                      Min="320"
+                                                      Max="7680"
+                                                      Step="1" />
+                            </FrameworkFormGroup>
+                            <FrameworkFormGroup Label="Höhe (Pixel)" ForId="canvas-preview-height">
+                                <FrameworkInputNumber Id="canvas-preview-height"
+                                                      @bind-Value="_draftCanvasPreviewHeight"
+                                                      Min="240"
+                                                      Max="4320"
+                                                      Step="1" />
+                            </FrameworkFormGroup>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_canvasPreviewResolutionError))
+                        {
+                            <p class="regie-beamer-error" role="alert">@_canvasPreviewResolutionError</p>
+                        }
+                        <div class="regie-beamer-resolution-actions">
+                            <FrameworkButton Label="Abbrechen"
+                                             Variant="secondary"
+                                             OnClick="CloseCanvasPreviewResolutionModal" />
+                            <FrameworkButton Label="Vorschau anwenden"
+                                             Variant="primary"
+                                             OnClick="ApplyCanvasPreviewResolutionAsync" />
+                        </div>
+                    </div>
+                </FrameworkModal>
 
                 <section class="regie-beamer-settings">
                     <FrameworkSelect Id="canvas-active-event"
@@ -280,6 +332,16 @@ else
                                      ValueChanged="OnQrCodeModeSelectedAsync"
                                      Options="QrCodeModeOptions"
                                      Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
+
+                    <FrameworkCheckbox Value="@_draftCanvasSettings.ShowProjectTitle"
+                                       ValueChanged="OnShowProjectTitleChangedAsync"
+                                       Label="Projekttitel auf dem Beamer anzeigen"
+                                       Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
+
+                    <FrameworkCheckbox Value="@_draftCanvasSettings.ShowEventTypeLabel"
+                                       ValueChanged="OnShowEventTypeLabelChangedAsync"
+                                       Label="Event-Typ (z. B. Quiz) anzeigen"
+                                       Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
 
                     <div class="regie-beamer-scales">
                         <div class="regie-beamer-scale">
