@@ -7,6 +7,7 @@ using WeihnachtsfeierBit.ApiService.Contracts;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 using PantomimeAdminData = WeihnachtsfeierBit.Framework.PantomimeAdminData;
+using PantomimeModeratorTeamData = WeihnachtsfeierBit.Framework.PantomimeModeratorTeamData;
 using PantomimePerformerData = WeihnachtsfeierBit.Framework.PantomimePerformerData;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
@@ -19,8 +20,8 @@ public static class PantomimeEndpoints
     {
         reader.MapGet("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime/current-term", GetCurrentTermAsync)
             .WithName("GetPantomimeCurrentTerm");
-        reader.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime/correct", MarkTermCorrectAsync)
-            .WithName("MarkPantomimeTermCorrect");
+        reader.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime/skip", SkipCurrentTermAsync)
+            .WithName("SkipPantomimeCurrentTerm");
         admin.MapGet("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime", GetPantomimeAsync)
             .WithName("GetPantomime");
         admin.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/pantomime/admin/{action}", UpdatePantomimeAsync)
@@ -31,7 +32,9 @@ public static class PantomimeEndpoints
 
     public sealed record AdminActionRequest(
         TeamAssignmentRequest[]? Assignments,
-        int? RoundDurationSeconds);
+        int? RoundDurationSeconds,
+        Guid? TeamId,
+        int? ExpectedTermIndex);
 
     private static async Task<IResult> GetPantomimeAsync(
         Guid projectId,
@@ -61,13 +64,18 @@ public static class PantomimeEndpoints
         }
 
         var parameters = slide["parameters"] as JsonObject ?? new JsonObject();
-        var termCount = PantomimeGameService.GetDistinctTerms(parameters["terms"] as JsonArray).Length;
-        var state = JsonSerializer.SerializeToElement(parameters["state"] ?? new JsonObject());
+        var terms = PantomimeGameService.GetDistinctTerms(parameters["terms"] as JsonArray);
+        var termCount = terms.Length;
+        var maxSkipsPerPerformer = parameters["maxSkipsPerPerformer"]?.GetValue<int>() ?? 0;
+        var rawState = parameters["state"] as JsonObject ?? new JsonObject();
+        var state = JsonSerializer.SerializeToElement(rawState);
         return Results.Ok(new PantomimeAdminData(
             parameters["category"]?.GetValue<string>() ?? string.Empty,
             termCount,
             parameters["roundDurationSeconds"]?.GetValue<int>() ?? 60,
-            JsonSerializer.SerializeToElement(PantomimeGameService.PublicState(state))));
+            maxSkipsPerPerformer,
+            JsonSerializer.SerializeToElement(PantomimeGameService.PublicState(state)),
+            GetModeratorTeamTerms(rawState, terms, maxSkipsPerPerformer)));
     }
 
     private static async Task<IResult> UpdatePantomimeAsync(
@@ -87,7 +95,7 @@ public static class PantomimeEndpoints
             return Results.Forbid();
         }
 
-        if (action is not ("start" or "pause" or "resume" or "end"))
+        if (action is not ("start" or "pause" or "resume" or "end" or "correct" or "skip" or "free-skip"))
         {
             return Results.BadRequest(new ApiError("Unbekannte Pantomime-Aktion."));
         }
@@ -181,9 +189,19 @@ public static class PantomimeEndpoints
                     {
                         return Results.BadRequest(new ApiError("Die Rundendauer muss zwischen 10 und 600 Sekunden liegen."));
                     }
+                    var maxSkipsPerPerformer = parameters["maxSkipsPerPerformer"]?.GetValue<int>() ?? 0;
+                    if (maxSkipsPerPerformer is < 0 or > 100)
+                    {
+                        return Results.BadRequest(new ApiError("Das Skip-Limit muss zwischen 0 und 100 liegen."));
+                    }
 
                     parameters["roundDurationSeconds"] = duration;
-                    state = PantomimeGameService.CreateRoundState(gameAssignments, terms.Length, duration, now);
+                    state = PantomimeGameService.CreateRoundState(
+                        gameAssignments,
+                        terms.Length,
+                        duration,
+                        now,
+                        maxSkipsPerPerformer: maxSkipsPerPerformer);
                     break;
                 case "pause":
                     if (!PantomimeGameService.ReadBool(state, "isRunning"))
@@ -226,6 +244,68 @@ public static class PantomimeEndpoints
                     }
 
                     PantomimeGameService.EndRound(state);
+                    break;
+                case "correct":
+                case "skip":
+                case "free-skip":
+                    if (!PantomimeGameService.ReadBool(state, "isRunning"))
+                    {
+                        return Results.Conflict(new ApiError("Es läuft keine Pantomime-Runde."));
+                    }
+
+                    if (request.TeamId is not Guid teamId)
+                    {
+                        return Results.BadRequest(new ApiError("Wähle ein Team für die Pantomime-Aktion aus."));
+                    }
+
+                    var teamState = (state["teamStates"] as JsonArray)?
+                        .OfType<JsonObject>()
+                        .FirstOrDefault(item => PantomimeGameService.ReadGuid(item, "teamId") == teamId);
+                    var termIndex = teamState is null ? null : PantomimeGameService.GetCurrentTermIndex(teamState);
+                    if (teamState is null || termIndex is null || termIndex < 0 || termIndex >= terms.Length)
+                    {
+                        return Results.Conflict(new ApiError("Für dieses Team gibt es keinen aktiven Begriff."));
+                    }
+                    if (request.ExpectedTermIndex != termIndex)
+                    {
+                        return Results.Conflict(new ApiError("Der Begriff dieses Teams hat sich bereits geändert. Aktualisiere die Regie und prüfe den neuen Begriff."));
+                    }
+
+                    if (action is "skip" or "free-skip")
+                    {
+                        var maxSkips = parameters["maxSkipsPerPerformer"]?.GetValue<int>() ?? 0;
+                        if (!PantomimeGameService.TrySkipCurrentTerm(
+                                state,
+                                teamState,
+                                terms.Length,
+                                maxSkips,
+                                freeSkip: action == "free-skip"))
+                        {
+                            return Results.Conflict(new ApiError("Das Skip-Limit für diese darstellende Person ist erreicht."));
+                        }
+
+                        break;
+                    }
+
+                    var teamEntity = await dbContext.Teams
+                        .FirstOrDefaultAsync(item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
+                    if (teamEntity is null)
+                    {
+                        return Results.Conflict(new ApiError("Das Team existiert nicht mehr."));
+                    }
+
+                    teamEntity.Punkte = checked(teamEntity.Punkte + 1);
+                    dbContext.TeamPointLogs.Add(new TeamPointLog
+                    {
+                        ProjektId = projectId,
+                        TeamId = teamEntity.Id,
+                        DeltaPoints = 1,
+                        NewTotalPoints = teamEntity.Punkte,
+                        Reason = "Pantomime-Begriff vom Moderator als erraten markiert",
+                        CreatedAtUtc = now
+                    });
+                    teamState["correctCount"] = PantomimeGameService.ReadInt(teamState, "correctCount") + 1;
+                    PantomimeGameService.AssignNextTerm(state, teamState);
                     break;
             }
 
@@ -293,6 +373,7 @@ public static class PantomimeEndpoints
             }
 
             var now = DateTime.UtcNow;
+            var maxSkipsPerPerformer = parameters["maxSkipsPerPerformer"]?.GetValue<int>() ?? 0;
             return Results.Ok(new PantomimePerformerData(
                 parameters["category"]?.GetValue<string>() ?? string.Empty,
                 PantomimeGameService.ReadString(teamState, "teamName"),
@@ -301,7 +382,8 @@ public static class PantomimeEndpoints
                 PantomimeGameService.ReadBool(state, "isPaused"),
                 PantomimeGameService.ReadBool(state, "isEnded"),
                 PantomimeGameService.RemainingSeconds(state, now),
-                PantomimeGameService.ReadInt(teamState, "correctCount")));
+                PantomimeGameService.ReadInt(teamState, "correctCount"),
+                PantomimeGameService.SkipsRemaining(teamState, maxSkipsPerPerformer)));
         }
         finally
         {
@@ -309,7 +391,7 @@ public static class PantomimeEndpoints
         }
     }
 
-    private static async Task<IResult> MarkTermCorrectAsync(
+    private static async Task<IResult> SkipCurrentTermAsync(
         Guid projectId,
         Guid eventId,
         Guid slideId,
@@ -370,30 +452,15 @@ public static class PantomimeEndpoints
             var termIndex = teamState is null ? null : PantomimeGameService.GetCurrentTermIndex(teamState);
             if (teamState is null || termIndex is null || termIndex < 0 || termIndex >= terms.Length)
             {
-                return Results.Forbid();
+                return Results.Conflict(new ApiError("Für dich gibt es keinen aktiven Begriff zum Überspringen."));
             }
 
-            var teamId = PantomimeGameService.ReadGuid(teamState, "teamId");
-            var team = teamId is Guid id
-                ? await dbContext.Teams.FirstOrDefaultAsync(item => item.Id == id && item.ProjektId == projectId, cancellationToken)
-                : null;
-            if (team is null)
+            var maxSkipsPerPerformer = parameters["maxSkipsPerPerformer"]?.GetValue<int>() ?? 0;
+            if (!PantomimeGameService.TrySkipCurrentTerm(state, teamState, terms.Length, maxSkipsPerPerformer))
             {
-                return Results.Conflict(new ApiError("Das Team der darstellenden Person existiert nicht mehr."));
+                return Results.Conflict(new ApiError("Dein Skip-Limit für diese Runde ist erreicht."));
             }
 
-            team.Punkte = checked(team.Punkte + 1);
-            dbContext.TeamPointLogs.Add(new TeamPointLog
-            {
-                ProjektId = projectId,
-                TeamId = team.Id,
-                DeltaPoints = 1,
-                NewTotalPoints = team.Punkte,
-                Reason = "Pantomime-Begriff erraten",
-                CreatedAtUtc = now
-            });
-            teamState["correctCount"] = PantomimeGameService.ReadInt(teamState, "correctCount") + 1;
-            PantomimeGameService.AssignNextTerm(state, teamState);
             await SaveRoundStateAsync(gameEvent, slides!, slide, parameters, state, dbContext, gameStateNotifier, projectId, cancellationToken);
             return Results.Ok();
         }
@@ -402,6 +469,30 @@ public static class PantomimeEndpoints
             gameLock.Release();
         }
     }
+
+    private static PantomimeModeratorTeamData[] GetModeratorTeamTerms(
+        JsonObject state,
+        string[] terms,
+        int maxSkipsPerPerformer) =>
+        (state["teamStates"] as JsonArray)?
+            .OfType<JsonObject>()
+            .Select(team =>
+            {
+                var termIndex = PantomimeGameService.GetCurrentTermIndex(team);
+                var term = termIndex is int index && index >= 0 && index < terms.Length
+                    ? terms[index]
+                    : null;
+                return new PantomimeModeratorTeamData(
+                    PantomimeGameService.ReadGuid(team, "teamId") ?? Guid.Empty,
+                    PantomimeGameService.ReadString(team, "teamName"),
+                    PantomimeGameService.ReadGuid(team, "performerId") ?? Guid.Empty,
+                    PantomimeGameService.ReadString(team, "performerName"),
+                    termIndex,
+                    term,
+                    PantomimeGameService.ReadInt(team, "correctCount"),
+                    PantomimeGameService.SkipsRemaining(team, maxSkipsPerPerformer));
+            })
+            .ToArray() ?? [];
 
     private static async Task SaveRoundStateAsync(
         GameInstanceEvent gameEvent,

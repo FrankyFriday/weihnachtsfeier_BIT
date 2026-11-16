@@ -77,8 +77,56 @@ public sealed class PantomimeGameServiceTests
         Assert.False(publicState.TryGetProperty("termOrder", out _));
         Assert.False(publicTeam.TryGetProperty("currentTermIndex", out _));
         Assert.False(publicTeam.TryGetProperty("hasCurrentTerm", out _));
+        Assert.False(publicTeam.TryGetProperty("skipsUsed", out _));
         Assert.True(publicTeam.TryGetProperty("performerId", out _));
         Assert.True(publicTeam.TryGetProperty("correctCount", out _));
+    }
+
+    [Fact]
+    public void TrySkipCurrentTerm_UsesLimitAndAssignsAnUnusedTerm()
+    {
+        var state = PantomimeGameService.CreateRoundState(
+            [Assignment(1)],
+            termsCount: 4,
+            durationSeconds: 60,
+            startedAtUtc: DateTime.UtcNow,
+            random: new Random(11),
+            maxSkipsPerPerformer: 1);
+        var team = ((JsonArray)state["teamStates"]!).OfType<JsonObject>().Single();
+        var firstTerm = PantomimeGameService.GetCurrentTermIndex(team);
+
+        Assert.True(PantomimeGameService.TrySkipCurrentTerm(state, team, termsCount: 4, maxSkipsPerPerformer: 1));
+
+        var nextTerm = PantomimeGameService.GetCurrentTermIndex(team);
+        Assert.NotEqual(firstTerm, nextTerm);
+        Assert.Equal(1, PantomimeGameService.ReadInt(team, "skipsUsed"));
+        Assert.Equal(0, PantomimeGameService.SkipsRemaining(team, maxSkipsPerPerformer: 1));
+        Assert.False(PantomimeGameService.TrySkipCurrentTerm(state, team, termsCount: 4, maxSkipsPerPerformer: 1));
+        Assert.Equal(nextTerm, PantomimeGameService.GetCurrentTermIndex(team));
+    }
+
+    [Fact]
+    public void TrySkipCurrentTerm_FreeSkipBypassesAndDoesNotConsumeTheLimit()
+    {
+        var state = PantomimeGameService.CreateRoundState(
+            [Assignment(1)],
+            termsCount: 3,
+            durationSeconds: 60,
+            startedAtUtc: DateTime.UtcNow,
+            random: new Random(19));
+        var team = ((JsonArray)state["teamStates"]!).OfType<JsonObject>().Single();
+        var currentTerm = PantomimeGameService.GetCurrentTermIndex(team);
+
+        Assert.True(PantomimeGameService.TrySkipCurrentTerm(
+            state,
+            team,
+            termsCount: 3,
+            maxSkipsPerPerformer: 0,
+            freeSkip: true));
+
+        Assert.NotEqual(currentTerm, PantomimeGameService.GetCurrentTermIndex(team));
+        Assert.Equal(0, PantomimeGameService.ReadInt(team, "skipsUsed"));
+        Assert.Equal(0, PantomimeGameService.SkipsRemaining(team, maxSkipsPerPerformer: 0));
     }
 
     [Fact]

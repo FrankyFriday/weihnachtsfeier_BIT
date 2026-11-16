@@ -118,6 +118,7 @@ public sealed class EditableSlide
     public string PantomimeCategory { get; set; } = string.Empty;
     public string PantomimeTermsText { get; set; } = string.Empty;
     public int PantomimeRoundDurationSeconds { get; set; } = 60;
+    public int PantomimeMaxSkipsPerPerformer { get; set; }
 
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
@@ -218,6 +219,7 @@ public sealed class EditableSlide
                 PantomimeCategory = ReadString(parameters, "category");
                 PantomimeTermsText = string.Join(Environment.NewLine, ReadStringList(parameters, "terms"));
                 PantomimeRoundDurationSeconds = ReadNullableInt(parameters, "roundDurationSeconds") ?? 60;
+                PantomimeMaxSkipsPerPerformer = ReadNullableInt(parameters, "maxSkipsPerPerformer") ?? 0;
                 break;
         }
 
@@ -584,9 +586,15 @@ public sealed class EditableSlide
                     ErrorMessage = "Die Rundendauer muss zwischen 10 und 600 Sekunden liegen.";
                     return (default, ErrorMessage);
                 }
+                if (PantomimeMaxSkipsPerPerformer is < 0 or > 100)
+                {
+                    ErrorMessage = "Das Skip-Limit muss zwischen 0 und 100 liegen.";
+                    return (default, ErrorMessage);
+                }
                 dict["category"] = PantomimeCategory.Trim();
                 dict["terms"] = terms;
                 dict["roundDurationSeconds"] = PantomimeRoundDurationSeconds;
+                dict["maxSkipsPerPerformer"] = PantomimeMaxSkipsPerPerformer;
                 break;
 
             default:

@@ -276,9 +276,10 @@ public static class ShowSlideEndpoints
                         || terms.Count is < 3 or > 100
                         || terms.Any(term => term!.Length > 120)
                         || terms.Distinct(StringComparer.OrdinalIgnoreCase).Count() != terms.Count
-                        || pantomime.Parameters.RoundDurationSeconds is < 10 or > 600)
+                        || pantomime.Parameters.RoundDurationSeconds is < 10 or > 600
+                        || pantomime.Parameters.MaxSkipsPerPerformer is < 0 or > 100)
                     {
-                        return (false, "Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen) und eine Rundendauer von 10 bis 600 Sekunden.");
+                        return (false, "Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen), eine Rundendauer von 10 bis 600 Sekunden und ein Skip-Limit von 0 bis 100.");
                     }
 
                     pantomime.Parameters.Category = pantomime.Parameters.Category.Trim();

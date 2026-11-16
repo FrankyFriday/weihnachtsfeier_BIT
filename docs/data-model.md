@@ -41,14 +41,14 @@ EF verwendet TPH: alle Slide-Untertypen liegen in `Slides`; `SlideType` ist der 
 | Estimation | Schätzfrage, Richtiger Wert, Einheit, Maximale Punkte |
 | Buzzer | Buzzer-Frage, Punkte, Zeitlimit |
 | Jeopardy | Kategorien mit Fragen (Punktwert, Frage, Antwort); Laufzeitstatus mit verwendeten Feldern, aktivem Team, aktiver Frage und Antwortfreigabe. |
-| Pantomime | Kategorie, 3–100 eindeutige Begriffe und Rundendauer (10–600 Sekunden); Laufzeitstatus mit Teamzuordnungen, Darstellenden, gemeinsamer Startzeit/Deadline, Team-Punktzahlen und zufälliger Begriffszuteilung. Der Laufzeitstatus speichert nur interne Begriffsindizes, keine Klartextbegriffe. |
+| Pantomime | Kategorie, 3–100 eindeutige Begriffe, Rundendauer (10–600 Sekunden) und Skip-Limit pro darstellender Person (0–100; fehlend bei älteren Slides entspricht 0); Laufzeitstatus mit Teamzuordnungen, Darstellenden, gemeinsamer Startzeit/Deadline, Team-Punktzahlen, verwendeten regulären Skips und zufälliger Begriffszuteilung. Ein bestätigter kostenloser Admin-Skip erhöht den Skip-Zähler nicht. Der Laufzeitstatus speichert nur interne Begriffsindizes, keine Klartextbegriffe. |
 | Text / WordCloud | Freitext-Fragen & dynamische Wortwolken-Auswertung |
 | Slider / Rating | Schieberegler & Sterne-Bewertungen |
 | Ordering / Countdown | Reihenfolge-Sortierung & visuelle Timer |
 
 `SaveChanges` und `SaveChangesAsync` serialisieren die aktuellen mutable Parameter getrackter Slides. Neue Parameterfelder erfordern keine Tabellenmigration.
 
-Pantomime-Rundendaten liegen im `state`-Objekt der Event-Slide-Parameter und benötigen keine Schemaänderung. Die öffentliche Event-/Beameransicht erhält ausschließlich freigegebene Teamfortschritte; Begriffspool und interne Zuteilungsindizes werden herausgefiltert. Der aktuelle Klartextbegriff wird nur über einen Teilnehmer-Endpunkt ausgegeben, der die aktive Sitzung und die gespeicherte Zuordnung zur darstellenden Person prüft.
+Pantomime-Rundendaten liegen im `state`-Objekt der Event-Slide-Parameter und benötigen keine Schemaänderung. Die öffentliche Event-/Beameransicht erhält ausschließlich freigegebene Teamfortschritte; Begriffspool und interne Zuteilungsindizes werden herausgefiltert. Der aktuelle Klartextbegriff wird nur über den Teilnehmer-Endpunkt für die zugewiesene darstellende Person oder die geschützte Admin-Regie ausgegeben. Skip-Limits und Moderatorbestätigung werden serverseitig geprüft.
 
 ## Admin- und Teilnehmerzugriff
 

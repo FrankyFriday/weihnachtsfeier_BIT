@@ -1,6 +1,6 @@
 @using WeihnachtsfeierBit.AdminClient.Models
 
-<div class="callout callout-info" role="note">Während der Runde sieht nur die pro Team ausgewählte darstellende Person den aktuellen Begriff auf dem eigenen Gerät. Beamer und übrige Teilnehmergeräte zeigen keine Begriffe.</div>
+<div class="callout callout-info" role="note">Während der Runde sieht nur die pro Team ausgewählte darstellende Person den Begriff auf dem eigenen Gerät. Moderatoren sehen die aktuellen Begriffe in der Regie und bestätigen dort erratene Begriffe. Beamer und übrige Teilnehmergeräte zeigen keine Begriffe.</div>
 <FrameworkFormGroup Label="Kategorie" ForId="pantomime-category">
     <FrameworkInputText Id="pantomime-category" @bind-Value="Slide.PantomimeCategory" MaxLength="120" Placeholder="z. B. IT-Tätigkeiten" />
 </FrameworkFormGroup>
@@ -9,6 +9,9 @@
 </FrameworkFormGroup>
 <FrameworkFormGroup Label="Rundendauer in Sekunden" HelpText="Gemeinsame Rundendauer für alle Teams, 10 bis 600 Sekunden." ForId="pantomime-duration">
     <FrameworkInputNumber Id="pantomime-duration" @bind-Value="Slide.PantomimeRoundDurationSeconds" Min="10" Max="600" />
+</FrameworkFormGroup>
+<FrameworkFormGroup Label="Überspringen pro darstellender Person" HelpText="Maximale Anzahl übersprungener Begriffe pro Runde. 0 deaktiviert das Überspringen." ForId="pantomime-skip-limit">
+    <FrameworkInputNumber Id="pantomime-skip-limit" @bind-Value="Slide.PantomimeMaxSkipsPerPerformer" Min="0" Max="100" />
 </FrameworkFormGroup>
 
 @code {

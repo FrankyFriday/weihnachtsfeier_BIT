@@ -107,6 +107,15 @@ Info-Seiten-Endpunkte liefern ausschließlich Response-DTOs, keine EF-Entitäten
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
 | `PUT /api/projects/{projectId}/session/canvas-settings` | Projektadmin (`CanControlSession`) | Anzeigeeinstellungen der aktiven Session setzen. |
 
+Pantomime-Aktionen verwenden separate, serverseitig geschützte Endpunkte:
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime` | Projektadmin (`CanControlSession`) | Teamfortschritt und aktuelle Begriffe für die Regie abrufen. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/admin/{action}` | Projektadmin (`CanControlSession`) | Runde starten, pausieren, fortsetzen, beenden, einen Team-Begriff als erraten bestätigen (`action=correct`) oder überspringen (`action=skip` bzw. `action=free-skip`). Teamaktionen enthalten `teamId` und `expectedTermIndex`; `free-skip` verbraucht kein Skip-Limit. |
+| `GET /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/current-term` | Zugewiesene darstellende Person | Eigenen aktuellen Begriff und verbleibende Skips abrufen. |
+| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/skip` | Zugewiesene darstellende Person mit `IsMuted` (Interaktion erlaubt) | Aktuellen Begriff überspringen, sofern die Runde läuft und das konfigurierte Skip-Limit noch nicht erreicht ist. |
+
 Die Beamer-Einstellungen werden mit der aktiven `GameInstance` gespeichert und bei einer neuen Session auf die Standardwerte zurückgesetzt. `scoreboardLayout` akzeptiert `right` (Punktestand und Diagramm rechts), `bottom` (schmale Punkte-Leiste) oder `hidden`; `qrCodeMode` akzeptiert `card`, `popup` (große Teilnahme-Überlagerung mit QR-Code und Session-Code) oder `hidden`. `fontScalePercent`, `eventScalePercent`, `scoreboardScalePercent` und `qrCodeScalePercent` steuern die jeweilige Größe und sind jeweils auf 60 bis 160 Prozent begrenzt; Event- und Punktestandskalierung beeinflussen auch die relative Kachelgröße. `showProjectTitle` und `showEventTypeLabel` steuern die entsprechenden Beschriftungen. Fehlende Werte in älteren gespeicherten Einstellungen entsprechen den Standardwerten. Änderungen werden live an die Beameransicht übertragen, die ihre Inhalte ohne Scrollen an den verfügbaren Bildschirmplatz anpasst.
 
 ## Chat-Moderation & Endpunkte
@@ -136,6 +145,5 @@ SignalR WebSockets unter `/hubs/gamestate` übertragen den `ProjectGameState`. C
 | `POST /api/projects/{projectId}/song-wishes/{wishId}/vote` | `CanVoteSongs` und `IsMuted`. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | `IsMuted` (Interaktion erlaubt). |
 | `POST /api/projects/{projectId}/session/events/{eventId}/hitster/{slideId}/vote` | `IsMuted` (Interaktion erlaubt). |
-| `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct` | `IsMuted` (Interaktion erlaubt). |
 
 Die Berechtigungen werden zusätzlich zu den UI-Steuerelementen in der API geprüft. Bei unabhängigen Vorschlags- und Abstimmungsrechten wird ein neu eingereichter Vorschlag nur dann automatisch als eigene Stimme gezählt, wenn das jeweilige Abstimmungsrecht ebenfalls aktiv ist.
