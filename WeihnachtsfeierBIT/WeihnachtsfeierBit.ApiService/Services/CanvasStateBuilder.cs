@@ -176,8 +176,94 @@ public static class CanvasStateBuilder
                     publicParameters[propertyName] = value.Clone();
                 }
             }
+
+            if (slideType.Equals("quiz", StringComparison.OrdinalIgnoreCase)
+                || slideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
+            {
+                var workflow = ReadQuestionWorkflow(parameters);
+                publicParameters["state"] = JsonSerializer.SerializeToElement(new
+                {
+                    questionWorkflow = new
+                    {
+                        phase = workflow.Phase,
+                        timerEndsAtUtc = workflow.TimerEndsAtUtc,
+                        timerPaused = workflow.TimerPaused,
+                        remainingSeconds = workflow.RemainingSeconds,
+                        officialAnswerIndex = workflow.OfficialAnswerIndex,
+                        officialEstimationValue = workflow.OfficialEstimationValue
+                    }
+                });
+                if (string.Equals(workflow.Phase, QuestionWorkflowService.ResultsPhase, StringComparison.OrdinalIgnoreCase))
+                {
+                    var solutionProperty = slideType.Equals("quiz", StringComparison.OrdinalIgnoreCase)
+                        ? "correctAnswerIndices"
+                        : "correctValue";
+                    if (parameters.TryGetProperty(solutionProperty, out var solution))
+                    {
+                        publicParameters[solutionProperty] = solution.Clone();
+                    }
+                    if (parameters.TryGetProperty("explanation", out var explanation))
+                    {
+                        publicParameters["explanation"] = explanation.Clone();
+                    }
+                }
+            }
         }
 
         return JsonSerializer.SerializeToElement(publicParameters);
+    }
+
+    private static QuestionWorkflowViewState ReadQuestionWorkflow(JsonElement parameters)
+    {
+        var workflow = parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("state", out var state)
+            && state.ValueKind == JsonValueKind.Object
+            && state.TryGetProperty("questionWorkflow", out var configuredWorkflow)
+            && configuredWorkflow.ValueKind == JsonValueKind.Object
+                ? configuredWorkflow
+                : default;
+        var phase = workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("phase", out var phaseValue)
+            && phaseValue.ValueKind == JsonValueKind.String
+                ? phaseValue.GetString()
+                : null;
+        var endsAt = workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("timerEndsAtUtc", out var endValue)
+            && endValue.ValueKind == JsonValueKind.String
+            && DateTimeOffset.TryParse(endValue.GetString(), out var parsedEnd)
+                ? parsedEnd
+                : (DateTimeOffset?)null;
+        var paused = workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("timerPaused", out var pausedValue)
+            && pausedValue.ValueKind == JsonValueKind.True;
+        var remaining = workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("remainingSeconds", out var remainingValue)
+            && remainingValue.ValueKind == JsonValueKind.Number
+            && remainingValue.TryGetInt32(out var seconds)
+                ? seconds
+                : 0;
+        var isResultsPhase = string.Equals(phase, QuestionWorkflowService.ResultsPhase, StringComparison.OrdinalIgnoreCase);
+        var officialAnswer = isResultsPhase
+            && workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("officialAnswerIndex", out var answerValue)
+            && answerValue.ValueKind == JsonValueKind.Number
+            && answerValue.TryGetInt32(out var answerIndex)
+                ? answerIndex
+                : (int?)null;
+        var officialEstimation = isResultsPhase
+            && workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("officialEstimationValue", out var estimateValue)
+            && estimateValue.ValueKind == JsonValueKind.Number
+            && estimateValue.TryGetDouble(out var estimate)
+                ? estimate
+                : (double?)null;
+
+        return new QuestionWorkflowViewState(
+            phase ?? QuestionWorkflowService.QuestionPhase,
+            endsAt,
+            paused,
+            remaining,
+            officialAnswer,
+            officialEstimation);
     }
 }

@@ -107,6 +107,12 @@ public sealed record UpdateSessionEventRequest(
 public sealed record UpdateEventModeRequest(string Mode);
 public sealed record SetSlideStateRequest(JsonElement State);
 public sealed record SubmitResponseRequest(JsonElement ResponseData);
+public sealed record UpdateTeamEventResponseRequest(Guid ParticipantId, JsonElement ResponseData);
+public sealed record UpdateQuestionWorkflowRequest(
+    string Action,
+    int? Seconds = null,
+    int? OfficialAnswerIndex = null,
+    double? OfficialEstimationValue = null);
 public sealed record SetCanvasEventRequest(Guid? EventId);
 
 public sealed record ChatGroupSummary(

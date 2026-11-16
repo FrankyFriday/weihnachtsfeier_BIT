@@ -691,6 +691,44 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task UpdateTeamEventResponseAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        Guid participantId,
+        JsonElement responseData,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Put,
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses/team",
+            accessToken,
+            new { participantId, responseData });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task UpdateQuestionWorkflowAsync(
+        string accessToken,
+        Guid projectId,
+        Guid eventId,
+        Guid slideId,
+        string action,
+        int? seconds = null,
+        int? officialAnswerIndex = null,
+        double? officialEstimationValue = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/workflow",
+            accessToken,
+            new QuestionWorkflowUpdateRequest(action, seconds, officialAnswerIndex, officialEstimationValue));
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task SetCanvasEventAsync(string accessToken, Guid projectId, Guid? eventId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/canvas", accessToken, new { eventId });
@@ -1309,6 +1347,63 @@ public sealed record EventSlideState(
     int Position,
     JsonElement Parameters);
 
+public sealed record QuestionWorkflowViewState(
+    string Phase,
+    DateTimeOffset? TimerEndsAtUtc,
+    bool TimerPaused,
+    int RemainingSeconds,
+    int? OfficialAnswerIndex,
+    double? OfficialEstimationValue)
+{
+    public static QuestionWorkflowViewState Read(JsonElement parameters)
+    {
+        var state = GetObject(parameters, "state");
+        var workflow = GetObject(state, "questionWorkflow");
+        return new QuestionWorkflowViewState(
+            ReadString(workflow, "phase") is { Length: > 0 } phase ? phase : "question",
+            DateTimeOffset.TryParse(ReadString(workflow, "timerEndsAtUtc"), out var timerEnd) ? timerEnd : null,
+            ReadBool(workflow, "timerPaused"),
+            ReadInt(workflow, "remainingSeconds") ?? 0,
+            ReadInt(workflow, "officialAnswerIndex"),
+            ReadDouble(workflow, "officialEstimationValue"));
+    }
+
+    private static JsonElement GetObject(JsonElement parent, string property) =>
+        parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Object
+            ? value
+            : default;
+
+    private static string ReadString(JsonElement parent, string property) =>
+        parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static int? ReadInt(JsonElement parent, string property) =>
+        parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var number)
+            ? number
+            : null;
+
+    private static double? ReadDouble(JsonElement parent, string property) =>
+        parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetDouble(out var number)
+            ? number
+            : null;
+
+    private static bool ReadBool(JsonElement parent, string property) =>
+        parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.True;
+}
+
 public sealed record EventResponseState(
     Guid Id,
     Guid SlideId,
@@ -1318,7 +1413,14 @@ public sealed record EventResponseState(
     string? TeamName,
     string? TeamColor,
     JsonElement ResponseData,
-    DateTime SubmittedAtUtc);
+    DateTime SubmittedAtUtc,
+    Guid? TeamId = null);
+
+public sealed record QuestionWorkflowUpdateRequest(
+    string Action,
+    int? Seconds = null,
+    int? OfficialAnswerIndex = null,
+    double? OfficialEstimationValue = null);
 
 public sealed record EventNavigationContext(
     int OriginSlideIndex,

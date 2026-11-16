@@ -71,20 +71,25 @@
                 <div class="canvas-event-fit" @ref="_eventContentElement">
                     @if (_state.Event is CanvasEventState activeEvent)
                     {
+                        var workflow = QuestionWorkflowViewState.Read(activeEvent.Parameters);
                         @if (displaySettings.ShowEventTypeLabel)
                         {
                             <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
                         }
                         <h2>@GetEventHeading(activeEvent)</h2>
+                        @if ((activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase)
+                                || activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
+                            && (workflow.TimerEndsAtUtc.HasValue || workflow.TimerPaused))
+                        {
+                            <QuestionWorkflowTimer TimerEndsAtUtc="workflow.TimerEndsAtUtc" TimerPaused="workflow.TimerPaused" RemainingSeconds="workflow.RemainingSeconds" />
+                        }
                         @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
                         {
                             <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "message")</p>
                         }
-                        else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ||
-                                 activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
+                        else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase))
                         {
-                            var options = ReadStringList(activeEvent.Parameters,
-                                activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase) ? "options" : "answers");
+                            var options = ReadStringList(activeEvent.Parameters, "options");
                             @if (options.Length > 0)
                             {
                                 <ol class="canvas-options">
@@ -95,9 +100,38 @@
                                 </ol>
                             }
                         }
+                        else if (activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
+                        {
+                            @if (workflow.Phase == "answers" || workflow.Phase == "results")
+                            {
+                                var answers = ReadStringList(activeEvent.Parameters, "answers");
+                                var correctIndices = ReadIntList(activeEvent.Parameters, "correctAnswerIndices");
+                                <ol class="canvas-options">
+                                    @for (var index = 0; index < answers.Length; index++)
+                                    {
+                                        <li class="@(workflow.Phase == "results" && correctIndices.Contains(index) ? "is-correct" : null)">@answers[index]</li>
+                                    }
+                                </ol>
+                            }
+                            @if (workflow.Phase == "results" && !string.IsNullOrWhiteSpace(ReadString(activeEvent.Parameters, "explanation")))
+                            {
+                                <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "explanation")</p>
+                            }
+                        }
                         else if (activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
                         {
-                            <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
+                            @if (workflow.Phase == "results")
+                            {
+                                <p class="canvas-unit">@ReadDouble(activeEvent.Parameters, "correctValue").ToString("G", CultureInfo.CurrentCulture) @ReadString(activeEvent.Parameters, "unit")</p>
+                                @if (!string.IsNullOrWhiteSpace(ReadString(activeEvent.Parameters, "explanation")))
+                                {
+                                    <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "explanation")</p>
+                                }
+                            }
+                            else
+                            {
+                                <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
+                            }
                         }
                         else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
                         {
@@ -556,6 +590,28 @@
         parameters.ValueKind == JsonValueKind.Object &&
         parameters.TryGetProperty(propertyName, out var value) &&
         value.TryGetInt32(out var result) ? result : 0;
+
+    private static double ReadDouble(JsonElement parameters, string propertyName) =>
+        parameters.ValueKind == JsonValueKind.Object
+        && parameters.TryGetProperty(propertyName, out var value)
+        && value.TryGetDouble(out var result)
+            ? result
+            : 0;
+
+    private static int[] ReadIntList(JsonElement parameters, string propertyName)
+    {
+        if (parameters.ValueKind != JsonValueKind.Object
+            || !parameters.TryGetProperty(propertyName, out var value)
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return value.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out _))
+            .Select(item => item.GetInt32())
+            .ToArray();
+    }
 
     private static bool ReadBool(JsonElement parameters, string propertyName) =>
         parameters.ValueKind == JsonValueKind.Object &&

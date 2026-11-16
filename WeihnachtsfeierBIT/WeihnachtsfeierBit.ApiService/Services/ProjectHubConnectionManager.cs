@@ -16,6 +16,7 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         Guid projectId,
         string connectionId,
         bool canReadChat,
+        Guid? teamId,
         CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -30,8 +31,15 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
             var connection = (connectionId, projectId);
             await hubContext.Groups.AddToGroupAsync(
                 connectionId,
-                GameStateHub.GetGroupName(projectId),
+                access.IsAdmin ? GameStateHub.GetAdminGroupName(projectId) : GameStateHub.GetGroupName(projectId),
                 cancellationToken);
+            if (!access.IsAdmin && teamId is Guid joinedTeamId)
+            {
+                await hubContext.Groups.AddToGroupAsync(
+                    connectionId,
+                    GameStateHub.GetTeamGroupName(projectId, joinedTeamId),
+                    cancellationToken);
+            }
             if (access.IsAdmin || canReadChat)
             {
                 await hubContext.Groups.AddToGroupAsync(
@@ -44,7 +52,8 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
                 access.SessionId,
                 access.ParticipantId,
                 access.IsAdmin,
-                access.IsAdmin || canReadChat);
+                access.IsAdmin || canReadChat,
+                teamId);
 
             if (!_connectionsBySession.TryGetValue(access.SessionId, out var connections))
             {
@@ -71,12 +80,21 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         {
             await hubContext.Groups.RemoveFromGroupAsync(
                 connectionId,
-                GameStateHub.GetGroupName(projectId),
+                GetAccessGroupName(connectionId, projectId),
                 cancellationToken);
             await hubContext.Groups.RemoveFromGroupAsync(
                 connectionId,
                 GameStateHub.GetChatGroupName(projectId),
                 cancellationToken);
+            if (_connectionsByConnection.TryGetValue((connectionId, projectId), out var existing)
+                && !existing.IsAdmin
+                && existing.TeamId is Guid teamId)
+            {
+                await hubContext.Groups.RemoveFromGroupAsync(
+                    connectionId,
+                    GameStateHub.GetTeamGroupName(projectId, teamId),
+                    cancellationToken);
+            }
             RemoveConnection((connectionId, projectId));
         }
         finally
@@ -98,10 +116,18 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
             {
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connectionId,
-                    GameStateHub.GetGroupName(connection.ProjectId));
+                    GetAccessGroupName(connectionId, connection.ProjectId));
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connectionId,
                     GameStateHub.GetChatGroupName(connection.ProjectId));
+                if (_connectionsByConnection.TryGetValue(connection, out var existing)
+                    && !existing.IsAdmin
+                    && existing.TeamId is Guid teamId)
+                {
+                    await hubContext.Groups.RemoveFromGroupAsync(
+                        connectionId,
+                        GameStateHub.GetTeamGroupName(connection.ProjectId, teamId));
+                }
                 RemoveConnection(connection);
             }
         }
@@ -128,10 +154,18 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
             {
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connection.ConnectionId,
-                    GameStateHub.GetGroupName(connection.ProjectId));
+                    GetAccessGroupName(connection.ConnectionId, connection.ProjectId));
                 await hubContext.Groups.RemoveFromGroupAsync(
                     connection.ConnectionId,
                     GameStateHub.GetChatGroupName(connection.ProjectId));
+                if (_connectionsByConnection.TryGetValue(connection, out var existing)
+                    && !existing.IsAdmin
+                    && existing.TeamId is Guid teamId)
+                {
+                    await hubContext.Groups.RemoveFromGroupAsync(
+                        connection.ConnectionId,
+                        GameStateHub.GetTeamGroupName(connection.ProjectId, teamId));
+                }
                 _connectionsByConnection.Remove(connection);
                 await hubContext.Clients.Client(connection.ConnectionId)
                     .SendAsync("SessionRevoked", CancellationToken.None);
@@ -201,6 +235,58 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         }
     }
 
+    public async Task SyncParticipantTeamGroupsAsync(
+        Guid projectId,
+        IReadOnlyDictionary<Guid, Guid?> teamByParticipant,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var pair in _connectionsByConnection
+                         .Where(item => item.Key.ProjectId == projectId && !item.Value.IsAdmin)
+                         .ToArray())
+            {
+                if (pair.Value.ParticipantId is not Guid participantId)
+                {
+                    continue;
+                }
+
+                var teamId = teamByParticipant.GetValueOrDefault(participantId);
+                if (teamId == pair.Value.TeamId)
+                {
+                    continue;
+                }
+
+                if (pair.Value.TeamId is Guid oldTeamId)
+                {
+                    await hubContext.Groups.RemoveFromGroupAsync(
+                        pair.Key.ConnectionId,
+                        GameStateHub.GetTeamGroupName(projectId, oldTeamId),
+                        cancellationToken);
+                }
+                if (teamId is Guid newTeamId)
+                {
+                    await hubContext.Groups.AddToGroupAsync(
+                        pair.Key.ConnectionId,
+                        GameStateHub.GetTeamGroupName(projectId, newTeamId),
+                        cancellationToken);
+                }
+
+                _connectionsByConnection[pair.Key] = pair.Value with { TeamId = teamId };
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private string GetAccessGroupName(string connectionId, Guid projectId) =>
+        _connectionsByConnection.TryGetValue((connectionId, projectId), out var access) && access.IsAdmin
+            ? GameStateHub.GetAdminGroupName(projectId)
+            : GameStateHub.GetGroupName(projectId);
+
     private void RemoveConnection((string ConnectionId, Guid ProjectId) connection)
     {
         if (!_connectionsByConnection.Remove(connection, out var access) ||
@@ -232,5 +318,6 @@ public sealed class ProjectHubConnectionManager(IHubContext<GameStateHub> hubCon
         Guid SessionId,
         Guid? ParticipantId,
         bool IsAdmin,
-        bool CanReadChat);
+        bool CanReadChat,
+        Guid? TeamId);
 }

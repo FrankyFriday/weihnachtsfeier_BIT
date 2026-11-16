@@ -34,11 +34,12 @@ public sealed class GameStateHub(
         }
 
         var canReadChat = true;
+        Guid? teamId = null;
         if (access.ParticipantId is Guid participantId)
         {
             var participant = await dbContext.Teilnehmer.AsNoTracking()
                 .Where(item => item.Id == participantId && item.ProjektId == projectId)
-                .Select(item => new { item.Berechtigung!.PermissionsJson })
+                .Select(item => new { item.Berechtigung!.PermissionsJson, item.TeamId })
                 .FirstOrDefaultAsync(Context.ConnectionAborted);
             if (participant is null)
             {
@@ -53,6 +54,7 @@ public sealed class GameStateHub(
                 globalPermissions,
                 participant?.PermissionsJson);
             canReadChat = effectivePermissions.GetValueOrDefault(ParticipantPermissionKeys.CanReadChat);
+            teamId = participant?.TeamId;
         }
 
         var joined = await connectionManager.JoinProjectAsync(
@@ -60,6 +62,7 @@ public sealed class GameStateHub(
             projectId,
             Context.ConnectionId,
             canReadChat,
+            teamId,
             Context.ConnectionAborted);
         if (!joined)
         {
@@ -81,5 +84,7 @@ public sealed class GameStateHub(
     public Task Ping() => Task.CompletedTask;
 
     public static string GetGroupName(Guid projectId) => $"project_{projectId}";
+    public static string GetAdminGroupName(Guid projectId) => $"project_{projectId}_admins";
+    public static string GetTeamGroupName(Guid projectId, Guid teamId) => $"project_{projectId}_team_{teamId}";
     public static string GetChatGroupName(Guid projectId) => $"project_{projectId}_chat";
 }

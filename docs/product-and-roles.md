@@ -44,6 +44,8 @@ Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock
 
 Die mobile Regie-Seite und die Desktop-Seitenleiste verwenden dieselben Tabs und Inhalte. Neue Regie-Bereiche werden daher zentral konfiguriert und erscheinen automatisch auch mobil.
 
+Für jede aktuell angezeigte Slide stehen die nur für Admins bestimmten Moderator-Notizen in einem eigenen Container im Session-Dashboard.
+
 Beamer-Einstellungen gelten nur für die aktive Session und werden nach einer Dropdown-Auswahl sofort übernommen. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Schrift, Event-Inhalt, Punktestand und QR-Code lassen sich in begrenzten Stufen skalieren; Event- und Punktestandskalierung ändern zusätzlich die relative Größe ihrer Kacheln. Projekttitel und Event-Typ-Beschriftung lassen sich ausblenden. Die Beameransicht blendet Scrollleisten aus und passt Event- und Punktestandsinhalte automatisch an den verfügbaren Bildschirmplatz an. Für die lokale Vorschau lassen sich Breite und Höhe der Beamer-Auflösung manuell in einem Popup einstellen; die Vorschau rendert mit diesen Viewport-Abmessungen und wird in die Sidebar-Fläche skaliert. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
 
 ## Erweiterte Chat-Moderation & UX
@@ -61,15 +63,17 @@ Das System unterstützt 16 spezialisierte Folientypen:
 1. **Punktevergabe (`PointAwardSlide`):** Vertikales Säulendiagramm mit automatischer Smart-Zoom Skalierung und schwebenden `+10 Pkt!` Delta-Badges bei Punktebuchungen.
 2. **Hitster:** Spotify-Anbindung mit Song-Player, Titel/Interpret/Veröffentlichungsjahr-Raten.
 3. **Jeopardy:** Interaktives Kategoriengitter (100–500 Punkte) mit Antwortaufdeckung und Team-Punkteauswahl.
-4. **Quiz:** Multiple-Choice Fragen mit Speed-Bonus und Zeitlimit.
+4. **Quiz:** Multiple-Choice-Fragen mit moderatorgesteuerten Frage-, Antwort-, gesperrt- und Ergebnisphasen. Optionale Timer steuern den Übergang zur Antwortphase und sperren Antworten nach Ablauf. Im offenen Modus erhält das Team für jede richtige Teilnehmerantwort Punkte; im Teammodus stimmen die Teilnehmenden gemeinsam ab, können aber nur ihre eigene Stimme ändern. Die Abstimmung zeigt Stimmenzahlen und Teilnehmer-Chips pro Antwort. Die Regie legt vor der Auflösung die offizielle Teamantwort fest.
 5. **Poll:** Abstimmung mit prozentualer Live-Visualisierung.
-6. **Estimation:** Schätzfrage mit Einheiten-Vergleich.
+6. **Estimation:** Schätzfragen mit denselben Phasen- und Timersteuerungen. Im offenen Modus erhalten die Teams mit der geringsten Abweichung die Punkte, Gleichstände eingeschlossen. Im Teammodus können Beiträge des aktiven Teams gemeinsam angepasst werden; der Moderator legt den offiziellen Teamwert fest und vergibt Punkte manuell.
 7. **Buzzer:** Schnelligkeits-Buzzer für das schnellste Team.
 8. **Ranking:** Live-Tabellenstand & zeitlicher Treppenstufen-Verlaufsgraph.
 9. **Announcement, Text, WordCloud, Slider, Rating, Ordering, Countdown:** Ankündigungen, Freitext, Wortwolken, Regler, Bewertungen, Sortierungen und Timer.
 10. **Pantomime:** Der Admin wählt pro Team eine darstellende Person und eine gemeinsame Rundendauer. Alle Teams starten gleichzeitig. Zufällig ausgegebene Begriffe werden innerhalb der Runde nicht wiederholt; das Slide kann ein Skip-Limit pro darstellender Person festlegen (0 deaktiviert das Überspringen). Die darstellende Person kann Begriffe innerhalb des Limits überspringen; Moderatoren können dies ebenfalls für ein Team tun oder nach einer zusätzlichen Bestätigung einen kostenlosen Skip ausführen. In der Regie können Moderatoren erratene Begriffe bestätigen; Teilnehmende können keine Punkte selbst bestätigen. Für die Nutzung am Handy kann die Regie eine Vollbild-Teamansicht öffnen, die nur den Begriff, Timer und Aktionen für ein Team zeigt. Der Beamer und übrige Teilnehmergeräte zeigen keinen Begriff, sondern gemeinsame Restzeit, Teams, Darstellende und Fortschritt. Nach Zeitablauf werden keine weiteren Begriffe ausgegeben und der Endstand zeigt die erratenen Begriffe pro Team.
 
 Die Beameransicht kann während einer aktiven Sitzung einen QR-Code anzeigen, der die Teilnehmerseite mit vorausgefülltem Session-Code öffnet. Anzeige und Platzierung werden über die Beamer-Steuerung festgelegt.
+
+Quiz- und Schätzfragen lassen sich in der Regie über die drei Schritte **Frage**, **Antworten** und **Auflösung** mit Vor- und Zurück-Navigation steuern. Frage und Antwortoptionen bleiben in allen Schritten sichtbar. Timer werden in den ersten beiden Schritten angezeigt und lassen sich pausieren, fortsetzen, zurücksetzen oder auf einen Wert zwischen 0 und 3600 Sekunden setzen; abgelaufene Antwortzeiten sperren Eingaben, ohne automatisch die Lösung zu zeigen. Bei Teamfragen muss vor der Auflösung die offizielle Antwort bzw. Schätzung festgelegt werden. Die schnelle Punkteanpassung ist nur im Auflösungsschritt verfügbar. Richtige Antworten, Zielwerte und Erklärungen werden erst nach der Ergebnisfreigabe an Teilnehmergeräte und Beamer übertragen. Punkte aus Quiz und offenen Schätzfragen werden automatisch anhand der Antworten verbucht und bei späteren Moderationskorrekturen angepasst. Team-exklusive Antworten bleiben auf das aktive Team begrenzt. Jeopardy-Feldwerte dienen nur zur Anzeige und haben keinen Einfluss auf die Wertung dieser Fragen. Der vorhandene Speed-Bonus-Schalter konfiguriert derzeit noch keine zusätzliche Wertung.
 
 ## Verbindungsqualität & Status-Overlays
 

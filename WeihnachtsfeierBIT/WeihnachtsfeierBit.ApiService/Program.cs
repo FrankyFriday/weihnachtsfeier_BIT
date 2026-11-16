@@ -28,6 +28,7 @@ builder.Services.AddScoped<ProjectAccessService>();
 builder.Services.AddScoped<WeihnachtsfeierBit.ApiService.Auth.ParticipantPermissionService>();
 builder.Services.AddScoped<AdminSessionAccessService>();
 builder.Services.AddScoped<ProjectAuthenticationService>();
+builder.Services.AddHostedService<WeihnachtsfeierBit.ApiService.Services.QuestionWorkflowBackgroundService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("authentication", httpContext =>

@@ -2,68 +2,74 @@
 @using WeihnachtsfeierBit.Framework
 
 <div style="margin-top: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Schätzungen (@TotalEstimations Schätzwerte)</h3>
-        <FrameworkBadge Text="@($"Zielwert: {TargetValue} {Unit}")" Variant="primary" />
-    </div>
-
-    @if (TotalEstimations == 0)
+    <QuestionWorkflowControls Event="Event" CurrentSlide="CurrentSlide" ProjectId="ProjectId" />
+    @if (IsResolutionPhase)
     {
-        <p style="color: #657276; font-size: 14px;">Noch keine Schätzwerte abgegeben.</p>
-    }
-    else
-    {
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; background: #f8faf9; padding: 12px; border-radius: 6px; border: 1px solid #dce5e2; text-align: center;">
-            <div>
-                <span style="font-size: 11px; color: #657276; font-weight: 700;">DURCHSCHNITT</span>
-                <strong style="display: block; font-size: 18px; color: #105c4d;">@AverageEstimate.ToString("F1") @Unit</strong>
-            </div>
-            <div>
-                <span style="font-size: 11px; color: #657276; font-weight: 700;">MIN. SCHÄTZUNG</span>
-                <strong style="display: block; font-size: 18px; color: #105c4d;">@MinEstimate @Unit</strong>
-            </div>
-            <div>
-                <span style="font-size: 11px; color: #657276; font-weight: 700;">MAX. SCHÄTZUNG</span>
-                <strong style="display: block; font-size: 18px; color: #105c4d;">@MaxEstimate @Unit</strong>
-            </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Schätzungen (@TotalEstimations Schätzwerte)</h3>
+            <FrameworkBadge Text="@($"Zielwert: {TargetValue} {Unit}")" Variant="primary" />
         </div>
 
-        <h4>Rangliste nach Genauigkeit (Nahe am Zielwert)</h4>
-        <div style="display: grid; gap: 8px; margin-top: 8px;">
-            @for (int i = 0; i < RankedEstimations.Count; i++)
-            {
-                var rank = i + 1;
-                var item = RankedEstimations[i];
-                <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: @(rank == 1 ? "#f0f8f4" : "#fff"); display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="font-weight: 800; color: #105c4d; min-width: 24px;">#@rank</span>
+        @if (TotalEstimations == 0)
+        {
+            <p style="color: #657276; font-size: 14px;">Noch keine Schätzwerte abgegeben.</p>
+        }
+        else
+        {
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; background: #f8faf9; padding: 12px; border-radius: 6px; border: 1px solid #dce5e2; text-align: center;">
+                <div>
+                    <span style="font-size: 11px; color: #657276; font-weight: 700;">DURCHSCHNITT</span>
+                    <strong style="display: block; font-size: 18px; color: #105c4d;">@AverageEstimate.ToString("F1") @Unit</strong>
+                </div>
+                <div>
+                    <span style="font-size: 11px; color: #657276; font-weight: 700;">MIN. SCHÄTZUNG</span>
+                    <strong style="display: block; font-size: 18px; color: #105c4d;">@MinEstimate @Unit</strong>
+                </div>
+                <div>
+                    <span style="font-size: 11px; color: #657276; font-weight: 700;">MAX. SCHÄTZUNG</span>
+                    <strong style="display: block; font-size: 18px; color: #105c4d;">@MaxEstimate @Unit</strong>
+                </div>
+            </div>
+
+            <h4>Rangliste nach Genauigkeit (Nahe am Zielwert)</h4>
+            <div style="display: grid; gap: 8px; margin-top: 8px;">
+                @for (int i = 0; i < RankedEstimations.Count; i++)
+                {
+                    var rank = i + 1;
+                    var item = RankedEstimations[i];
+                    <div style="padding: 10px 14px; border: 1px solid #dce5e2; border-radius: 6px; background: @(rank == 1 ? "#f0f8f4" : "#fff"); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span style="font-weight: 800; color: #105c4d; min-width: 24px;">#@rank</span>
+                            <div>
+                                <strong>#@item.ParticipantNumber @(string.IsNullOrWhiteSpace(item.ParticipantName) ? "" : $"({item.ParticipantName})")</strong>
+                                @if (!string.IsNullOrEmpty(item.TeamName))
+                                {
+                                    <span style="font-size: 12px; color: #657276; margin-left: 6px;">• Team @item.TeamName</span>
+                                }
+                            </div>
+                        </div>
                         <div>
-                            <strong>#@item.ParticipantNumber @(string.IsNullOrWhiteSpace(item.ParticipantName) ? "" : $"({item.ParticipantName})")</strong>
-                            @if (!string.IsNullOrEmpty(item.TeamName))
-                            {
-                                <span style="font-size: 12px; color: #657276; margin-left: 6px;">• Team @item.TeamName</span>
-                            }
+                            <strong style="font-size: 16px; color: #105c4d;">@item.Value @Unit</strong>
+                            <span style="font-size: 12px; color: #657276; margin-left: 6px;">(Abw: @item.Difference.ToString("F1"))</span>
                         </div>
                     </div>
-                    <div>
-                        <strong style="font-size: 16px; color: #105c4d;">@item.Value @Unit</strong>
-                        <span style="font-size: 12px; color: #657276; margin-left: 6px;">(Abw: @item.Difference.ToString("F1"))</span>
-                    </div>
-                </div>
-            }
-        </div>
+                }
+            </div>
+        }
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
 
     private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
     private int TotalEstimations => SlideResponses.Count();
 
     private double TargetValue => ReadDouble(CurrentSlide.Parameters, "correctValue");
     private string Unit => ReadString(CurrentSlide.Parameters, "unit");
+    private bool IsResolutionPhase => QuestionWorkflowViewState.Read(CurrentSlide.Parameters).Phase == "results";
 
     private double AverageEstimate => TotalEstimations == 0 ? 0 : RankedEstimations.Average(r => r.Value);
     private double MinEstimate => TotalEstimations == 0 ? 0 : RankedEstimations.Min(r => r.Value);

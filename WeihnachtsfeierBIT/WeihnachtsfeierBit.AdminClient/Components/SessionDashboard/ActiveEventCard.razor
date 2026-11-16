@@ -137,6 +137,7 @@
         {
             var currentSlide = Event.Slides[Event.CurrentSlideIndex];
             <FrameworkDivider />
+            <SlideModeratorNotes CurrentSlide="currentSlide" />
             @switch (currentSlide.Type.ToLowerInvariant())
             {
                 case "announcement":
