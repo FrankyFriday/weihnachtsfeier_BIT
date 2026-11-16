@@ -118,7 +118,7 @@
             }
 
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
-                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModal" />
+                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseModal" Disabled="_isSaving" />
                 <FrameworkButton Label="Speichern" Variant="primary" OnClick="SavePageAsync" Busy="_isSaving" />
             </div>
         </div>
@@ -132,6 +132,7 @@
 
     private bool _isModalOpen;
     private Guid? _editingPageId;
+    private Guid? _pendingCreateRequestId;
     private string _formTitle = string.Empty;
     private string _formIcon = "restaurant";
     private int _formPosition = 0;
@@ -170,6 +171,7 @@
     private void OpenCreateModal()
     {
         _editingPageId = null;
+        _pendingCreateRequestId = Guid.NewGuid();
         _formTitle = string.Empty;
         _formIcon = "restaurant";
         _formPosition = _pages.Length * 10;
@@ -183,6 +185,7 @@
     private void OpenEditModal(ProjectInfoPageDto page)
     {
         _editingPageId = page.Id;
+        _pendingCreateRequestId = null;
         _formTitle = page.Title;
         _formIcon = page.Icon;
         _formPosition = page.Position;
@@ -193,10 +196,24 @@
         _isModalOpen = true;
     }
 
-    private void CloseModal() => _isModalOpen = false;
+    private void CloseModal()
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _isModalOpen = false;
+        _pendingCreateRequestId = null;
+    }
 
     private async Task SavePageAsync()
     {
+        if (_isSaving)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(_formTitle))
         {
             _modalError = "Bitte gib einen Titel ein.";
@@ -208,20 +225,46 @@
 
         try
         {
-            await RunAuthenticatedAsync(async token =>
+            var accessToken = AccessToken;
+            if (string.IsNullOrEmpty(accessToken))
             {
-                if (_editingPageId == null)
-                {
-                    await ProjectApiClient.CreateInfoPageAsync(token, ProjectId, _formTitle, _formIcon, _formPosition, _formIsVisible, _formMarkdown);
-                }
-                else
-                {
-                    await ProjectApiClient.UpdateInfoPageAsync(token, ProjectId, _editingPageId.Value, _formTitle, _formIcon, _formPosition, _formIsVisible, _formMarkdown);
-                }
+                _modalError = "Die Admin-Sitzung ist nicht verfügbar. Bitte melde dich erneut an.";
+                return;
+            }
 
-                _isModalOpen = false;
-                await LoadDataAsync();
-            });
+            await InvokeAsync(StateHasChanged);
+
+            ProjectInfoPageDto savedPage;
+            if (_editingPageId == null)
+            {
+                _pendingCreateRequestId ??= Guid.NewGuid();
+                savedPage = await ProjectApiClient.CreateInfoPageAsync(
+                    accessToken,
+                    ProjectId,
+                    _formTitle,
+                    _formIcon,
+                    _formPosition,
+                    _formIsVisible,
+                    _formMarkdown,
+                    _pendingCreateRequestId.Value);
+            }
+            else
+            {
+                savedPage = await ProjectApiClient.UpdateInfoPageAsync(accessToken, ProjectId, _editingPageId.Value, _formTitle, _formIcon, _formPosition, _formIsVisible, _formMarkdown);
+            }
+
+            _pages = _pages
+                .Where(page => page.Id != savedPage.Id)
+                .Append(savedPage)
+                .OrderBy(page => page.Position)
+                .ThenBy(page => page.Title, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _pendingCreateRequestId = null;
+            _isModalOpen = false;
+        }
+        catch (HttpRequestException ex)
+        {
+            _modalError = ex.Message;
         }
         catch (Exception ex)
         {

@@ -34,7 +34,17 @@ public static class InfoPagesEndpoints
             query = query.Where(p => p.IsVisible);
         }
 
-        var pages = await query.OrderBy(p => p.Position).ThenBy(p => p.Title).ToListAsync(cancellationToken);
+        var pages = await query.OrderBy(p => p.Position).ThenBy(p => p.Title)
+            .Select(page => new ProjectInfoPageResponse(
+                page.Id,
+                page.ProjektId,
+                page.Title,
+                page.Icon,
+                page.Position,
+                page.IsVisible,
+                page.ContentMarkdown,
+                page.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
         return Results.Ok(pages);
     }
 
@@ -45,7 +55,17 @@ public static class InfoPagesEndpoints
         CancellationToken cancellationToken)
     {
         var page = await dbContext.ProjectInfoPages.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id && p.ProjektId == projectId, cancellationToken);
+            .Where(p => p.Id == id && p.ProjektId == projectId)
+            .Select(p => new ProjectInfoPageResponse(
+                p.Id,
+                p.ProjektId,
+                p.Title,
+                p.Icon,
+                p.Position,
+                p.IsVisible,
+                p.ContentMarkdown,
+                p.CreatedAtUtc))
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (page is null) return Results.NotFound();
         return Results.Ok(page);
@@ -64,8 +84,38 @@ public static class InfoPagesEndpoints
             return Results.Unauthorized();
         }
 
+        var pageId = request.Id is { } requestId && requestId != Guid.Empty
+            ? requestId
+            : Guid.NewGuid();
+        var existingPage = await dbContext.ProjectInfoPages.AsNoTracking()
+            .Where(page => page.Id == pageId && page.ProjektId == projectId)
+            .Select(page => new ProjectInfoPageResponse(
+                page.Id,
+                page.ProjektId,
+                page.Title,
+                page.Icon,
+                page.Position,
+                page.IsVisible,
+                page.ContentMarkdown,
+                page.CreatedAtUtc))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existingPage is not null)
+        {
+            var requestedIcon = string.IsNullOrWhiteSpace(request.Icon) ? "info" : request.Icon.Trim();
+            var requestedContent = request.ContentMarkdown ?? string.Empty;
+            return existingPage.Title == request.Title.Trim() &&
+                existingPage.Icon == requestedIcon &&
+                existingPage.Position == request.Position &&
+                existingPage.IsVisible == request.IsVisible &&
+                existingPage.ContentMarkdown == requestedContent
+                ? Results.Ok(existingPage)
+                : Results.Conflict();
+        }
+
         var page = new ProjectInfoPage
         {
+            Id = pageId,
             ProjektId = projectId,
             Title = request.Title.Trim(),
             Icon = string.IsNullOrWhiteSpace(request.Icon) ? "info" : request.Icon.Trim(),
@@ -77,7 +127,7 @@ public static class InfoPagesEndpoints
         dbContext.ProjectInfoPages.Add(page);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(page);
+        return Results.Ok(ToResponse(page));
     }
 
     private static async Task<IResult> UpdateInfoPageAsync(
@@ -106,7 +156,7 @@ public static class InfoPagesEndpoints
         if (request.ContentMarkdown is not null) page.ContentMarkdown = request.ContentMarkdown;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Results.Ok(page);
+        return Results.Ok(ToResponse(page));
     }
 
     private static async Task<IResult> DeleteInfoPageAsync(
@@ -132,7 +182,11 @@ public static class InfoPagesEndpoints
 
         return Results.Ok();
     }
+
+    private static ProjectInfoPageResponse ToResponse(ProjectInfoPage page) =>
+        new(page.Id, page.ProjektId, page.Title, page.Icon, page.Position, page.IsVisible, page.ContentMarkdown, page.CreatedAtUtc);
 }
 
-public sealed record CreateInfoPageRequest(string Title, string? Icon, int Position, bool IsVisible, string? ContentMarkdown);
+public sealed record CreateInfoPageRequest(string Title, string? Icon, int Position, bool IsVisible, string? ContentMarkdown, Guid? Id = null);
 public sealed record UpdateInfoPageRequest(string? Title, string? Icon, int? Position, bool? IsVisible, string? ContentMarkdown);
+public sealed record ProjectInfoPageResponse(Guid Id, Guid ProjektId, string Title, string Icon, int Position, bool IsVisible, string ContentMarkdown, DateTime CreatedAtUtc);

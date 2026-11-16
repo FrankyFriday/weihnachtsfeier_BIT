@@ -805,20 +805,22 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         return await response.Content.ReadFromJsonAsync<ProjectInfoPageDto[]>(cancellationToken) ?? [];
     }
 
-    public async Task<ProjectInfoPageDto> CreateInfoPageAsync(string accessToken, Guid projectId, string title, string icon, int position, bool isVisible, string contentMarkdown, CancellationToken cancellationToken = default)
+    public async Task<ProjectInfoPageDto> CreateInfoPageAsync(string accessToken, Guid projectId, string title, string icon, int position, bool isVisible, string contentMarkdown, Guid? requestId = null, CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/info-pages", accessToken, new { title, icon, position, isVisible, contentMarkdown });
+        using var request = CreateRequest(HttpMethod.Post, $"/api/projects/{projectId}/info-pages", accessToken, new { title, icon, position, isVisible, contentMarkdown, id = requestId });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ProjectInfoPageDto>(cancellationToken)
             ?? throw new InvalidOperationException("Info-Seite konnte nicht erstellt werden.");
     }
 
-    public async Task UpdateInfoPageAsync(string accessToken, Guid projectId, Guid id, string title, string icon, int position, bool isVisible, string contentMarkdown, CancellationToken cancellationToken = default)
+    public async Task<ProjectInfoPageDto> UpdateInfoPageAsync(string accessToken, Guid projectId, Guid id, string title, string icon, int position, bool isVisible, string contentMarkdown, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/info-pages/{id}", accessToken, new { title, icon, position, isVisible, contentMarkdown });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ProjectInfoPageDto>(cancellationToken)
+            ?? throw new InvalidOperationException("Info-Seite konnte nicht aktualisiert werden.");
     }
 
     public async Task DeleteInfoPageAsync(string accessToken, Guid projectId, Guid id, CancellationToken cancellationToken = default)
