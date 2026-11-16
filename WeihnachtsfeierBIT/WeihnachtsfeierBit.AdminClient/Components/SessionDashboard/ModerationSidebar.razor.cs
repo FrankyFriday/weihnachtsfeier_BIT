@@ -76,6 +76,9 @@ public partial class ModerationSidebar : ComponentBase
     private string? _canvasPreviewResolutionError;
     private ElementReference _canvasPreviewStage;
     private ElementReference _canvasPreviewFrame;
+    private ElementReference _drawerResizeHandle;
+    private IJSObjectReference? _drawerResizeModule;
+    private IJSObjectReference? _drawerResizeController;
     private IJSObjectReference? _canvasPreviewModule;
     private IJSObjectReference? _canvasPreviewObserver;
     private int _observedCanvasPreviewWidth;
@@ -364,6 +367,19 @@ public partial class ModerationSidebar : ComponentBase
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        try
+        {
+            _drawerResizeModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", "./js/drawer-resize.js");
+            _drawerResizeController ??= await _drawerResizeModule.InvokeAsync<IJSObjectReference>(
+                "attachDrawerResize",
+                _drawerResizeHandle);
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Breite der Regie-Schublade konnte nach dem Trennen der UI-Verbindung nicht angepasst werden.");
+        }
+
         if (_activeCompartment != "beamer" || Instance is null || string.IsNullOrWhiteSpace(CanvasUrl))
         {
             _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
@@ -469,6 +485,29 @@ public partial class ModerationSidebar : ComponentBase
     public async ValueTask DisposeAsync()
     {
         _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
+        if (_drawerResizeController is not null)
+        {
+            try
+            {
+                await _drawerResizeController.InvokeVoidAsync("dispose");
+                await _drawerResizeController.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Die Regie-Schublade konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
+        }
+        if (_drawerResizeModule is not null)
+        {
+            try
+            {
+                await _drawerResizeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Das Regie-Schubladen-Modul konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
+        }
         if (_canvasPreviewModule is not null)
         {
             try

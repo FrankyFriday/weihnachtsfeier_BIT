@@ -92,6 +92,40 @@
                                OnDrawerStateChanged="state => _isRegieDrawerOpen = state" />
         </div>
 
+        @if (_state.SelectedTabItem is { } selectedTab
+            && selectedTab.Event.CurrentSlideIndex >= 0
+            && selectedTab.Event.Slides.Length > selectedTab.Event.CurrentSlideIndex)
+        {
+            var currentSlide = selectedTab.Event.Slides[selectedTab.Event.CurrentSlideIndex];
+            <button type="button"
+                    class="moderator-notes-toggle @(_isRegieDrawerOpen ? "regie-open" : "")"
+                    title="@(_isModeratorNotesDrawerOpen ? "Moderator-Notizen schließen" : "Moderator-Notizen öffnen")"
+                    aria-label="@(_isModeratorNotesDrawerOpen ? "Moderator-Notizen schließen" : "Moderator-Notizen öffnen")"
+                    aria-expanded="@_isModeratorNotesDrawerOpen"
+                    @onclick="ToggleModeratorNotesDrawer">
+                <span class="material-symbols-outlined" aria-hidden="true">@(_isModeratorNotesDrawerOpen ? "close" : "sticky_note_2")</span>
+            </button>
+            @if (_isModeratorNotesDrawerOpen)
+            {
+                <aside class="moderator-notes-drawer @(_isRegieDrawerOpen ? "regie-open" : "")"
+                       aria-label="Moderator-Notizen zur aktuellen Folie">
+                    <div class="moderator-notes-drawer-header">
+                        <strong>Moderator-Notizen · Folie @(selectedTab.Event.CurrentSlideIndex + 1)</strong>
+                        <button type="button"
+                                class="btn-icon-small"
+                                title="Schließen"
+                                aria-label="Moderator-Notizen schließen"
+                                @onclick="ToggleModeratorNotesDrawer">
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </button>
+                    </div>
+                    <div class="moderator-notes-drawer-body">
+                        <SlideModeratorNotes CurrentSlide="currentSlide" />
+                    </div>
+                </aside>
+            }
+        }
+
         <!-- MODALS -->
         <AwardPointsModal IsOpen="_isAwardPointsModalOpen"
                           ProjectId="@ProjectId"

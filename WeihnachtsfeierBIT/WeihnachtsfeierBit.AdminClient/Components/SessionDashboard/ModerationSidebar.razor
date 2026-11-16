@@ -36,6 +36,13 @@ else
 
 <!-- COMPARTMENT DRAWER PANEL -->
 <div class="regie-drawer-panel @(_isDrawerOpen ? "open" : "") @(CompactMode ? "compact" : "")">
+    @if (!CompactMode)
+    {
+        <div @ref="_drawerResizeHandle"
+             class="regie-drawer-resize-handle"
+             title="Ziehen, um die Breite der Regie-Schublade anzupassen"
+             aria-label="Breite der Regie-Schublade anpassen"></div>
+    }
     <div class="regie-sidebar-header">
         <div style="display: flex; gap: 8px; align-items: center;">
             <span class="material-symbols-outlined" style="color: #105c4d;">

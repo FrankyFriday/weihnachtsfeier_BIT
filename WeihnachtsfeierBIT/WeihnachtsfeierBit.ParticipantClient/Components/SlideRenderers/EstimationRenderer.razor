@@ -15,10 +15,6 @@
     {
         <p style="color: #657276;">Die Antwortphase beginnt automatisch oder durch die Spielleitung.</p>
     }
-    else if (_workflow.Phase == "locked")
-    {
-        <p style="color: #657276; font-weight: 700;">Die Antwortzeit ist abgelaufen. Die Spielleitung zeigt gleich das Ergebnis.</p>
-    }
     else if (_workflow.Phase == "results")
     {
         @if (IsTeamExclusive && _workflow.OfficialEstimationValue is double officialValue)
@@ -46,41 +42,51 @@
             <p style="max-width: 550px; margin-top: 12px; color: #536164;">@ReadString(CurrentSlide.Parameters, "explanation")</p>
         }
     }
-    else
+    else if (_workflow.Phase is "answers" or "locked")
     {
+        @if (_workflow.Phase == "locked")
+        {
+            <p style="color: #657276; font-weight: 700;">Die Antwortzeit ist beendet. Die abgegebenen Schätzungen bleiben bis zur Auflösung sichtbar.</p>
+        }
         @if (IsTeamExclusive && TeamResponses.Any())
         {
             <div style="width: 100%; max-width: 520px; display: grid; gap: 8px; margin-bottom: 16px; text-align: left;">
-                <strong>Team-Schätzungen · Beiträge können gemeinsam geändert werden</strong>
+                <strong>@(_workflow.Phase == "answers" ? "Team-Schätzungen · Beiträge können gemeinsam geändert werden" : "Team-Schätzungen")</strong>
                 @foreach (var response in TeamResponses)
                 {
                     var item = response;
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid #dce5e2; border-radius: 8px;">
                         <span>#@item.ParticipantNumber: @FormatEstimate(ReadEstimate(item)) @_unit</span>
-                        <button type="button" class="mobile-button secondary" disabled="@_isSubmitting" @onclick="() => BeginEditing(item)">Ändern</button>
+                        @if (_workflow.Phase == "answers")
+                        {
+                            <button type="button" class="mobile-button secondary" disabled="@_isSubmitting" @onclick="() => BeginEditing(item)">Ändern</button>
+                        }
                     </div>
                 }
             </div>
         }
 
-        @if (_editingParticipantId is Guid targetParticipantId && IsTeamExclusive)
+        @if (_workflow.Phase == "answers")
         {
-            <p style="margin: 0 0 8px; color: #536164;">Schätzung für #@GetParticipantNumber(targetParticipantId) festlegen:</p>
-        }
-        else if (GetMyEstimation() is double currentEstimate)
-        {
-            <p style="margin: 0 0 12px; color: #536164;">Dein aktueller Schätzwert: <strong>@currentEstimate @_unit</strong></p>
-        }
+            @if (_editingParticipantId is Guid targetParticipantId && IsTeamExclusive)
+            {
+                <p style="margin: 0 0 8px; color: #536164;">Schätzung für #@GetParticipantNumber(targetParticipantId) festlegen:</p>
+            }
+            else if (GetMyEstimation() is double currentEstimate)
+            {
+                <p style="margin: 0 0 12px; color: #536164;">Dein aktueller Schätzwert: <strong>@currentEstimate @_unit</strong></p>
+            }
 
-        <form @onsubmit="SubmitEstimation" @onsubmit:preventDefault="true" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;">
-            <div class="mobile-field" style="text-align: left;">
-                <label for="est-val" style="font-size: 15px; font-weight: 700;">Schätzwert (@_unit)</label>
-                <input id="est-val" type="number" step="any" class="mobile-input large-text" @bind="_estimationInput" required style="font-size: 28px; text-align: center; min-height: 60px;" />
-            </div>
-            <button type="submit" class="mobile-button primary" disabled="@_isSubmitting" style="min-height: 52px; font-size: 18px;">
-                Schätzung speichern
-            </button>
-        </form>
+            <form @onsubmit="SubmitEstimation" @onsubmit:preventDefault="true" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px;">
+                <div class="mobile-field" style="text-align: left;">
+                    <label for="est-val" style="font-size: 15px; font-weight: 700;">Schätzwert (@_unit)</label>
+                    <input id="est-val" type="number" step="any" class="mobile-input large-text" @bind="_estimationInput" required style="font-size: 28px; text-align: center; min-height: 60px;" />
+                </div>
+                <button type="submit" class="mobile-button primary" disabled="@_isSubmitting" style="min-height: 52px; font-size: 18px;">
+                    Schätzung speichern
+                </button>
+            </form>
+        }
     }
 </div>
 

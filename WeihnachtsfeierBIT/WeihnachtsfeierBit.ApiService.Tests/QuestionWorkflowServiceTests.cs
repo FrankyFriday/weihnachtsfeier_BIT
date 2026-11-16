@@ -14,7 +14,7 @@ public sealed class QuestionWorkflowServiceTests
         var slide = JsonNode.Parse(
             """{"type":"quiz","parameters":{"questionTimeLimitSeconds":10,"timeLimitSeconds":20}}""")!.AsObject();
 
-        Assert.False(QuestionWorkflowService.TickActiveSlide(slide, now));
+        Assert.True(QuestionWorkflowService.TickActiveSlide(slide, now));
         Assert.Equal(QuestionWorkflowService.QuestionPhase, QuestionWorkflowService.GetPhase(slide));
         Assert.Equal(now.AddSeconds(10), QuestionWorkflowService.GetTimerEnd(slide));
 
@@ -26,6 +26,22 @@ public sealed class QuestionWorkflowServiceTests
         Assert.True(QuestionWorkflowService.TickActiveSlide(slide, now.AddSeconds(30)));
         Assert.Equal(QuestionWorkflowService.LockedPhase, QuestionWorkflowService.GetPhase(slide));
         Assert.Null(QuestionWorkflowService.GetTimerEnd(slide));
+    }
+
+    [Fact]
+    public void DisableTimer_LeavesTheCurrentPhaseWithoutRestartingConfiguredTimer()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var slide = JsonNode.Parse(
+            """{"type":"quiz","parameters":{"questionTimeLimitSeconds":1,"timeLimitSeconds":20}}""")!.AsObject();
+
+        Assert.True(QuestionWorkflowService.TickActiveSlide(slide, now));
+        Assert.True(QuestionWorkflowService.TickActiveSlide(slide, now.AddSeconds(1)));
+        Assert.Equal(QuestionWorkflowService.AnswerPhase, QuestionWorkflowService.GetPhase(slide));
+        Assert.True(QuestionWorkflowService.DisableTimer(slide, now.AddSeconds(2)));
+        Assert.Null(QuestionWorkflowService.GetTimerEnd(slide));
+        Assert.False(QuestionWorkflowService.TickActiveSlide(slide, now.AddSeconds(3)));
+        Assert.Equal(QuestionWorkflowService.AnswerPhase, QuestionWorkflowService.GetPhase(slide));
     }
 
     [Theory]
@@ -121,6 +137,60 @@ public sealed class QuestionWorkflowServiceTests
         Assert.True(QuestionWorkflowService.HasOfficialTeamResult("estimation", workflow));
     }
 
+    [Fact]
+    public void LockAnswers_StopsAnswerTimerAndRejectsQuestionPhase()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var question = CreateWorkflowSlide("quiz", """{"phase":"question"}""");
+        var answers = CreateWorkflowSlide("quiz", """{"phase":"answers","timerPaused":true,"remainingSeconds":12}""");
+        var results = CreateWorkflowSlide("quiz", """{"phase":"results"}""");
+
+        Assert.False(QuestionWorkflowService.LockAnswers(question, now));
+        Assert.True(QuestionWorkflowService.LockAnswers(answers, now));
+        Assert.True(QuestionWorkflowService.LockAnswers(results, now));
+        Assert.Equal(QuestionWorkflowService.LockedPhase, QuestionWorkflowService.GetPhase(answers));
+        Assert.Equal(QuestionWorkflowService.LockedPhase, QuestionWorkflowService.GetPhase(results));
+        Assert.Null(QuestionWorkflowService.GetTimerEnd(answers));
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(answers));
+        var workflow = document.RootElement.GetProperty("parameters")
+            .GetProperty("state").GetProperty("questionWorkflow");
+        Assert.False(workflow.GetProperty("timerPaused").GetBoolean());
+        Assert.Equal(0, workflow.GetProperty("remainingSeconds").GetInt32());
+    }
+
+    [Fact]
+    public void OfficialTeamResult_CanOnlyBeSetAfterAnswersAreLocked()
+    {
+        var answers = CreateWorkflowSlide("quiz", """{"phase":"answers"}""", teamMode: "team_exclusive");
+        var locked = CreateWorkflowSlide("quiz", """{"phase":"locked"}""", teamMode: "team_exclusive");
+        var openAnswers = CreateWorkflowSlide("quiz", """{"phase":"answers"}""");
+
+        Assert.False(QuestionWorkflowService.CanSetOfficialTeamResult(answers));
+        Assert.True(QuestionWorkflowService.CanSetOfficialTeamResult(locked));
+        Assert.True(QuestionWorkflowService.CanSetOfficialTeamResult(openAnswers));
+    }
+
+    [Fact]
+    public void Results_CanOnlyBeRevealedFromLockedPhaseAndRequireTeamResult()
+    {
+        var answers = CreateWorkflowSlide("quiz", """{"phase":"answers","officialAnswerIndex":0}""");
+        var lockedWithoutAnswer = CreateWorkflowSlide("quiz", """{"phase":"locked"}""", teamMode: "team_exclusive");
+        var lockedWithAnswer = CreateWorkflowSlide("quiz", """{"phase":"locked","officialAnswerIndex":0}""", teamMode: "team_exclusive");
+        var lockedEstimateWithoutValue = CreateWorkflowSlide("estimation", """{"phase":"locked"}""", teamMode: "team_exclusive");
+        var lockedEstimateWithValue = CreateWorkflowSlide("estimation", """{"phase":"locked","officialEstimationValue":0}""", teamMode: "team_exclusive");
+        var lockedOpenQuiz = CreateWorkflowSlide("quiz", """{"phase":"locked"}""");
+        var alreadyResults = CreateWorkflowSlide("quiz", """{"phase":"results"}""");
+
+        Assert.False(QuestionWorkflowService.CanRevealResults(answers));
+        Assert.False(QuestionWorkflowService.CanRevealResults(lockedWithoutAnswer));
+        Assert.True(QuestionWorkflowService.CanRevealResults(lockedWithAnswer));
+        Assert.False(QuestionWorkflowService.CanRevealResults(lockedEstimateWithoutValue));
+        Assert.True(QuestionWorkflowService.CanRevealResults(lockedEstimateWithValue));
+        Assert.True(QuestionWorkflowService.CanRevealResults(lockedOpenQuiz));
+        Assert.False(QuestionWorkflowService.CanRevealResults(alreadyResults));
+    }
+
     private static EventSlideState CreateSlide(string type, string workflowState, string teamMode = "open")
     {
         var parameters = new JsonObject
@@ -148,6 +218,20 @@ public sealed class QuestionWorkflowServiceTests
             0,
             JsonSerializer.SerializeToElement(parameters));
     }
+
+    private static JsonObject CreateWorkflowSlide(string type, string workflowState, string teamMode = "open") =>
+        new()
+        {
+            ["type"] = type,
+            ["parameters"] = new JsonObject
+            {
+                ["teamMode"] = teamMode,
+                ["state"] = new JsonObject
+                {
+                    ["questionWorkflow"] = JsonNode.Parse(workflowState)
+                }
+            }
+        };
 
     private static EventResponseState CreateResponse(Guid slideId, Guid teamId)
     {

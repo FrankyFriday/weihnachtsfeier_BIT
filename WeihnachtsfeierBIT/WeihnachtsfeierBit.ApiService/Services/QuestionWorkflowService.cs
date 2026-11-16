@@ -36,6 +36,55 @@ public static class QuestionWorkflowService
             && double.IsFinite(estimate);
     }
 
+    public static bool CanSetOfficialTeamResult(JsonObject slide) =>
+        !IsTeamExclusive(slide) || GetPhase(slide) == LockedPhase;
+
+    public static bool CanRevealResults(JsonObject slide)
+    {
+        if (GetPhase(slide) != LockedPhase)
+        {
+            return false;
+        }
+
+        return !IsTeamExclusive(slide)
+            || HasOfficialTeamResult(ReadString(slide, "type"), GetWorkflowState(slide));
+    }
+
+    public static bool LockAnswers(JsonObject slide, DateTimeOffset now)
+    {
+        if (GetPhase(slide) is not (AnswerPhase or LockedPhase or ResultsPhase))
+        {
+            return false;
+        }
+
+        var workflow = GetWorkflowState(slide);
+        workflow["phase"] = LockedPhase;
+        workflow["phaseStartedAtUtc"] = now.ToString("O");
+        workflow["timerEndsAtUtc"] = null;
+        workflow["timerPaused"] = false;
+        workflow["remainingSeconds"] = 0;
+        return true;
+    }
+
+    public static bool DisableTimer(JsonObject slide, DateTimeOffset now)
+    {
+        if (!IsQuestionSlide(slide)
+            || GetPhase(slide) is not (QuestionPhase or AnswerPhase))
+        {
+            return false;
+        }
+
+        var workflow = GetWorkflowState(slide);
+        if (ReadString(workflow, "phaseStartedAtUtc").Length == 0)
+        {
+            workflow["phaseStartedAtUtc"] = now.ToString("O");
+        }
+        workflow["timerEndsAtUtc"] = null;
+        workflow["timerPaused"] = false;
+        workflow["remainingSeconds"] = 0;
+        return true;
+    }
+
     public static ProjectGameState FilterProjectState(ProjectGameState state, Guid? recipientTeamId) =>
         state with
         {
@@ -121,21 +170,23 @@ public static class QuestionWorkflowService
             workflow["phase"] = phase;
         }
 
+        var changed = false;
         if (phase == QuestionPhase && ReadString(workflow, "phaseStartedAtUtc").Length == 0)
         {
             StartPhase(slide, QuestionPhase, GetConfiguredSeconds(slide, "questionTimeLimitSeconds"), now);
             workflow = GetWorkflowState(slide);
+            changed = true;
         }
 
         if (ReadBool(workflow, "timerPaused"))
         {
-            return false;
+            return changed;
         }
 
         var timerEnd = GetTimerEnd(slide);
         if (!timerEnd.HasValue || timerEnd.Value > now)
         {
-            return false;
+            return changed;
         }
 
         if (phase == QuestionPhase)
@@ -146,12 +197,7 @@ public static class QuestionWorkflowService
 
         if (phase == AnswerPhase)
         {
-            workflow["phase"] = LockedPhase;
-            workflow["phaseStartedAtUtc"] = now.ToString("O");
-            workflow["timerEndsAtUtc"] = null;
-            workflow["timerPaused"] = false;
-            workflow["remainingSeconds"] = 0;
-            return true;
+            return LockAnswers(slide, now);
         }
 
         return false;

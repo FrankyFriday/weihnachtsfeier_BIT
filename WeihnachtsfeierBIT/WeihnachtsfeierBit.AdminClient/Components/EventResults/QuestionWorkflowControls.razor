@@ -8,14 +8,31 @@
 <section style="display: grid; gap: 14px; margin: 12px 0; padding: 16px; border: 1px solid #dce5e2; border-radius: 10px; background: #f8faf9;">
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
         <strong style="font-size: 17px;">Fragen-Regie</strong>
-        <FrameworkBadge Text="@PhaseLabel" Variant="@(_currentStep == 2 ? "primary" : "secondary")" />
+        <FrameworkBadge Text="@PhaseLabel" Variant="@(_currentStep == 3 ? "primary" : "secondary")" />
     </div>
 
-    <nav aria-label="Fragenphasen" style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <FrameworkButton Label="1 · Frage" Variant="@StepVariant(0)" OnClick="() => NavigateToStepAsync(0)" Disabled="@_busy" />
-        <FrameworkButton Label="2 · Antworten" Variant="@StepVariant(1)" OnClick="() => NavigateToStepAsync(1)" Disabled="@_busy" />
-        <FrameworkButton Label="3 · Auflösung" Variant="@StepVariant(2)" OnClick="() => NavigateToStepAsync(2)" Disabled="@_busy" />
-    </nav>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+        <nav aria-label="Fragenphasen" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+            <FrameworkButton Label="1 · Frage" Variant="@StepVariant(0)" OnClick="() => NavigateToStepAsync(0)" Disabled="@_busy" />
+            <FrameworkButton Label="2 · Antworten" Variant="@StepVariant(1)" OnClick="() => NavigateToStepAsync(1)" Disabled="@_busy" />
+            <FrameworkButton Label="3 · Antwortzeit beendet" Variant="@StepVariant(2)" OnClick="() => NavigateToStepAsync(2)" Disabled="@_busy" />
+            <FrameworkButton Label="4 · Auflösung" Variant="@StepVariant(3)" OnClick="() => NavigateToStepAsync(3)" Disabled="@_busy" />
+        </nav>
+        @if (_workflow.Phase is "question" or "answers")
+        {
+            <QuestionWorkflowTimerControl TimerEndsAtUtc="_workflow.TimerEndsAtUtc"
+                                          TimerPaused="_workflow.TimerPaused"
+                                          RemainingSeconds="_workflow.RemainingSeconds"
+                                          HasConfiguredTimer="@HasConfiguredTimer"
+                                          IsActive="true"
+                                          Disabled="@_busy"
+                                          OnPause="@(() => RunWorkflowAsync("pause-timer"))"
+                                          OnResume="@(() => RunWorkflowAsync("resume-timer"))"
+                                          OnReset="@(() => RunWorkflowAsync("reset-timer"))"
+                                          OnDisableTimer="@(() => RunWorkflowAsync("disable-timer"))"
+                                          OnSetSeconds="SetTimerAsync" />
+        }
+    </div>
 
     <div style="padding: 14px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
         <strong style="display: block; margin-bottom: 10px; color: #1d2528;">@Question</strong>
@@ -45,48 +62,16 @@
         }
     </div>
 
-    @if (_currentStep is 0 or 1)
+    @if (_currentStep == 2 && IsTeamExclusive && IsQuiz)
     {
         <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <strong>Timer</strong>
-                @if (_workflow.TimerEndsAtUtc.HasValue || _workflow.TimerPaused)
-                {
-                    <QuestionWorkflowTimer TimerEndsAtUtc="_workflow.TimerEndsAtUtc" TimerPaused="_workflow.TimerPaused" RemainingSeconds="_workflow.RemainingSeconds" />
-                    @if (_workflow.TimerPaused)
-                    {
-                        <FrameworkButton Label="Fortsetzen" Variant="primary" OnClick="@(() => RunWorkflowAsync("resume-timer"))" Disabled="@_busy" />
-                    }
-                    else
-                    {
-                        <FrameworkButton Label="Pausieren" Variant="secondary" OnClick="@(() => RunWorkflowAsync("pause-timer"))" Disabled="@_busy" />
-                    }
-                }
-                else
-                {
-                    <span style="color: #657276; font-size: 13px;">Kein Timer aktiv</span>
-                }
-                <FrameworkButton Label="Timer neu starten" Variant="secondary" OnClick="@(() => RunWorkflowAsync("reset-timer"))" Disabled="@(_busy || !HasConfiguredTimer)" />
-            </div>
-            <div style="display: flex; align-items: end; gap: 8px; flex-wrap: wrap;">
-                <label for="question-timer-seconds">Restzeit (Sekunden)</label>
-                <FrameworkInputNumber Id="question-timer-seconds" @bind-Value="_timerSeconds" Min="0" Max="3600" Style="max-width: 130px;" />
-                <FrameworkButton Label="Restzeit setzen" Variant="secondary" OnClick="SetTimerAsync" Disabled="@_busy" />
-                <FrameworkButton Label="Auf 0 setzen" Variant="secondary" OnClick="() => SetTimerAsync(0)" Disabled="@_busy" />
-            </div>
-        </div>
-    }
-
-    @if (_currentStep == 1 && IsTeamExclusive && IsQuiz)
-    {
-        <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
-            <strong>Offizielle Teamantwort</strong>
+            <strong>Antwortzeit beendet · offizielle Teamantwort festlegen</strong>
             <FrameworkSelect Id="official-quiz-answer"
                              Label="Antwort für die Wertung"
                              Value="@_selectedAnswer"
                              ValueChanged="OnSelectedAnswerChanged"
                              Options="@OfficialAnswerOptions" />
-            <FrameworkButton Label="Teamantwort festlegen" Variant="secondary" OnClick="SaveOfficialAnswerAsync" Disabled="@_busy" />
+            <FrameworkButton Label="Teamantwort übernehmen" Variant="secondary" OnClick="SaveOfficialAnswerAsync" Disabled="@_busy" />
             @if (_workflow.OfficialAnswerIndex is null)
             {
                 <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss eine offizielle Antwort festgelegt werden.</span>
@@ -112,10 +97,10 @@
         </div>
     }
 
-    @if (_currentStep == 1 && IsTeamExclusive && IsEstimation)
+    @if (_currentStep == 2 && IsTeamExclusive && IsEstimation)
     {
         <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
-            <strong>Offizielle Team-Schätzung</strong>
+            <strong>Antwortzeit beendet · offizielle Team-Schätzung festlegen</strong>
             <FrameworkSelect Id="team-estimation-choice"
                              Label="Teambeitrag übernehmen"
                              Placeholder="Manuell eingeben"
@@ -128,6 +113,56 @@
             @if (_workflow.OfficialEstimationValue is null)
             {
                 <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss ein offizieller Teamwert festgelegt werden.</span>
+            }
+        </div>
+    }
+
+    @if (IsQuiz)
+    {
+        <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <strong>Einzelstimmen verwalten (@SlideResponses.Count())</strong>
+                <span style="font-size: 12px; color: #657276;">Änderungen und Löschen sind in jeder Phase möglich.</span>
+            </div>
+            @if (!SlideResponses.Any())
+            {
+                <span style="font-size: 13px; color: #657276;">Noch keine Stimmen abgegeben.</span>
+            }
+            else
+            {
+                <div style="display: grid; gap: 8px;">
+                    @foreach (var response in SlideResponses.OrderBy(item => item.TeamName).ThenBy(item => item.ParticipantNumber))
+                    {
+                        var selectedResponse = response;
+                        var selectedValue = GetModeratorAnswerValue(selectedResponse);
+                        <div style="display: grid; grid-template-columns: minmax(110px, 1fr) minmax(140px, 1.5fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e6ece9; border-radius: 8px; background: #fbfcfc;">
+                            <div style="min-width: 0;">
+                                <strong style="display: block; font-size: 13px;">#@selectedResponse.ParticipantNumber @(string.IsNullOrWhiteSpace(selectedResponse.ParticipantName) ? "" : selectedResponse.ParticipantName)</strong>
+                                @if (!string.IsNullOrWhiteSpace(selectedResponse.TeamName))
+                                {
+                                    <span style="font-size: 11px; color: #657276;">@selectedResponse.TeamName</span>
+                                }
+                            </div>
+                            <FrameworkSelect Id="@($"moderator-vote-{selectedResponse.Id}")"
+                                             Label="Stimme"
+                                             Value="@selectedValue"
+                                             ValueChanged="value => OnModeratorAnswerChanged(selectedResponse.Id, value)"
+                                             Options="@ModeratorAnswerOptions"
+                                             Placeholder="Antwort auswählen" />
+                            <div style="display: flex; gap: 4px;">
+                                <FrameworkIconButton Icon="save"
+                                                     Title="Stimme speichern"
+                                                     OnClick="() => SaveModeratorAnswerAsync(selectedResponse.Id)"
+                                                     Disabled="@(_busy || !HasModeratorAnswerChanged(selectedResponse))" />
+                                <FrameworkIconButton Icon="delete"
+                                                     Title="Stimme löschen"
+                                                     OnClick="() => DeleteModeratorAnswerAsync(selectedResponse.Id)"
+                                                     Disabled="@_busy"
+                                                     Style="color: #b42318;" />
+                            </div>
+                        </div>
+                    }
+                </div>
             }
         </div>
     }
@@ -179,10 +214,10 @@
 
     <div style="display: flex; justify-content: space-between; gap: 8px;">
         <FrameworkButton Label="Zurück" Variant="secondary" OnClick="PreviousStepAsync" Disabled="@(_busy || _currentStep == 0)" />
-        <FrameworkButton Label="@(_currentStep == 1 ? "Auflösung anzeigen" : "Weiter")"
+        <FrameworkButton Label="@(_currentStep == 2 ? "Auflösung anzeigen" : "Weiter")"
                          Variant="primary"
                          OnClick="NextStepAsync"
-                         Disabled="@(_busy || _currentStep == 2 || (_currentStep == 1 && !CanRevealResults))" />
+                         Disabled="@(_busy || _currentStep == 3 || (_currentStep == 2 && !CanRevealResults))" />
     </div>
 
     @if (!string.IsNullOrEmpty(_error))
@@ -199,10 +234,10 @@
     private TeamSummary[] _teams = [];
     private bool _busy;
     private string? _error;
-    private int _timerSeconds;
     private int _pointAdjustment = 10;
     private int _currentStep;
     private string _selectedAnswer = "majority";
+    private readonly Dictionary<Guid, string> _moderatorAnswerSelections = [];
     private string _selectedEstimationResponseId = string.Empty;
     private double _officialEstimationValue;
     private Guid _loadedProjectId;
@@ -213,13 +248,13 @@
     private bool IsQuiz => string.Equals(CurrentSlide.Type, "quiz", StringComparison.OrdinalIgnoreCase);
     private bool IsEstimation => string.Equals(CurrentSlide.Type, "estimation", StringComparison.OrdinalIgnoreCase);
     private bool IsTeamExclusive => ReadString(CurrentSlide.Parameters, "teamMode") == "team_exclusive";
-    private bool IsResolution => _currentStep == 2;
+    private bool IsResolution => _currentStep == 3;
     private string Question => ReadString(CurrentSlide.Parameters, "question");
     private string PhaseLabel => _workflow.Phase switch
     {
         "question" => "Frage",
         "answers" => "Antworten",
-        "locked" => "Antworten gesperrt",
+        "locked" => "Antwortzeit beendet",
         "results" => "Auflösung",
         _ => _workflow.Phase
     };
@@ -255,6 +290,11 @@
             index.ToString(CultureInfo.InvariantCulture),
             $"{index + 1}. {answer} · {GetVoteCount(index)} Stimmen")))
         .ToArray();
+    private FrameworkSelectOption[] ModeratorAnswerOptions => Answers
+        .Select((answer, index) => new FrameworkSelectOption(
+            index.ToString(CultureInfo.InvariantCulture),
+            $"{index + 1}. {answer}"))
+        .ToArray();
     private FrameworkSelectOption[] TeamEstimationOptions => TeamResponses
         .Where(response => ReadEstimate(response).HasValue)
         .OrderBy(response => response.ParticipantNumber)
@@ -268,6 +308,10 @@
         var previousWorkflow = _workflow;
         _workflow = QuestionWorkflowViewState.Read(CurrentSlide.Parameters);
         var slideChanged = CurrentSlide.SlideId != _loadedSlideId;
+        if (slideChanged)
+        {
+            _moderatorAnswerSelections.Clear();
+        }
         if (slideChanged || _workflow.Phase != _lastObservedPhase)
         {
             _currentStep = StepFromPhase(_workflow.Phase);
@@ -281,16 +325,6 @@
         {
             _officialEstimationValue = _workflow.OfficialEstimationValue ?? 0;
             _selectedEstimationResponseId = string.Empty;
-        }
-        if (previousWorkflow.TimerEndsAtUtc != _workflow.TimerEndsAtUtc
-            || previousWorkflow.TimerPaused != _workflow.TimerPaused
-            || previousWorkflow.RemainingSeconds != _workflow.RemainingSeconds)
-        {
-            _timerSeconds = _workflow.TimerPaused
-                ? _workflow.RemainingSeconds
-                : _workflow.TimerEndsAtUtc.HasValue
-                    ? Math.Max(0, (int)Math.Ceiling((_workflow.TimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalSeconds))
-                    : 0;
         }
         _loadedSlideId = CurrentSlide.SlideId;
 
@@ -314,7 +348,7 @@
 
     private async Task NavigateToStepAsync(int targetStep)
     {
-        if (_busy || targetStep is < 0 or > 2 || targetStep == _currentStep)
+        if (_busy || targetStep is < 0 or > 3 || targetStep == _currentStep)
         {
             return;
         }
@@ -351,9 +385,37 @@
             return;
         }
 
-        if (_workflow.Phase == "question")
+        if (targetStep == 2)
         {
-            _error = "Öffne zuerst die Antwortphase, bevor du die Auflösung freigibst.";
+            if (_workflow.Phase == "question")
+            {
+                _error = "Öffne zuerst die Antwortphase.";
+                return;
+            }
+            if (_workflow.Phase is "answers" or "results")
+            {
+                if (await RunWorkflowRequestAsync("lock-answers"))
+                {
+                    _currentStep = 2;
+                }
+            }
+            else
+            {
+                _currentStep = 2;
+            }
+            return;
+        }
+
+        if (_workflow.Phase == "results")
+        {
+            _currentStep = 3;
+            return;
+        }
+        if (_workflow.Phase != "locked")
+        {
+            _error = _workflow.Phase == "question"
+                ? "Öffne zuerst die Antwortphase."
+                : "Beende zuerst die Antwortzeit, bevor du die Auflösung freigibst.";
             return;
         }
         if (IsTeamExclusive && !CanRevealResults)
@@ -361,13 +423,9 @@
             _error = "Lege zuerst die offizielle Teamantwort bzw. den offiziellen Teamwert fest.";
             return;
         }
-        if (_workflow.Phase != "results" && await RunWorkflowRequestAsync("reveal"))
+        if (await RunWorkflowRequestAsync("reveal"))
         {
-            _currentStep = 2;
-        }
-        else if (_workflow.Phase == "results")
-        {
-            _currentStep = 2;
+            _currentStep = 3;
         }
     }
 
@@ -428,7 +486,44 @@
         return Task.CompletedTask;
     }
 
-    private Task SetTimerAsync() => SetTimerAsync(_timerSeconds);
+    private string GetModeratorAnswerValue(EventResponseState response) =>
+        _moderatorAnswerSelections.TryGetValue(response.Id, out var selectedValue)
+            ? selectedValue
+            : ReadAnswerIndex(response)?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private void OnModeratorAnswerChanged(Guid responseId, string? value) =>
+        _moderatorAnswerSelections[responseId] = value ?? string.Empty;
+
+    private bool HasModeratorAnswerChanged(EventResponseState response) =>
+        int.TryParse(GetModeratorAnswerValue(response), NumberStyles.Integer, CultureInfo.InvariantCulture, out var selectedIndex)
+        && selectedIndex >= 0
+        && selectedIndex < Answers.Count
+        && ReadAnswerIndex(response) != selectedIndex;
+
+    private async Task SaveModeratorAnswerAsync(Guid responseId)
+    {
+        if (!_moderatorAnswerSelections.TryGetValue(responseId, out var value)
+            || !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var answerIndex)
+            || answerIndex < 0
+            || answerIndex >= Answers.Count)
+        {
+            _error = "Bitte eine gültige Antwort für die Stimme auswählen.";
+            return;
+        }
+
+        var responseData = JsonSerializer.SerializeToElement(new { answerIndex });
+        await RunAsync(token => ProjectApiClient.AdminUpdateResponseAsync(
+            token, ProjectId, Event.EventId, responseId, responseData));
+    }
+
+    private async Task DeleteModeratorAnswerAsync(Guid responseId)
+    {
+        if (await RunAsync(token => ProjectApiClient.AdminDeleteResponseAsync(
+                token, ProjectId, Event.EventId, responseId)))
+        {
+            _moderatorAnswerSelections.Remove(responseId);
+        }
+    }
 
     private Task SetTimerAsync(int seconds) => RunWorkflowAsync("set-timer", seconds: seconds);
 
@@ -468,6 +563,19 @@
             case "open-answers":
             case "reopen-answers":
                 _workflow = StartLocalPhase("answers", "timeLimitSeconds", now);
+                if (IsTeamExclusive)
+                {
+                    _workflow = _workflow with { OfficialAnswerIndex = null, OfficialEstimationValue = null };
+                }
+                break;
+            case "lock-answers":
+                _workflow = _workflow with
+                {
+                    Phase = "locked",
+                    TimerEndsAtUtc = null,
+                    TimerPaused = false,
+                    RemainingSeconds = 0
+                };
                 break;
             case "reveal":
                 _workflow = _workflow with
@@ -494,16 +602,41 @@
                 };
                 break;
             case "set-timer":
-                _workflow = _workflow with
+                if (seconds == 0 && _workflow.Phase == "question")
                 {
-                    TimerEndsAtUtc = seconds is > 0 ? now.AddSeconds(seconds.Value) : null,
-                    TimerPaused = false,
-                    RemainingSeconds = seconds ?? 0
-                };
+                    _workflow = StartLocalPhase("answers", "timeLimitSeconds", now);
+                }
+                else if (seconds == 0 && _workflow.Phase == "answers")
+                {
+                    _workflow = _workflow with
+                    {
+                        Phase = "locked",
+                        TimerEndsAtUtc = null,
+                        TimerPaused = false,
+                        RemainingSeconds = 0
+                    };
+                }
+                else
+                {
+                    _workflow = _workflow with
+                    {
+                        TimerEndsAtUtc = seconds is > 0 ? now.AddSeconds(seconds.Value) : null,
+                        TimerPaused = false,
+                        RemainingSeconds = seconds ?? 0
+                    };
+                }
                 break;
             case "reset-timer":
                 var timerProperty = _workflow.Phase == "question" ? "questionTimeLimitSeconds" : "timeLimitSeconds";
                 _workflow = StartLocalPhase(_workflow.Phase, timerProperty, now);
+                break;
+            case "disable-timer":
+                _workflow = _workflow with
+                {
+                    TimerEndsAtUtc = null,
+                    TimerPaused = false,
+                    RemainingSeconds = 0
+                };
                 break;
             case "set-official-answer":
                 _workflow = _workflow with { OfficialAnswerIndex = officialAnswerIndex };
@@ -599,8 +732,9 @@
 
     private static int StepFromPhase(string phase) => phase switch
     {
-        "answers" or "locked" => 1,
-        "results" => 2,
+        "answers" => 1,
+        "locked" => 2,
+        "results" => 3,
         _ => 0
     };
 

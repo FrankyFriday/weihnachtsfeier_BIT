@@ -871,17 +871,31 @@ public static class SessionControlEndpoints
         {
             case "open-answers":
             case "reopen-answers":
+                if (QuestionWorkflowService.IsTeamExclusive(slide))
+                {
+                    workflow.Remove("officialAnswerIndex");
+                    workflow.Remove("officialEstimationValue");
+                    recalculateScore = phase == QuestionWorkflowService.ResultsPhase;
+                }
                 QuestionWorkflowService.StartPhase(
                     slide,
                     QuestionWorkflowService.AnswerPhase,
                     QuestionWorkflowService.GetConfiguredSeconds(slide, "timeLimitSeconds"),
                     now);
                 break;
-            case "reveal":
-                if (QuestionWorkflowService.IsTeamExclusive(slide)
-                    && !QuestionWorkflowService.HasOfficialTeamResult(ReadString(slide, "type"), workflow))
+            case "lock-answers":
+                if (!QuestionWorkflowService.LockAnswers(slide, now))
                 {
-                    return Results.Conflict(new ApiError("Vor der Ergebnisfreigabe muss eine offizielle Teamantwort festgelegt werden."));
+                    return Results.Conflict(new ApiError("Die Antwortphase muss zuerst geöffnet werden."));
+                }
+                break;
+            case "reveal":
+                if (!QuestionWorkflowService.CanRevealResults(slide))
+                {
+                    return Results.Conflict(new ApiError(
+                        QuestionWorkflowService.GetPhase(slide) != QuestionWorkflowService.LockedPhase
+                            ? "Die Antwortphase muss beendet sein, bevor die Auflösung freigegeben werden kann."
+                            : "Vor der Ergebnisfreigabe muss eine offizielle Teamantwort bzw. Team-Schätzung festgelegt werden."));
                 }
                 workflow["phase"] = QuestionWorkflowService.ResultsPhase;
                 workflow["timerEndsAtUtc"] = null;
@@ -930,6 +944,12 @@ public static class SessionControlEndpoints
                 }
                 QuestionWorkflowService.StartPhase(slide, phase, resetSeconds, now);
                 break;
+            case "disable-timer":
+                if (!QuestionWorkflowService.DisableTimer(slide, now))
+                {
+                    return Results.Conflict(new ApiError("In dieser Phase kann der Timer nicht deaktiviert werden."));
+                }
+                break;
             case "set-timer":
                 if (phase is not (QuestionWorkflowService.QuestionPhase or QuestionWorkflowService.AnswerPhase)
                     || request.Seconds is < 0 or > 3600)
@@ -951,6 +971,10 @@ public static class SessionControlEndpoints
                 {
                     return Results.BadRequest(new ApiError("Die offizielle Quizantwort ist ungültig."));
                 }
+                if (!QuestionWorkflowService.CanSetOfficialTeamResult(slide))
+                {
+                    return Results.Conflict(new ApiError("Die offizielle Teamantwort kann erst nach Ende der Antwortzeit festgelegt werden."));
+                }
                 workflow["officialAnswerIndex"] = answerIndex;
                 recalculateScore = phase == QuestionWorkflowService.ResultsPhase;
                 break;
@@ -958,6 +982,10 @@ public static class SessionControlEndpoints
                 if (!string.Equals(ReadString(slide, "type"), "quiz", StringComparison.OrdinalIgnoreCase))
                 {
                     return Results.BadRequest(new ApiError("Nur Quizfragen unterstützen eine offizielle Antwort."));
+                }
+                if (!QuestionWorkflowService.CanSetOfficialTeamResult(slide))
+                {
+                    return Results.Conflict(new ApiError("Die offizielle Teamantwort kann erst nach Ende der Antwortzeit geändert werden."));
                 }
                 workflow.Remove("officialAnswerIndex");
                 recalculateScore = phase == QuestionWorkflowService.ResultsPhase;
@@ -969,6 +997,10 @@ public static class SessionControlEndpoints
                     || double.IsInfinity(estimate))
                 {
                     return Results.BadRequest(new ApiError("Der offizielle Schätzwert ist ungültig."));
+                }
+                if (!QuestionWorkflowService.CanSetOfficialTeamResult(slide))
+                {
+                    return Results.Conflict(new ApiError("Der offizielle Teamwert kann erst nach Ende der Antwortzeit festgelegt werden."));
                 }
                 workflow["officialEstimationValue"] = estimate;
                 break;
@@ -1347,11 +1379,45 @@ public static class SessionControlEndpoints
         var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
         if (!access.CanControlSession) return Results.BadRequest(new ApiError("Keine Berechtigung."));
 
-        var response = await dbContext.GameInstanceEventResponses
-            .FirstOrDefaultAsync(r => r.Id == responseId && r.GameInstanceEventId == eventId, cancellationToken);
+        var gameEvent = await dbContext.GameInstanceEvents
+            .Include(item => item.GameInstance)
+            .Include(item => item.Responses)
+                .ThenInclude(response => response.Participant)
+            .FirstOrDefaultAsync(
+                item => item.Id == eventId && item.GameInstance.ProjektId == projectId,
+                cancellationToken);
+        if (gameEvent is null) return Results.NotFound();
+
+        var response = gameEvent.Responses.FirstOrDefault(item => item.Id == responseId);
         if (response is null) return Results.NotFound();
 
-        response.ResponseJson = request.ResponseData.GetRawText();
+        var slides = ParseSlides(gameEvent);
+        var slide = FindSlide(slides, response.SlideId);
+        if (slide is not null && string.Equals(ReadString(slide, "type"), "quiz", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsValidQuestionResponse(request.ResponseData, slide))
+            {
+                return Results.BadRequest(new ApiError("Die Quizantwort ist ungültig."));
+            }
+
+            response.ResponseJson = request.ResponseData.GetRawText();
+            if (QuestionWorkflowService.GetPhase(slide) == QuestionWorkflowService.ResultsPhase)
+            {
+                await ReconcileQuizScoresAsync(
+                    projectId,
+                    gameEvent,
+                    slide,
+                    QuestionWorkflowService.GetWorkflowState(slide),
+                    dbContext,
+                    cancellationToken);
+                gameEvent.SlidesJson = slides.ToJsonString();
+            }
+        }
+        else
+        {
+            response.ResponseJson = request.ResponseData.GetRawText();
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
@@ -1370,11 +1436,36 @@ public static class SessionControlEndpoints
         var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
         if (!access.CanControlSession) return Results.BadRequest(new ApiError("Keine Berechtigung."));
 
-        var response = await dbContext.GameInstanceEventResponses
-            .FirstOrDefaultAsync(r => r.Id == responseId && r.GameInstanceEventId == eventId, cancellationToken);
+        var gameEvent = await dbContext.GameInstanceEvents
+            .Include(item => item.GameInstance)
+            .Include(item => item.Responses)
+                .ThenInclude(response => response.Participant)
+            .FirstOrDefaultAsync(
+                item => item.Id == eventId && item.GameInstance.ProjektId == projectId,
+                cancellationToken);
+        if (gameEvent is null) return Results.NotFound();
+
+        var response = gameEvent.Responses.FirstOrDefault(item => item.Id == responseId);
         if (response is null) return Results.NotFound();
 
+        var slides = ParseSlides(gameEvent);
+        var slide = FindSlide(slides, response.SlideId);
         dbContext.GameInstanceEventResponses.Remove(response);
+        gameEvent.Responses.Remove(response);
+        if (slide is not null
+            && string.Equals(ReadString(slide, "type"), "quiz", StringComparison.OrdinalIgnoreCase)
+            && QuestionWorkflowService.GetPhase(slide) == QuestionWorkflowService.ResultsPhase)
+        {
+            await ReconcileQuizScoresAsync(
+                projectId,
+                gameEvent,
+                slide,
+                QuestionWorkflowService.GetWorkflowState(slide),
+                dbContext,
+                cancellationToken);
+            gameEvent.SlidesJson = slides.ToJsonString();
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 

@@ -20,6 +20,7 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
     private ModerationSidebar? _moderationSidebar;
 
     private bool _isRegieDrawerOpen;
+    private bool _isModeratorNotesDrawerOpen;
 
     private bool _isAwardPointsModalOpen;
     private Guid _awardDefaultTeamId;
@@ -176,6 +177,9 @@ public partial class ProjectSessionDashboardContent : AuthenticatedComponentBase
             await _moderationSidebar.ToggleCompartment("emulator");
         }
     }
+
+    private void ToggleModeratorNotesDrawer() =>
+        _isModeratorNotesDrawerOpen = !_isModeratorNotesDrawerOpen;
 
     public async ValueTask DisposeAsync()
     {
