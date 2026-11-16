@@ -6,32 +6,32 @@
 @if (_selectedInfoPage is not null)
 {
     <!-- SUB-VIEW: INFO PAGE DETAIL (e.g. SPEISEKARTE, SHUTTLE, WLAN) -->
-    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
-        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+    <Card Class="settings-card participant-action-card participant-info-page" Style="border-radius: 16px;">
+        <div class="participant-action-subview-toolbar">
             <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
-                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
-        </FrameworkFlexRow>
-
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span class="material-symbols-outlined" style="font-size: 22px; color: #105c4d;">@_selectedInfoPage.Icon</span>
-            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #1d2528;">@_selectedInfoPage.Title</h3>
         </div>
 
-        <FrameworkMarkdown Content="@_selectedInfoPage.ContentMarkdown" />
+        <div class="participant-info-heading">
+            <span class="participant-info-icon material-symbols-outlined" aria-hidden="true">@_selectedInfoPage.Icon</span>
+            <h2>@_selectedInfoPage.Title</h2>
+        </div>
+
+        <FrameworkMarkdown Content="@_selectedInfoPage.ContentMarkdown" Class="participant-info-markdown" />
     </Card>
 }
 else if (_activeActionView == "name")
 {
     <!-- SUB-VIEW: EDIT NAME -->
-    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
-        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+    <Card Class="settings-card participant-action-card" Style="border-radius: 16px;">
+        <div class="participant-action-subview-toolbar">
             <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
-                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
-        </FrameworkFlexRow>
+        </div>
 
         @if (CanChangeName)
         {
@@ -50,13 +50,13 @@ else if (_activeActionView == "name")
 else if (_activeActionView == "team_name")
 {
     <!-- SUB-VIEW: TEAM NAME SUGGESTIONS & VOTING -->
-    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
-        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+    <Card Class="settings-card participant-action-card" Style="border-radius: 16px;">
+        <div class="participant-action-subview-toolbar">
             <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
-                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
-        </FrameworkFlexRow>
+        </div>
 
         <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">Teamnamen vorschlagen</h3>
         <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Schlage einen Namen für dein Team vor! Sobald 50% deines Teams dafür stimmen, wird er automatisch als offizieller Teamname übernommen.</p>
@@ -100,13 +100,13 @@ else if (_activeActionView == "team_name")
 else if (_activeActionView == "song_wishes")
 {
     <!-- SUB-VIEW: DJ JUKEBOX & SONG WISHES -->
-    <Card Class="settings-card" Style="border-radius: 12px; padding: 12px 14px;">
-        <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 12px;">
+    <Card Class="settings-card participant-action-card" Style="border-radius: 16px;">
+        <div class="participant-action-subview-toolbar">
             <button type="button" @onclick="ReturnToActionMenuAsync" class="participant-action-back">
-                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
                 <span>Zurück zu Aktionen</span>
             </button>
-        </FrameworkFlexRow>
+        </div>
 
         <h3 style="margin-top: 0; font-size: 17px; font-weight: 800; color: #1d2528;">DJ-Jukebox & Musikwünsche</h3>
         <p class="framework-help-text" style="font-size: 12px; margin-bottom: 12px;">Wünsche dir Songs für die Party oder stimme für Songs anderer ab!</p>

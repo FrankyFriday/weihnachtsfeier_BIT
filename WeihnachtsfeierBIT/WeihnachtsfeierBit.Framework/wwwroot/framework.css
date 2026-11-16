@@ -526,3 +526,147 @@
 .jp-answer {
     animation: jp-answer-in .5s ease-out both;
 }
+
+.framework-markdown {
+    min-width: 0;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.framework-markdown > :first-child {
+    margin-top: 0;
+}
+
+.framework-markdown > :last-child {
+    margin-bottom: 0;
+}
+
+.framework-markdown-heading {
+    color: #1d2528;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.framework-markdown h1.framework-markdown-heading {
+    margin: 18px 0 10px;
+    font-size: 1.45rem;
+}
+
+.framework-markdown h2.framework-markdown-heading {
+    margin: 16px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #dce5e2;
+    color: #105c4d;
+    font-size: 1.2rem;
+}
+
+.framework-markdown h3.framework-markdown-heading,
+.framework-markdown h4.framework-markdown-heading,
+.framework-markdown h5.framework-markdown-heading,
+.framework-markdown h6.framework-markdown-heading {
+    margin: 12px 0 6px;
+    font-size: 1rem;
+}
+
+.framework-markdown-paragraph {
+    margin: 8px 0 12px;
+}
+
+.framework-markdown-list {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 14px;
+    padding: 0;
+    list-style: none;
+}
+
+.framework-markdown-list li {
+    display: grid;
+    grid-template-columns: 1.4em minmax(0, 1fr);
+    align-items: start;
+    gap: 5px;
+    min-width: 0;
+}
+
+.framework-markdown-list-marker {
+    color: #197b67;
+    font-weight: 800;
+    text-align: center;
+}
+
+.framework-markdown-quote {
+    margin: 12px 0;
+    padding: 8px 12px;
+    border-left: 3px solid #78b9a8;
+    border-radius: 0 8px 8px 0;
+    background: #f2f8f5;
+    color: #475569;
+}
+
+.framework-markdown-quote p {
+    margin: 0;
+}
+
+.framework-markdown-rule {
+    margin: 16px 0;
+    border: 0;
+    border-top: 1px solid #dce5e2;
+}
+
+.framework-markdown-inline-code,
+.framework-markdown-code {
+    border-radius: 6px;
+    background: #f1f5f4;
+    color: #105c4d;
+    font-family: Consolas, "Courier New", monospace;
+}
+
+.framework-markdown-inline-code {
+    padding: 2px 5px;
+    font-size: .9em;
+}
+
+.framework-markdown-code {
+    margin: 10px 0;
+    padding: 12px;
+    overflow-x: auto;
+    color: #334155;
+}
+
+.framework-markdown-code code {
+    white-space: pre;
+}
+
+.framework-markdown-table-wrap {
+    width: 100%;
+    margin: 10px 0 14px;
+    overflow-x: auto;
+}
+
+.framework-markdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.framework-markdown-table th,
+.framework-markdown-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #dce5e2;
+    vertical-align: top;
+}
+
+.framework-markdown-table th {
+    background: #f2f8f5;
+    color: #105c4d;
+    font-weight: 750;
+}
+
+.framework-markdown a {
+    color: #105c4d;
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}

@@ -1,4 +1,6 @@
 @namespace WeihnachtsfeierBit.Framework
+@using System.Net
+@using System.Text.Encodings.Web
 @using System.Text.RegularExpressions
 @using Microsoft.AspNetCore.Components
 
@@ -14,89 +16,276 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
 
+    private static readonly Regex HeadingPattern = new(@"^(#{1,6})\s+(.+?)\s*#*\s*$", RegexOptions.Compiled);
+    private static readonly Regex UnorderedListPattern = new(@"^\s*[-*+]\s+(.+)$", RegexOptions.Compiled);
+    private static readonly Regex OrderedListPattern = new(@"^\s*\d+[.)]\s+(.+)$", RegexOptions.Compiled);
+    private static readonly Regex HorizontalRulePattern = new(@"^\s*(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$", RegexOptions.Compiled);
+    private static readonly Regex TableSeparatorPattern = new(@"^:?-{3,}:?$", RegexOptions.Compiled);
+
     private static IEnumerable<RenderFragment> RenderMarkdownBlocks(string markdown)
     {
-        if (string.IsNullOrWhiteSpace(markdown)) yield break;
-
-        var lines = markdown.Replace("\r\n", "\n").Split('\n');
-        List<string> currentListItems = new();
-
-        foreach (var rawLine in lines)
+        if (string.IsNullOrWhiteSpace(markdown))
         {
-            var line = rawLine.TrimEnd();
+            yield break;
+        }
 
-            if (line.StartsWith("- ") || line.StartsWith("* "))
+        var lines = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var index = 0;
+
+        while (index < lines.Length)
+        {
+            var line = lines[index].TrimEnd();
+            if (string.IsNullOrWhiteSpace(line))
             {
-                currentListItems.Add(line[2..].Trim());
+                index++;
                 continue;
             }
 
-            if (currentListItems.Count > 0)
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
             {
-                var listCopy = currentListItems.ToList();
-                currentListItems.Clear();
-                yield return RenderList(listCopy);
+                index++;
+                var codeLines = new List<string>();
+                while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
+                {
+                    codeLines.Add(lines[index]);
+                    index++;
+                }
+
+                if (index < lines.Length)
+                {
+                    index++;
+                }
+
+                yield return RenderMarkup(
+                    $"<pre class=\"framework-markdown-code\"><code>{HtmlEncoder.Default.Encode(string.Join("\n", codeLines))}</code></pre>");
+                continue;
             }
 
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            var headingMatch = HeadingPattern.Match(line.TrimStart());
+            if (headingMatch.Success)
+            {
+                var level = headingMatch.Groups[1].Value.Length;
+                var text = FormatInline(headingMatch.Groups[2].Value);
+                yield return RenderMarkup($"<h{level} class=\"framework-markdown-heading\">{text}</h{level}>");
+                index++;
+                continue;
+            }
 
-            if (line.StartsWith("# "))
+            if (HorizontalRulePattern.IsMatch(line))
             {
-                var text = line[2..].Trim();
-                yield return builder => builder.AddMarkupContent(0, $"<h1 style=\"font-size: 18px; font-weight: 800; color: #1d2528; margin: 14px 0 8px 0;\">{FormatInline(text)}</h1>");
+                yield return RenderMarkup("<hr class=\"framework-markdown-rule\">");
+                index++;
+                continue;
             }
-            else if (line.StartsWith("## "))
-            {
-                var text = line[3..].Trim();
-                yield return builder => builder.AddMarkupContent(0, $"<h2 style=\"font-size: 15px; font-weight: 800; color: #105c4d; margin: 12px 0 6px 0; padding-bottom: 4px; border-bottom: 1.5px solid #dce5e2;\">{FormatInline(text)}</h2>");
-            }
-            else if (line.StartsWith("### "))
-            {
-                var text = line[4..].Trim();
-                yield return builder => builder.AddMarkupContent(0, $"<h3 style=\"font-size: 13px; font-weight: 700; color: #1d2528; margin: 10px 0 4px 0;\">{FormatInline(text)}</h3>");
-            }
-            else
-            {
-                yield return builder => builder.AddMarkupContent(0, $"<p style=\"font-size: 13px; color: #334155; line-height: 1.5; margin: 4px 0;\">{FormatInline(line)}</p>");
-            }
-        }
 
-        if (currentListItems.Count > 0)
-        {
-            yield return RenderList(currentListItems);
+            if (IsTableStart(lines, index))
+            {
+                var table = RenderTable(lines, index);
+                yield return table.Block;
+                index = table.NextIndex;
+                continue;
+            }
+
+            if (line.TrimStart().StartsWith(">"))
+            {
+                var quoteLines = new List<string>();
+                while (index < lines.Length && lines[index].TrimStart().StartsWith(">"))
+                {
+                    quoteLines.Add(lines[index].TrimStart()[1..].TrimStart());
+                    index++;
+                }
+
+                var quote = string.Join("<br>", quoteLines.Select(FormatInline));
+                yield return RenderMarkup($"<blockquote class=\"framework-markdown-quote\"><p>{quote}</p></blockquote>");
+                continue;
+            }
+
+            if (TryGetListKind(line, out var isOrdered))
+            {
+                var items = new List<string>();
+                while (index < lines.Length && TryGetListKind(lines[index], out var currentIsOrdered) && currentIsOrdered == isOrdered)
+                {
+                    var match = isOrdered
+                        ? OrderedListPattern.Match(lines[index])
+                        : UnorderedListPattern.Match(lines[index]);
+                    items.Add(FormatInline(match.Groups[1].Value));
+                    index++;
+                }
+
+                var tag = isOrdered ? "ol" : "ul";
+                var listItems = string.Concat(items.Select((item, itemIndex) =>
+                    $"<li><span class=\"framework-markdown-list-marker\" aria-hidden=\"true\">{(isOrdered ? $"{itemIndex + 1}." : "•")}</span><span>{item}</span></li>"));
+                yield return RenderMarkup($"<{tag} class=\"framework-markdown-list\">{listItems}</{tag}>");
+                continue;
+            }
+
+            var paragraphLines = new List<string> { line.Trim() };
+            index++;
+            while (index < lines.Length &&
+                   !string.IsNullOrWhiteSpace(lines[index]) &&
+                   !IsBlockStart(lines, index))
+            {
+                paragraphLines.Add(lines[index].Trim());
+                index++;
+            }
+
+            var paragraph = string.Join("<br>", paragraphLines.Select(FormatInline));
+            yield return RenderMarkup($"<p class=\"framework-markdown-paragraph\">{paragraph}</p>");
         }
     }
 
-    private static RenderFragment RenderList(List<string> items) => builder =>
+    private static RenderFragment RenderMarkup(string markup) => builder => builder.AddMarkupContent(0, markup);
+
+    private static bool IsBlockStart(string[] lines, int index)
     {
-        builder.AddMarkupContent(0, "<ul style=\"padding-left: 20px; margin: 6px 0 12px 0; list-style: disc; display: grid; gap: 4px;\">");
-        foreach (var item in items)
+        var line = lines[index].TrimStart();
+        return HeadingPattern.IsMatch(line) ||
+               line.StartsWith("```", StringComparison.Ordinal) ||
+               line.StartsWith(">", StringComparison.Ordinal) ||
+               HorizontalRulePattern.IsMatch(line) ||
+               TryGetListKind(line, out _) ||
+               IsTableStart(lines, index);
+    }
+
+    private static bool TryGetListKind(string line, out bool isOrdered)
+    {
+        if (UnorderedListPattern.IsMatch(line))
         {
-            builder.AddMarkupContent(1, $"<li style=\"padding: 0; font-size: 13px; color: #334155; line-height: 1.5;\"><span>{FormatInline(item)}</span></li>");
+            isOrdered = false;
+            return true;
         }
-        builder.AddMarkupContent(2, "</ul>");
-    };
+
+        if (OrderedListPattern.IsMatch(line))
+        {
+            isOrdered = true;
+            return true;
+        }
+
+        isOrdered = false;
+        return false;
+    }
+
+    private static bool IsTableStart(string[] lines, int index)
+    {
+        if (index + 1 >= lines.Length || !lines[index].Contains('|'))
+        {
+            return false;
+        }
+
+        var separators = SplitTableRow(lines[index + 1]);
+        return separators.Length > 0 && separators.All(cell => TableSeparatorPattern.IsMatch(cell));
+    }
+
+    private static (RenderFragment Block, int NextIndex) RenderTable(string[] lines, int index)
+    {
+        var headers = SplitTableRow(lines[index]);
+        var columnCount = headers.Length;
+        index += 2;
+        var rows = new List<string[]>();
+
+        while (index < lines.Length && !string.IsNullOrWhiteSpace(lines[index]) && lines[index].Contains('|'))
+        {
+            var cells = SplitTableRow(lines[index]);
+            rows.Add(Enumerable.Range(0, columnCount)
+                .Select(column => column < cells.Length ? cells[column] : string.Empty)
+                .ToArray());
+            index++;
+        }
+
+        var headerHtml = string.Concat(headers.Select(header => $"<th scope=\"col\">{FormatInline(header)}</th>"));
+        var rowHtml = string.Concat(rows.Select(row =>
+            $"<tr>{string.Concat(row.Select(cell => $"<td>{FormatInline(cell)}</td>"))}</tr>"));
+
+        var block = RenderMarkup(
+            $"<div class=\"framework-markdown-table-wrap\"><table class=\"framework-markdown-table\"><thead><tr>{headerHtml}</tr></thead><tbody>{rowHtml}</tbody></table></div>");
+        return (block, index);
+    }
+
+    private static string[] SplitTableRow(string line)
+    {
+        var row = line.Trim();
+        if (row.StartsWith('|'))
+        {
+            row = row[1..];
+        }
+
+        if (row.EndsWith('|'))
+        {
+            row = row[..^1];
+        }
+
+        return row.Split('|').Select(cell => cell.Trim()).ToArray();
+    }
 
     private static string FormatInline(string input)
     {
-        if (string.IsNullOrEmpty(input)) return string.Empty;
+        if (string.IsNullOrEmpty(input))
+        {
+            return string.Empty;
+        }
 
-        string html = System.Net.WebUtility.HtmlEncode(input);
+        var fragments = new List<string>();
+        string Protect(string markup)
+        {
+            var placeholder = $"\u0001{fragments.Count}\u0002";
+            fragments.Add(markup);
+            return placeholder;
+        }
 
-        // Bold **text**
-        html = Regex.Replace(html, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+        var html = HtmlEncoder.Default.Encode(input);
+        html = Regex.Replace(html, @"`([^`]+)`", match =>
+            Protect($"<code class=\"framework-markdown-inline-code\">{match.Groups[1].Value}</code>"));
+        html = Regex.Replace(html, @"\[([^\]]+)\]\(([^)\s]+)\)", match =>
+        {
+            var safeUrl = GetSafeLink(match.Groups[2].Value);
+            if (safeUrl is null)
+            {
+                return match.Groups[1].Value;
+            }
 
-        // Italic *text*
-        html = Regex.Replace(html, @"\*(.*?)\*", "<em style=\"color: #64748b;\">$1</em>");
+            var label = FormatInline(WebUtility.HtmlDecode(match.Groups[1].Value));
+            var isExternal = Uri.TryCreate(WebUtility.HtmlDecode(match.Groups[2].Value), UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+            var externalAttributes = isExternal ? " target=\"_blank\" rel=\"noopener noreferrer\"" : string.Empty;
+            return Protect($"<a href=\"{safeUrl}\"{externalAttributes}>{label}</a>");
+        });
 
-        // Code `code`
-        html = Regex.Replace(html, @"`(.*?)`", "<code style=\"background: #e8f3ef; color: #105c4d; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 12px;\">$1</code>");
+        html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        html = Regex.Replace(html, @"(?<!\*)\*([^*\r\n]+)\*(?!\*)", "<em>$1</em>");
+        html = Regex.Replace(html, @"(?<!\w)_([^_\r\n]+)_(?!\w)", "<em>$1</em>");
+        html = Regex.Replace(html, @"~~(.+?)~~", "<del>$1</del>");
 
-        // Badges for Veggie / Vegan / Glutenfrei
-        html = html.Replace("(Vegan)", "<span class=\"framework-badge success\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #15803d; margin-left: 6px;\">Vegan</span>");
-        html = html.Replace("(Vegetarisch)", "<span class=\"framework-badge success\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #15803d; margin-left: 6px;\">Veggie</span>");
-        html = html.Replace("(Glutenfrei)", "<span class=\"framework-badge warning\" style=\"font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #fef3c7; color: #b45309; margin-left: 6px;\">Glutenfrei</span>");
+        for (var index = 0; index < fragments.Count; index++)
+        {
+            html = html.Replace($"\u0001{index}\u0002", fragments[index], StringComparison.Ordinal);
+        }
 
         return html;
+    }
+
+    private static string? GetSafeLink(string encodedUrl)
+    {
+        var url = WebUtility.HtmlDecode(encodedUrl).Trim();
+        if (url.Any(char.IsControl) || url.StartsWith("//", StringComparison.Ordinal) || url.StartsWith("\\\\", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absoluteUri))
+        {
+            if (absoluteUri.Scheme != Uri.UriSchemeHttp &&
+                absoluteUri.Scheme != Uri.UriSchemeHttps &&
+                absoluteUri.Scheme != Uri.UriSchemeMailto &&
+                absoluteUri.Scheme != "tel")
+            {
+                return null;
+            }
+        }
+        else if (!Uri.TryCreate(url, UriKind.Relative, out _) || url.Contains(':'))
+        {
+            return null;
+        }
+
+        return HtmlEncoder.Default.Encode(url);
     }
 }

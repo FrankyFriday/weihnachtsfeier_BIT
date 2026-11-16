@@ -2,7 +2,7 @@
 @inherits AuthenticatedComponentBase
 
 <FrameworkPage>
-    <PageHeading Eyebrow="INFO-SEITEN & MENÜS" Title="Event-Informationen & Speisekarten" Description="Erstelle dynamische Info-Seiten, Menükarten und Hinweise mit einfacher Markdown-Formatierung." />
+    <PageHeading Eyebrow="INFO-SEITEN & MENÜS" Title="Event-Informationen & Speisekarten" Description="Erstelle dynamische Info-Seiten, Menükarten und Hinweise mit strukturierter Markdown-Formatierung." />
 
     @if (IsLoading)
     {
@@ -80,7 +80,6 @@
             <div>
                 <FrameworkFlexRow Justify="space-between" Align="center" Style="margin-bottom: 6px;">
                     <label class="framework-form-label" style="margin: 0;">Inhalt (Markdown)</label>
-                    <span style="font-size: 11px; color: #64748b;">Verwende ## für Überschriften, - für Listen und **fett**</span>
                 </FrameworkFlexRow>
 
                 <!-- TAB-SWITCH: EDITOR vs LIVE PREVIEW -->
@@ -95,12 +94,20 @@
 
                 @if (!_previewMode)
                 {
-                    <textarea value="@_formMarkdown" @oninput="e => _formMarkdown = e.Value?.ToString() ?? string.Empty" rows="10" placeholder="## Vorspeisen&#10;- **Maronensuppe** *(Vegetarisch)*&#10;&#10;## Hauptspeisen&#10;- **Entenbrust** mit Rotkohl" style="width: 100%; font-family: monospace; font-size: 13px; padding: 10px; border: 1.5px solid #dce5e2; border-radius: 8px; box-sizing: border-box; resize: vertical;"></textarea>
+                    <textarea value="@_formMarkdown" @oninput="e => _formMarkdown = e.Value?.ToString() ?? string.Empty" rows="12" placeholder="## Vorspeisen&#10;- **Maronensuppe** – *Vegetarisch*&#10;&#10;## Hauptspeisen&#10;1. **Entenbrust** mit Rotkohl&#10;2. Bratkartoffeln&#10;&#10;> Änderungen und Hinweise&#10;&#10;[Speisekarte öffnen](https://beispiel.de)" style="width: 100%; font-family: monospace; font-size: 13px; padding: 10px; border: 1.5px solid #dce5e2; border-radius: 8px; box-sizing: border-box; resize: vertical;"></textarea>
+                    <div class="info-markdown-guide" aria-label="Markdown-Formatierungshilfe">
+                        <div><strong>Überschrift</strong><code>## Titel</code></div>
+                        <div><strong>Fett / kursiv / gestrichen</strong><code>**fett** *kursiv* ~~Text~~</code></div>
+                        <div><strong>Listen</strong><code>- Punkt&nbsp;&nbsp; 1. Schritt</code></div>
+                        <div><strong>Zitat / Trennlinie</strong><code>&gt; Hinweis&nbsp;&nbsp; ---</code></div>
+                        <div><strong>Link / Code</strong><code>[Text](https://...)&nbsp;&nbsp; `Code`</code></div>
+                        <div><strong>Tabelle</strong><code>| Zeit | Ort |<br>| --- | --- |</code></div>
+                    </div>
                 }
                 else
                 {
                     <div style="padding: 12px; background: #fafcfb; border: 1.5px solid #dce5e2; border-radius: 8px; min-height: 180px;">
-                        <FrameworkMarkdown Content="@_formMarkdown" />
+                        <FrameworkMarkdown Content="@_formMarkdown" Class="info-markdown-preview" />
                     </div>
                 }
             </div>
@@ -167,7 +174,7 @@
         _formIcon = "restaurant";
         _formPosition = _pages.Length * 10;
         _formIsVisible = true;
-        _formMarkdown = "## Vorspeisen\n- **Maronencremesuppe** *(Vegetarisch)*\n\n## Hauptspeisen\n- **Entenbrust** mit Rotkohl & Klößen\n\n## Desserts\n- **Bratapfel-Tiramisu**";
+        _formMarkdown = "## Vorspeisen\n- **Maronencremesuppe** – *Vegetarisch*\n\n## Hauptspeisen\n1. **Entenbrust** mit Rotkohl & Klößen\n2. Bratkartoffeln\n\n## Desserts\n- Bratapfel-Tiramisu";
         _previewMode = false;
         _modalError = null;
         _isModalOpen = true;
