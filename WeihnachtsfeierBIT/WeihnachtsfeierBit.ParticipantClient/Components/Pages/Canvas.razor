@@ -38,32 +38,43 @@
     {
         var displaySettings = _state.DisplaySettings ?? CanvasDisplaySettings.Default;
 
-        <header class="canvas-header">
-            <div class="canvas-brand">
-                <h1>@_state.ProjectName</h1>
-            </div>
-            <div class="canvas-header-actions">
-                @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
-                     !string.IsNullOrEmpty(_qrCodeDataUri))
+        @if (displaySettings.ShowProjectTitle ||
+             (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
+              !string.IsNullOrEmpty(_qrCodeDataUri)))
+        {
+            <header class="canvas-header">
+                @if (displaySettings.ShowProjectTitle)
                 {
-                    <aside class="canvas-join-card" aria-label="Session beitreten">
-                        <div class="canvas-join-copy">
-                            <span>MITMACHEN</span>
-                            <strong>QR-Code scannen</strong>
-                            <small>Session-Code: @Code</small>
-                        </div>
-                        <img class="canvas-join-qr" src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
-                    </aside>
+                    <div class="canvas-brand">
+                        <h1>@_state.ProjectName</h1>
+                    </div>
                 }
-            </div>
-        </header>
+                <div class="canvas-header-actions">
+                    @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
+                         !string.IsNullOrEmpty(_qrCodeDataUri))
+                    {
+                        <aside class="canvas-join-card" aria-label="Session beitreten">
+                            <div class="canvas-join-copy">
+                                <span>MITMACHEN</span>
+                                <strong>QR-Code scannen</strong>
+                                <small>Session-Code: @Code</small>
+                            </div>
+                            <img class="canvas-join-qr" src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
+                        </aside>
+                    }
+                </div>
+            </header>
+        }
 
         <div class="canvas-content scoreboard-@displaySettings.ScoreboardLayout">
             <section class="canvas-event" aria-live="polite" @ref="_eventContainerElement">
                 <div class="canvas-event-fit" @ref="_eventContentElement">
                     @if (_state.Event is CanvasEventState activeEvent)
                     {
-                        <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
+                        @if (displaySettings.ShowEventTypeLabel)
+                        {
+                            <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
+                        }
                         <h2>@GetEventHeading(activeEvent)</h2>
                         @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
                         {
@@ -158,7 +169,10 @@
                     }
                     else
                     {
-                        <div class="canvas-event-type">BEREIT</div>
+                        @if (displaySettings.ShowEventTypeLabel)
+                        {
+                            <div class="canvas-event-type">BEREIT</div>
+                        }
                         <h2>Die nächste Runde startet gleich</h2>
                         <p class="canvas-message-text">Der aktuelle Punktestand wird hier angezeigt.</p>
                     }
@@ -259,11 +273,17 @@
         get
         {
             var settings = _state?.DisplaySettings ?? CanvasDisplaySettings.Default;
+            var eventScale = settings.EventScalePercent / 100d;
+            var scoreboardScale = settings.ScoreboardScalePercent / 100d;
             return $"--canvas-font-scale:{Scale(settings.FontScalePercent)};" +
                    $"--canvas-event-scale:{Scale(settings.FontScalePercent, settings.EventScalePercent)};" +
                    $"--canvas-scoreboard-scale:{Scale(settings.FontScalePercent, settings.ScoreboardScalePercent)};" +
                    $"--canvas-qr-scale:{Scale(settings.QrCodeScalePercent)};" +
-                   $"--canvas-popup-scale:{Scale(settings.FontScalePercent, settings.QrCodeScalePercent)};";
+                   $"--canvas-popup-scale:{Scale(settings.FontScalePercent, settings.QrCodeScalePercent)};" +
+                   $"--canvas-event-column-weight:{ScaleWeight(1.25d * eventScale)}fr;" +
+                   $"--canvas-scoreboard-column-weight:{ScaleWeight(0.85d * scoreboardScale)}fr;" +
+                   $"--canvas-event-row-weight:{ScaleWeight(eventScale)}fr;" +
+                   $"--canvas-scoreboard-row-weight:{ScaleWeight(0.18d * scoreboardScale)}fr;";
         }
     }
 
@@ -273,6 +293,9 @@
     private static string Scale(int firstPercent, int secondPercent) =>
         ((firstPercent / 100d) * (secondPercent / 100d))
             .ToString("0.####", CultureInfo.InvariantCulture);
+
+    private static string ScaleWeight(double value) =>
+        value.ToString("0.####", CultureInfo.InvariantCulture);
 
     private TeamSummary[] _mappedTeams =>
         _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, "#105c4d", t.Points)).ToArray() ?? [];

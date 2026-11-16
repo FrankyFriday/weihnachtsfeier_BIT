@@ -69,10 +69,10 @@
 
     private static RenderFragment RenderList(List<string> items) => builder =>
     {
-        builder.AddMarkupContent(0, "<ul style=\"padding-left: 0; margin: 6px 0 10px 0; list-style: none; display: grid; gap: 6px;\">");
+        builder.AddMarkupContent(0, "<ul style=\"padding-left: 20px; margin: 6px 0 12px 0; list-style: disc; display: grid; gap: 4px;\">");
         foreach (var item in items)
         {
-            builder.AddMarkupContent(1, $"<li style=\"padding: 8px 10px; background: #ffffff; border: 1px solid #dce5e2; border-radius: 8px; font-size: 13px; color: #1d2528; display: flex; align-items: center; justify-content: space-between; gap: 8px;\"><span>{FormatInline(item)}</span></li>");
+            builder.AddMarkupContent(1, $"<li style=\"padding: 0; font-size: 13px; color: #334155; line-height: 1.5;\"><span>{FormatInline(item)}</span></li>");
         }
         builder.AddMarkupContent(2, "</ul>");
     };

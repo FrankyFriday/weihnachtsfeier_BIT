@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.JSInterop;
 using WeihnachtsfeierBit.Framework;
 
 namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard;
@@ -18,6 +19,15 @@ public partial class ModerationSidebar : ComponentBase
         new("beamer", "Beamer-Steuerung", "present_to_all")
     ];
 
+    private const int MinimumCanvasPreviewWidth = 320;
+    private const int MaximumCanvasPreviewWidth = 7680;
+    private const int MinimumCanvasPreviewHeight = 240;
+    private const int MaximumCanvasPreviewHeight = 4320;
+    private const int DefaultCanvasPreviewWidth = 1920;
+    private const int DefaultCanvasPreviewHeight = 1080;
+
+    [Inject] public IJSRuntime JavaScript { get; set; } = null!;
+    [Inject] public ILogger<ModerationSidebar> Logger { get; set; } = null!;
     [Inject] public ProjectApiClient ProjectApiClient { get; set; } = null!;
 
     [Parameter] public ParticipantSummary[] Participants { get; set; } = [];
@@ -58,6 +68,30 @@ public partial class ModerationSidebar : ComponentBase
     private CanvasDisplaySettings _draftCanvasSettings = CanvasDisplaySettings.Default;
     private CanvasDisplaySettings? _lastCanvasSettings;
     private Guid? _lastActiveCanvasEventId;
+    private bool _isCanvasPreviewResolutionModalOpen;
+    private int _canvasPreviewWidth = DefaultCanvasPreviewWidth;
+    private int _canvasPreviewHeight = DefaultCanvasPreviewHeight;
+    private int _draftCanvasPreviewWidth = DefaultCanvasPreviewWidth;
+    private int _draftCanvasPreviewHeight = DefaultCanvasPreviewHeight;
+    private string? _canvasPreviewResolutionError;
+    private ElementReference _canvasPreviewStage;
+    private ElementReference _canvasPreviewFrame;
+    private IJSObjectReference? _canvasPreviewModule;
+    private IJSObjectReference? _canvasPreviewObserver;
+    private int _observedCanvasPreviewWidth;
+    private int _observedCanvasPreviewHeight;
+
+    private string CanvasPreviewResolutionLabel => $"{_canvasPreviewWidth} × {_canvasPreviewHeight} px";
+    private string CanvasPreviewStageStyle
+    {
+        get
+        {
+            var aspectRatio = _canvasPreviewWidth / (double)_canvasPreviewHeight;
+            var maxWidth = 220d * aspectRatio;
+            return FormattableString.Invariant(
+                $"--canvas-preview-aspect-ratio:{aspectRatio:0.####};--canvas-preview-max-width:{maxWidth:0.##}px");
+        }
+    }
 
     private RegieCompartmentDefinition SelectedCompartment =>
         Compartments.FirstOrDefault(compartment => compartment.Id == _activeCompartment) ?? Compartments[0];
@@ -192,6 +226,34 @@ public partial class ModerationSidebar : ComponentBase
         .Select(p => new FrameworkSelectOption(p.Id.ToString(), $"#{p.Number} {(string.IsNullOrWhiteSpace(p.Name) ? "" : $"({p.Name})")}".Trim()))
         .ToArray() ?? [];
 
+    private void OpenCanvasPreviewResolutionModal()
+    {
+        _draftCanvasPreviewWidth = _canvasPreviewWidth;
+        _draftCanvasPreviewHeight = _canvasPreviewHeight;
+        _canvasPreviewResolutionError = null;
+        _isCanvasPreviewResolutionModalOpen = true;
+    }
+
+    private void CloseCanvasPreviewResolutionModal() =>
+        _isCanvasPreviewResolutionModalOpen = false;
+
+    private Task ApplyCanvasPreviewResolutionAsync()
+    {
+        if (_draftCanvasPreviewWidth is < MinimumCanvasPreviewWidth or > MaximumCanvasPreviewWidth ||
+            _draftCanvasPreviewHeight is < MinimumCanvasPreviewHeight or > MaximumCanvasPreviewHeight)
+        {
+            _canvasPreviewResolutionError =
+                $"Breite muss zwischen {MinimumCanvasPreviewWidth} und {MaximumCanvasPreviewWidth} und Höhe zwischen {MinimumCanvasPreviewHeight} und {MaximumCanvasPreviewHeight} Pixeln liegen.";
+            return Task.CompletedTask;
+        }
+
+        _canvasPreviewWidth = _draftCanvasPreviewWidth;
+        _canvasPreviewHeight = _draftCanvasPreviewHeight;
+        _canvasPreviewResolutionError = null;
+        _isCanvasPreviewResolutionModalOpen = false;
+        return Task.CompletedTask;
+    }
+
     private void OnEmulatorParticipantSelectChanged(string? val)
     {
         if (val is not null && Guid.TryParse(val, out var parsedId))
@@ -249,6 +311,12 @@ public partial class ModerationSidebar : ComponentBase
             ? SaveCanvasSettingsAsync(_draftCanvasSettings with { QrCodeMode = value })
             : Task.CompletedTask;
 
+    private Task OnShowProjectTitleChangedAsync(bool value) =>
+        SaveCanvasSettingsAsync(_draftCanvasSettings with { ShowProjectTitle = value });
+
+    private Task OnShowEventTypeLabelChangedAsync(bool value) =>
+        SaveCanvasSettingsAsync(_draftCanvasSettings with { ShowEventTypeLabel = value });
+
     private Task AdjustFontScaleAsync(int delta) =>
         AdjustCanvasScaleAsync(value => _draftCanvasSettings with { FontScalePercent = value },
             _draftCanvasSettings.FontScalePercent, delta);
@@ -294,6 +362,65 @@ public partial class ModerationSidebar : ComponentBase
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_activeCompartment != "beamer" || Instance is null || string.IsNullOrWhiteSpace(CanvasUrl))
+        {
+            _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
+            _observedCanvasPreviewWidth = 0;
+            _observedCanvasPreviewHeight = 0;
+            return;
+        }
+
+        try
+        {
+            _canvasPreviewModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", "./js/canvas-preview.js");
+
+            if (_canvasPreviewObserver is not null &&
+                _observedCanvasPreviewWidth == _canvasPreviewWidth &&
+                _observedCanvasPreviewHeight == _canvasPreviewHeight)
+            {
+                await _canvasPreviewObserver.InvokeVoidAsync("refresh");
+                return;
+            }
+
+            _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
+            _canvasPreviewObserver = await _canvasPreviewModule.InvokeAsync<IJSObjectReference>(
+                "observeCanvasPreview",
+                _canvasPreviewStage,
+                _canvasPreviewFrame,
+                _canvasPreviewWidth,
+                _canvasPreviewHeight);
+            _observedCanvasPreviewWidth = _canvasPreviewWidth;
+            _observedCanvasPreviewHeight = _canvasPreviewHeight;
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Beamer-Vorschau konnte nach dem Trennen der UI-Verbindung nicht angepasst werden.");
+        }
+    }
+
+    private async Task<IJSObjectReference?> DisposeCanvasPreviewObserverAsync(IJSObjectReference? observer)
+    {
+        if (observer is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            await observer.InvokeVoidAsync("dispose");
+            await observer.DisposeAsync();
+        }
+        catch (JSDisconnectedException exception)
+        {
+            Logger.LogDebug(exception, "Die Beamer-Vorschau konnte nach dem Trennen der UI-Verbindung nicht bereinigt werden.");
+        }
+
+        return null;
+    }
+
     private int TotalFilteredCount
     {
         get
@@ -336,6 +463,22 @@ public partial class ModerationSidebar : ComponentBase
                     p.Permissions?.HasPermission(ParticipantPermissionKeys.IsMuted) == false);
             }
             return list.OrderBy(p => p.Number).ToList();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _canvasPreviewObserver = await DisposeCanvasPreviewObserverAsync(_canvasPreviewObserver);
+        if (_canvasPreviewModule is not null)
+        {
+            try
+            {
+                await _canvasPreviewModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException exception)
+            {
+                Logger.LogDebug(exception, "Das Beamer-Vorschau-Modul konnte nach dem Trennen der UI-Verbindung nicht freigegeben werden.");
+            }
         }
     }
 }

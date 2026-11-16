@@ -1,0 +1,66 @@
+<main class="participant-name-onboarding">
+    <section class="participant-name-card">
+        <div class="participant-name-icon material-symbols-outlined">person</div>
+        <span class="mobile-eyebrow">KURZES PROFIL</span>
+        <h1>Wie dürfen wir dich nennen?</h1>
+        <p class="participant-name-intro">Du kannst einen Namen angeben oder ohne Namen weitermachen.</p>
+
+        <form @onsubmit="SaveNameAsync" @onsubmit:preventDefault="true">
+            <label class="participant-field-label" for="participant-name">Dein Name</label>
+            <input @ref="_nameElement"
+                   id="participant-name"
+                   class="participant-name-input"
+                   type="text"
+                   autocomplete="name"
+                   maxlength="120"
+                   placeholder="Dein Name"
+                   value="@Name"
+                   @oninput="OnNameInput" />
+            <p class="participant-privacy-note">
+                Dein Name ist für andere Teilnehmende und Moderatoren sichtbar.
+                <button type="button" class="participant-inline-link" @onclick="() => _showPrivacyDetails = true">Mehr erfahren</button>
+            </p>
+            <button class="participant-primary-button" type="submit" disabled="@(IsSaving || string.IsNullOrWhiteSpace(Name))">
+                @(IsSaving ? "Wird gespeichert ..." : "Namen speichern")
+            </button>
+            <button class="participant-text-button" type="button" @onclick="OnSkip">Ohne Namen weitermachen</button>
+        </form>
+    </section>
+</main>
+
+<FrameworkModal IsOpen="_showPrivacyDetails" Title="Dein Name in der Session" OnClose="ClosePrivacyDetails">
+    <div class="participant-privacy-details">
+        <p>Der Name wird im Teilnehmerbereich und für Moderatoren angezeigt, zum Beispiel bei Teamständen, Ergebnissen und Chat-Nachrichten.</p>
+        <p>Gib nur einen Namen oder Spitznamen an, mit dem du für andere erkennbar sein möchtest. Du kannst diese Angabe später in den Aktionen ändern, sofern der Moderator Namensänderungen erlaubt.</p>
+        <p>Wenn du keinen Namen angeben möchtest, kannst du ohne Namen fortfahren.</p>
+        <FrameworkButton Label="Verstanden" Variant="primary" OnClick="ClosePrivacyDetails" />
+    </div>
+</FrameworkModal>
+
+@code {
+    [Parameter] public string Name { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> NameChanged { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public EventCallback OnSaveName { get; set; }
+    [Parameter] public EventCallback OnSkip { get; set; }
+
+    private ElementReference _nameElement;
+    private bool _hasFocused;
+    private bool _showPrivacyDetails;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_hasFocused)
+        {
+            _hasFocused = true;
+            await _nameElement.FocusAsync();
+        }
+    }
+
+    private Task SaveNameAsync() => OnSaveName.InvokeAsync();
+
+    private Task OnNameInput(ChangeEventArgs args) =>
+        NameChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+
+    private void ClosePrivacyDetails() => _showPrivacyDetails = false;
+}

@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using WeihnachtsfeierBit.Framework
 @inject ProjectApiClient ProjectApiClient
+@inject ParticipantNotificationService Notifications
 
 <div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
     <div>
@@ -9,16 +10,6 @@
 
         <form @onsubmit="SubmitTextAsync" @onsubmit:preventDefault="true" style="display: flex; flex-direction: column; gap: 12px;">
             <textarea value="@_textInput" @oninput="e => _textInput = e.Value?.ToString() ?? string.Empty" rows="4" maxlength="@_maxLength" placeholder="@_placeholder" style="width: 100%; padding: 12px; border: 1.5px solid #dce5e2; border-radius: 10px; font-family: inherit; font-size: 14px; box-sizing: border-box; resize: vertical;"></textarea>
-
-            @if (!string.IsNullOrEmpty(_error))
-            {
-                <FrameworkNotice Message="@_error" Severity="error" />
-            }
-
-            @if (_submitted)
-            {
-                <FrameworkNotice Message="Deine Antwort wurde erfolgreich eingesendet!" Severity="success" />
-            }
 
             <FrameworkButton Label="@(_submitted ? "Antwort aktualisieren" : "Antwort absenden")" Variant="primary" Type="submit" Busy="_isSubmitting" Disabled="@(string.IsNullOrWhiteSpace(_textInput))" />
         </form>
@@ -34,7 +25,6 @@
     private string _textInput = string.Empty;
     private bool _isSubmitting;
     private bool _submitted;
-    private string? _error;
 
     private string _question => ReadString(CurrentSlide.Parameters, "question");
     private string _placeholder => ReadString(CurrentSlide.Parameters, "placeholder");
@@ -44,17 +34,16 @@
     {
         if (string.IsNullOrWhiteSpace(_textInput) || string.IsNullOrEmpty(AccessToken)) return;
         _isSubmitting = true;
-        _error = null;
-
         try
         {
             var payload = JsonSerializer.SerializeToElement(new { text = _textInput.Trim() });
             await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
             _submitted = true;
+            Notifications.Show("Deine Antwort wurde erfolgreich eingesendet!", ParticipantToastSeverity.Success);
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {

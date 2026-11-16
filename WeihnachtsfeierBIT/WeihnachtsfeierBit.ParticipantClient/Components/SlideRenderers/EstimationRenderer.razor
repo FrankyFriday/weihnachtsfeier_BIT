@@ -1,18 +1,14 @@
 @using System.Text.Json
+@inject ParticipantNotificationService Notifications
 
 <div style="flex: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; box-sizing: border-box; text-align: center; background: #ffffff;">
     <span class="mobile-eyebrow" style="margin-bottom: 12px; font-size: 14px;">SCHÄTZFRAGE</span>
     <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 24px 0; color: #1d2528; max-width: 500px;">@ReadString(CurrentSlide.Parameters, "question")</h1>
 
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <div class="mobile-alert error" style="font-size: 15px; padding: 12px 16px; margin-bottom: 16px;">@_errorMessage</div>
-    }
-
     @if (_submitted)
     {
-        <div class="mobile-alert success" style="font-size: 18px; padding: 20px;">
-            Dein Schätzwert von <strong>@_estimationInput @_unit</strong> wurde gespeichert!
+        <div style="font-size: 18px; color: #1d2528; text-align: center;">
+            Dein Schätzwert: <strong>@_estimationInput @_unit</strong>
         </div>
     }
     else
@@ -40,7 +36,6 @@
     private double _estimationInput;
     private bool _submitted;
     private bool _isSubmitting;
-    private string? _errorMessage;
 
     private string _unit => ReadString(CurrentSlide.Parameters, "unit");
 
@@ -71,7 +66,6 @@
     private async Task SubmitEstimation()
     {
         if (_isSubmitting) return;
-        _errorMessage = null;
         _isSubmitting = true;
         try
         {
@@ -80,15 +74,16 @@
                 var payload = JsonSerializer.SerializeToElement(new { estimationValue = _estimationInput });
                 await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
                 _submitted = true;
+                Notifications.Show("Dein Schätzwert wurde gespeichert.", ParticipantToastSeverity.Success);
             }
             else
             {
-                _errorMessage = "Keine aktive Sitzung vorhanden.";
+                Notifications.Show("Keine aktive Sitzung vorhanden.", ParticipantToastSeverity.Error);
             }
         }
         catch (Exception ex)
         {
-            _errorMessage = "Fehler beim Übertragen: " + ex.Message;
+            Notifications.Show("Fehler beim Übertragen: " + ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {

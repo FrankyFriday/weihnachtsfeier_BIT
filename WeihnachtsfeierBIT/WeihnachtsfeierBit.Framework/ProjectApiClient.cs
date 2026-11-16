@@ -256,6 +256,13 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
             ?? throw new InvalidOperationException("Die API hat keine Sitzung zurückgegeben.");
     }
 
+    public async Task LogoutParticipantAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"/api/projects/{projectId}/participant-sessions/current", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<ParticipantSummary> GetMyProfileAsync(string accessToken, Guid projectId, CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/participants/me", accessToken);
@@ -1281,7 +1288,13 @@ public sealed record UpdateTeamPointsRequest(int Points);
 public sealed record SlideSummary(Guid Id, Guid ShowId, string Type, int Position, JsonElement Parameters);
 public sealed record SlideWriteRequest(string Type, int Position, JsonElement Parameters);
 public sealed record ReorderSlidesRequest(Guid[] SlideIds);
-public sealed record ResolveCodeResponse(Guid GameInstanceId, Guid ProjektId, string ProjectName, string Code);
+public sealed record ResolveCodeResponse(
+    Guid GameInstanceId,
+    Guid ProjektId,
+    string ProjectName,
+    string Code,
+    int MinParticipantNumberLength = 1,
+    int MaxParticipantNumberLength = 6);
 public sealed record GameInstanceSummary(Guid Id, Guid ProjektId, string AccessCode, DateTime CreatedAtUtc);
 public sealed record ParticipantState(Guid Id, int Number, string? Name, ParticipantPermissions? Permissions = null);
 public sealed record TeamState(Guid Id, string DisplayName, string Color, int Points, int Rank, int ParticipantCount, ParticipantState[] Members);
@@ -1382,6 +1395,8 @@ public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCod
     public int EventScalePercent { get; init; } = 100;
     public int ScoreboardScalePercent { get; init; } = 100;
     public int QrCodeScalePercent { get; init; } = 100;
+    public bool ShowProjectTitle { get; init; } = true;
+    public bool ShowEventTypeLabel { get; init; } = true;
 
     [JsonIgnore]
     public bool IsValid =>

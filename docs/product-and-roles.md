@@ -4,7 +4,7 @@
 
 WeihnachtsfeierBIT ist eine interaktive Event-Software für Feiern, Teamevents und Spielabende. Innerhalb eines Projekts sammeln Teams über verschiedene Spiele hinweg Punkte. Spiele können spontan gestartet oder in vorbereiteten Shows durchgeführt werden. Eine Show besteht aus geordneten Slides; jede Slide beschreibt ein interaktives Spielelement, wie etwa Quizfragen, Hitster-Musikraten, Jeopardy-Kategoriengitter, Abstimmungen, Punktevergaben oder Live-Ranglisten.
 
-Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden oder zwischen Administratoren geteilt werden. Teilnehmer melden sich über einen 6-stelligen Projekt-Code und ihre Teilnehmernummer auf ihrem Smartphone an.
+Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden oder zwischen Administratoren geteilt werden. Teilnehmer melden sich über einen 6-stelligen Session-Code und ihre Teilnehmernummer auf ihrem Smartphone an.
 
 ## Rollen und Berechtigungskonzept
 
@@ -15,6 +15,12 @@ Shows sind wiederverwendbar und können in verschiedenen Projekten eingebunden o
 | **Show-Ersteller** | Eigene Shows erstellen & teilen | Besitzt die Show; kann Folien bearbeiten, die Show duplizieren, löschen oder für andere Admins freigeben. |
 | **Teilnehmer** | Mit Smartphone interaktiv teilnehmen | Login per Code & Nummer; zeigt aktive Events, Eingabemasken, Live-Ergebnisse, Chat, Musik-Wünsche und Infoseiten. Schaltet bei Verbindungsabbruch oder Pausierung automatisch Vollbild-Overlays frei. |
 | **Beamer / Leinwand (`Canvas`)** | Projektion für den Saal | Unter `/play/beamer/{SessionCode}`. Zeigt das vom Spielleiter ausgewählte Live-Event, den Beamer-Fokus sowie animierte Live-Säulendiagramme mit Punktestand. |
+
+## Teilnehmer-Client
+
+Der Einstieg unter `/play` führt in einer kurzen, mobiloptimierten Schrittfolge zur Eingabe von Session-Code und Teilnehmernummer. Der öffentliche Code-Resolver liefert die minimale und maximale Ziffernzahl der im Projekt angelegten Teilnehmernummern. Nach der Anmeldung lautet die URL `/play/{session-code}/{teilnehmernummer}`; ein Neuladen meldet anhand dieser Route erneut an, ohne ein Sitzungstoken in der URL oder im Browser-Speicher abzulegen. Abmelden widerruft die aktuelle API-Sitzung.
+
+Wenn noch kein Name gespeichert ist und die Rechte es erlauben, wird vor dem Teilnehmerbereich nach einem Anzeigenamen gefragt. Die Teilnehmenden können ihn speichern oder ohne Namen fortfahren; ein Überspringen wird für die aktuelle Browser-Session gemerkt. Der Hinweis erklärt, dass Namen für andere Teilnehmende und Moderatoren sichtbar sind. Erfolg-, Warn- und Fehlermeldungen erscheinen als kurz eingeblendete Snackbar oben, die automatisch verschwindet und sich auch per Wischgeste schließen lässt. Im Teilnehmerbereich bieten die Profil-Schaltfläche und der Aktionen-Tab den Abmeldezugang. Aktionen sind in kurze, antippbare Menüpunkte gruppiert: Profil, Team & Party, Informationen und Sitzung (nur Abmelden). Info-Listen erscheinen als normale Aufzählungen statt einzelner Karten.
 
 ## Teilnehmer-Berechtigungen & Overrides (3-State System)
 
@@ -38,7 +44,7 @@ Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock
 
 Die mobile Regie-Seite und die Desktop-Seitenleiste verwenden dieselben Tabs und Inhalte. Neue Regie-Bereiche werden daher zentral konfiguriert und erscheinen automatisch auch mobil.
 
-Beamer-Einstellungen gelten nur für die aktive Session und werden nach einer Dropdown-Auswahl sofort übernommen. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Schrift, Event-Inhalt, Punktestand und QR-Code lassen sich in begrenzten Stufen skalieren. Die Beameransicht blendet Scrollleisten aus und passt Event- und Punktestandsinhalte automatisch an den verfügbaren Bildschirmplatz an. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
+Beamer-Einstellungen gelten nur für die aktive Session und werden nach einer Dropdown-Auswahl sofort übernommen. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Schrift, Event-Inhalt, Punktestand und QR-Code lassen sich in begrenzten Stufen skalieren; Event- und Punktestandskalierung ändern zusätzlich die relative Größe ihrer Kacheln. Projekttitel und Event-Typ-Beschriftung lassen sich ausblenden. Die Beameransicht blendet Scrollleisten aus und passt Event- und Punktestandsinhalte automatisch an den verfügbaren Bildschirmplatz an. Für die lokale Vorschau lassen sich Breite und Höhe der Beamer-Auflösung manuell in einem Popup einstellen; die Vorschau rendert mit diesen Viewport-Abmessungen und wird in die Sidebar-Fläche skaliert. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
 
 ## Erweiterte Chat-Moderation & UX
 

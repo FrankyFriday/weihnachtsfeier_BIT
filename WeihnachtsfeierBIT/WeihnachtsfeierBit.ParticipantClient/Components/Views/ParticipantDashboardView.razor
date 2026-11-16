@@ -1,31 +1,36 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using WeihnachtsfeierBit.Framework
+@inject ParticipantNotificationService Notifications
 
 <div style="position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #f6f8f7; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; z-index: 999;">
     <!-- TOP APP BAR -->
-    <div style="background: #ffffff; padding: 10px 14px; border-bottom: 1.5px solid #dce5e2; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); max-width: 100vw; box-sizing: border-box;">
+    <div class="participant-app-bar" style="background: #ffffff; padding: 10px 14px; border-bottom: 1.5px solid #dce5e2; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); max-width: 100vw; box-sizing: border-box;">
         <div style="min-width: 0; flex: 1; margin-right: 8px;">
             <span class="mobile-eyebrow" style="font-size: 10px; margin-bottom: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">@ProjectName</span>
             <strong style="display: block; font-size: 15px; color: #1d2528; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Teilnehmer #@ParticipantNumber</strong>
         </div>
         <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
             <FrameworkConnectionStatus HubConnection="HubConnection" />
-            <FrameworkBadge Text="Live" Variant="primary" />
+            <button type="button" class="participant-profile-icon" aria-label="Profil und Abmelden" aria-expanded="@_isProfileMenuOpen" @onclick="ToggleProfileMenu">
+                <span class="material-symbols-outlined">account_circle</span>
+            </button>
         </div>
+        @if (_isProfileMenuOpen)
+        {
+            <div class="participant-profile-menu">
+                <span class="participant-profile-menu-title">Teilnehmer #@ParticipantNumber</span>
+                <button type="button" @onclick="OnLogout">
+                    <span class="material-symbols-outlined">logout</span>
+                    Abmelden
+                </button>
+            </div>
+        }
     </div>
 
     <!-- MAIN SCROLLABLE CONTENT AREA -->
     <div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; box-sizing: border-box;">
         <div style="max-width: 580px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;">
-            @if (!string.IsNullOrEmpty(ErrorMessage))
-            {
-                <div style="margin-bottom: 12px;"><FrameworkNotice Message="@ErrorMessage" Severity="error" /></div>
-            }
-            @if (!string.IsNullOrEmpty(SuccessMessage))
-            {
-                <div style="margin-bottom: 12px;"><FrameworkNotice Message="@SuccessMessage" Severity="success" /></div>
-            }
-
+            <div @key="_activeTab" class="participant-dashboard-page">
             @if (_activeTab == "home")
             {
                 <ParticipantTeamCard TeamState="@TeamState" ParticipantId="@ParticipantId" TotalTeamCount="@TotalTeamCount" />
@@ -41,33 +46,37 @@
                                    ParticipantId="@ParticipantId"
                                    Permissions="@ParticipantPermissions"
                                    HubConnection="HubConnection"
-                                   IsAdmin="false" />
+                                   IsAdmin="false"
+                                   OnError="ShowChatError" />
                 </div>
             }
             else if (_activeTab == "profile")
             {
-                <ParticipantProfileActions ProjectId="@ProjectId"
+                <ParticipantProfileActions @ref="_profileActions"
+                                           ProjectId="@ProjectId"
                                            AccessToken="@AccessToken"
                                            ParticipantPermissions="@ParticipantPermissions"
                                            NameInput="@NameInput"
                                            IsSavingName="@IsSavingName"
                                            NameInputChanged="@NameInputChanged"
-                                           OnSaveName="@OnSaveName" />
+                                           OnSaveName="@OnSaveName"
+                                           OnLogout="@OnLogout" />
             }
+            </div>
         </div>
     </div>
 
     <!-- BOTTOM MOBILE NAVIGATION BAR -->
     <div style="background: #ffffff; border-top: 1.5px solid #dce5e2; display: flex; justify-content: space-around; align-items: center; height: max(56px, calc(56px + env(safe-area-inset-bottom, 0px))); padding-bottom: env(safe-area-inset-bottom, 0px); flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); z-index: 1000; box-sizing: border-box;">
-        <button type="button" @onclick='() => _activeTab = "home"' style="border: none; background: transparent; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick='() => _activeTab = "home"' style="border: none; background: transparent; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">home</span>
             <span>Home</span>
         </button>
-        <button type="button" @onclick='() => _activeTab = "chat"' style="border: none; background: transparent; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick='() => _activeTab = "chat"' style="border: none; background: transparent; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">chat</span>
             <span>Chat</span>
         </button>
-        <button type="button" @onclick='() => _activeTab = "profile"' style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick="ShowActions" style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">person</span>
             <span>Aktionen</span>
         </button>
@@ -87,14 +96,33 @@
     [Parameter] public EventState[] ScheduledEvents { get; set; } = [];
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
-    [Parameter] public string? ErrorMessage { get; set; }
-    [Parameter] public string? SuccessMessage { get; set; }
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
     [Parameter] public HubConnection? HubConnection { get; set; }
 
     private string _activeTab = "home";
+    private bool _isProfileMenuOpen;
+    private ParticipantProfileActions? _profileActions;
 
     private int TotalTeamCount => AllTeams.Length;
+
+    private void ToggleProfileMenu() => _isProfileMenuOpen = !_isProfileMenuOpen;
+
+    private Task ShowChatError(string message)
+    {
+        Notifications.Show(message, ParticipantToastSeverity.Error);
+        return Task.CompletedTask;
+    }
+
+    private async Task ShowActions()
+    {
+        _activeTab = "profile";
+        _isProfileMenuOpen = false;
+        if (_profileActions is not null)
+        {
+            await _profileActions.ReturnToActionMenuAsync();
+        }
+    }
 }

@@ -74,10 +74,12 @@ Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-N
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
 | `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`. |
-| `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf. |
+| `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf und liefert zusätzlich die minimale und maximale Ziffernzahl der Teilnehmernummern des Projekts. |
 | `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand. |
 | `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
+
+Der Teilnehmerclient führt nach erfolgreicher Anmeldung die Route `/play/{code}/{number}`. Bei einem Neuladen wird über den Session-Code und die Teilnehmernummer erneut angemeldet; das API-Session-Token bleibt dabei außerhalb von URL und Browser-Speicher. Ein freiwilliges Überspringen der erstmaligen Namenseingabe wird nur für die aktuelle Browser-Session gespeichert.
 
 ## Live Session & Event Steuerung
 
@@ -93,7 +95,7 @@ Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-N
 | `PUT /api/projects/{projectId}/session/canvas` | Projektadmin (`CanControlSession`) | Welches Event auf der Beamer-Ansicht angezeigt werden soll. |
 | `PUT /api/projects/{projectId}/session/canvas-settings` | Projektadmin (`CanControlSession`) | Anzeigeeinstellungen der aktiven Session setzen. |
 
-Die Beamer-Einstellungen werden mit der aktiven `GameInstance` gespeichert und bei einer neuen Session auf die Standardwerte zurückgesetzt. `scoreboardLayout` akzeptiert `right` (Punktestand und Diagramm rechts), `bottom` (schmale Punkte-Leiste) oder `hidden`; `qrCodeMode` akzeptiert `card`, `popup` (große Teilnahme-Überlagerung mit QR-Code und Session-Code) oder `hidden`. `fontScalePercent`, `eventScalePercent`, `scoreboardScalePercent` und `qrCodeScalePercent` steuern die jeweilige Größe und sind jeweils auf 60 bis 160 Prozent begrenzt; fehlende Werte in älteren gespeicherten Einstellungen entsprechen 100 Prozent. Änderungen werden live an die Beameransicht übertragen, die ihre Inhalte ohne Scrollen an den verfügbaren Bildschirmplatz anpasst.
+Die Beamer-Einstellungen werden mit der aktiven `GameInstance` gespeichert und bei einer neuen Session auf die Standardwerte zurückgesetzt. `scoreboardLayout` akzeptiert `right` (Punktestand und Diagramm rechts), `bottom` (schmale Punkte-Leiste) oder `hidden`; `qrCodeMode` akzeptiert `card`, `popup` (große Teilnahme-Überlagerung mit QR-Code und Session-Code) oder `hidden`. `fontScalePercent`, `eventScalePercent`, `scoreboardScalePercent` und `qrCodeScalePercent` steuern die jeweilige Größe und sind jeweils auf 60 bis 160 Prozent begrenzt; Event- und Punktestandskalierung beeinflussen auch die relative Kachelgröße. `showProjectTitle` und `showEventTypeLabel` steuern die entsprechenden Beschriftungen. Fehlende Werte in älteren gespeicherten Einstellungen entsprechen den Standardwerten. Änderungen werden live an die Beameransicht übertragen, die ihre Inhalte ohne Scrollen an den verfügbaren Bildschirmplatz anpasst.
 
 ## Chat-Moderation & Endpunkte
 

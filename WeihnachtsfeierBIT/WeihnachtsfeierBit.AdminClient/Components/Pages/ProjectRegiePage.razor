@@ -43,7 +43,7 @@
                            CanvasUrl="@GetCanvasUrl()"
                            CanvasSettings="_state.CanvasSettings"
                            IsProcessing="_state.IsProcessing"
-                           ActionError="_state.ActionError"
+                           ActionError="@_state.ActionError"
                            RunAuthenticated="RunAuthenticatedAsync"
                            OnOpenPermissions="OpenPermissionsModal"
                            OnOpenAwardPoints="OpenAwardPointsForTeam"

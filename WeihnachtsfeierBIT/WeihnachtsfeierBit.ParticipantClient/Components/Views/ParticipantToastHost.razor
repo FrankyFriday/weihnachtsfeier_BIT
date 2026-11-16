@@ -1,0 +1,136 @@
+@implements IDisposable
+@inject ParticipantNotificationService Notifications
+
+@if (_toast is not null)
+{
+    <div class="participant-toast-wrap">
+        <div @key="_toast.Id"
+             class="participant-toast @ToastSeverityClass @(_isDragging ? "is-dragging" : string.Empty)"
+             role="@(_toast.Severity == ParticipantToastSeverity.Error ? "alert" : "status")"
+             aria-live="@(_toast.Severity == ParticipantToastSeverity.Error ? "assertive" : "polite")"
+             style="@ToastTransform"
+             @onpointerdown="BeginSwipe"
+             @onpointermove="MoveSwipe"
+             @onpointerup="EndSwipe"
+             @onpointercancel="CancelSwipe">
+            <span class="material-symbols-outlined participant-toast-icon" aria-hidden="true">@ToastIcon</span>
+            <span class="participant-toast-message">@_toast.Message</span>
+            <button type="button" class="participant-toast-dismiss" aria-label="Meldung schließen" @onclick="Dismiss">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private ParticipantToast? _toast;
+    private CancellationTokenSource? _dismissCancellation;
+    private double _pointerStartX;
+    private double _pointerStartY;
+    private double _translateX;
+    private double _translateY;
+    private bool _isDragging;
+
+    private string ToastSeverityClass => _toast?.Severity switch
+    {
+        ParticipantToastSeverity.Success => "is-success",
+        ParticipantToastSeverity.Warning => "is-warning",
+        _ => "is-error"
+    };
+
+    private string ToastIcon => _toast?.Severity switch
+    {
+        ParticipantToastSeverity.Success => "check_circle",
+        ParticipantToastSeverity.Warning => "warning",
+        _ => "error"
+    };
+
+    private string ToastTransform => $"transform: translate3d({_translateX}px, {_translateY}px, 0);";
+
+    protected override void OnInitialized()
+    {
+        Notifications.NotificationRaised += Show;
+    }
+
+    private void Show(ParticipantToast toast)
+    {
+        _ = InvokeAsync(() =>
+        {
+            _dismissCancellation?.Cancel();
+            _dismissCancellation?.Dispose();
+            _dismissCancellation = new CancellationTokenSource();
+            _toast = toast;
+            _translateX = 0;
+            _translateY = 0;
+            _isDragging = false;
+            StateHasChanged();
+            _ = DismissAfterDelayAsync(toast.Id, _dismissCancellation.Token);
+        });
+    }
+
+    private async Task DismissAfterDelayAsync(long toastId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4.5), cancellationToken);
+            await InvokeAsync(() =>
+            {
+                if (_toast?.Id == toastId)
+                {
+                    _toast = null;
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void BeginSwipe(PointerEventArgs args)
+    {
+        _pointerStartX = args.ClientX - _translateX;
+        _pointerStartY = args.ClientY - _translateY;
+        _isDragging = true;
+    }
+
+    private void MoveSwipe(PointerEventArgs args)
+    {
+        if (!_isDragging)
+        {
+            return;
+        }
+
+        _translateX = args.ClientX - _pointerStartX;
+        _translateY = args.ClientY - _pointerStartY;
+    }
+
+    private void EndSwipe()
+    {
+        if (Math.Abs(_translateX) > 80 || Math.Abs(_translateY) > 55)
+        {
+            Dismiss();
+            return;
+        }
+
+        _isDragging = false;
+        _translateX = 0;
+        _translateY = 0;
+    }
+
+    private void CancelSwipe() => EndSwipe();
+
+    private void Dismiss()
+    {
+        _dismissCancellation?.Cancel();
+        _toast = null;
+        _isDragging = false;
+    }
+
+    public void Dispose()
+    {
+        Notifications.NotificationRaised -= Show;
+        _dismissCancellation?.Cancel();
+        _dismissCancellation?.Dispose();
+    }
+}

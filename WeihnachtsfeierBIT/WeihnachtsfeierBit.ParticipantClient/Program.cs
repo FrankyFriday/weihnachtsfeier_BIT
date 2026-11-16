@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using WeihnachtsfeierBit.Framework;
 using WeihnachtsfeierBit.ParticipantClient.Components;
+using WeihnachtsfeierBit.ParticipantClient.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,7 @@ builder.Services.AddWeihnachtsfeierFramework(client =>
     var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https+http://apiservice";
     client.BaseAddress = new Uri(apiBaseUrl);
 });
+builder.Services.AddScoped<ParticipantNotificationService>();
 
 var app = builder.Build();
 

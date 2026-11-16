@@ -1,4 +1,5 @@
 @using System.Text.Json
+@inject ParticipantNotificationService Notifications
 @using WeihnachtsfeierBit.Framework
 
 <section style="display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;overflow:auto;padding:24px 16px;background:#f6f8f7;color:#17211f;text-align:center;">
@@ -13,16 +14,7 @@
     {
         @if (Finished)
         {
-            <div class="mobile-alert success">
-                @if (WinnerNames.Length > 0)
-                {
-                    <span>Spiel beendet! @string.Join(", ", WinnerNames) gewinnt.</span>
-                }
-                else
-                {
-                    <span>Spiel beendet.</span>
-                }
-            </div>
+            <p style="font-weight:700;">Spiel beendet</p>
         }
         else
         {
@@ -63,11 +55,6 @@
         }
         else if (ReadString(Game, "phase") == "revealed")
         {
-            var song = ReadObject(Game, "currentSong");
-            <div class="mobile-alert @(ReadBool(Game, "lastGuessCorrect") ? "success" : "error")">
-                @(ReadBool(Game, "lastGuessCorrect") ? "Richtig!" : "Leider falsch.")
-                @ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))
-            </div>
             @if (ReadBool(VoteSummary, "tied"))
             {
                 <div class="mobile-alert">Bei Gleichstand wurde die früheste Position gewählt.</div>
@@ -97,11 +84,6 @@
     {
         <div class="mobile-alert">Die Spielleitung bereitet Hitster vor.</div>
     }
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="mobile-alert error" role="alert">@_error</div>
-    }
-
     @if (_showTeamChat)
     {
         <div style="position:fixed;inset:0;z-index:10001;display:flex;flex-direction:column;padding:12px;background:#fff;box-sizing:border-box;">
@@ -110,7 +92,7 @@
                 <button type="button" class="mobile-button secondary" @onclick="() => _showTeamChat = false">Zurück zu Hitster</button>
             </div>
             <div style="flex:1;min-height:0;">
-                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" ParticipantId="@ParticipantId" Permissions="@ParticipantPermissions" IsAdmin="false" />
+                <FrameworkChat ProjectId="@ProjectId" AccessToken="@AccessToken" ParticipantId="@ParticipantId" Permissions="@ParticipantPermissions" IsAdmin="false" OnError="ShowChatError" />
             </div>
         </div>
     }
@@ -128,7 +110,6 @@
 
     private bool _busy;
     private bool _showTeamChat;
-    private string? _error;
     private JsonElement Game => ReadObject(CurrentSlide.Parameters, "game");
     private bool GameStarted => ReadBool(Game, "started");
     private bool Finished => ReadBool(Game, "finished");
@@ -142,6 +123,7 @@
     private TimelineCard[] MyTimeline => Teams.FirstOrDefault(team => team.Id == TeamId)?.Timeline ?? [];
     private int? _myVotePosition;
     private int _voteRound;
+    private string? _lastNotifiedGameState;
 
     protected override void OnParametersSet()
     {
@@ -150,6 +132,24 @@
         {
             _voteRound = round;
             _myVotePosition = null;
+        }
+
+        if (Finished)
+        {
+            var winnerText = WinnerNames.Length > 0
+                ? $"Spiel beendet! {string.Join(", ", WinnerNames)} gewinnt."
+                : "Spiel beendet.";
+            NotifyGameState($"finished:{round}:{winnerText}", winnerText, ParticipantToastSeverity.Success);
+        }
+        else if (ReadString(Game, "phase") == "revealed")
+        {
+            var song = ReadObject(Game, "currentSong");
+            var wasCorrect = ReadBool(Game, "lastGuessCorrect");
+            var resultText = $"{(wasCorrect ? "Richtig!" : "Leider falsch.")} {ReadString(song, "title")} · {ReadString(song, "artist")} ({ReadInt(song, "year")})";
+            NotifyGameState(
+                $"revealed:{round}:{wasCorrect}:{ReadString(song, "title")}",
+                resultText,
+                wasCorrect ? ParticipantToastSeverity.Success : ParticipantToastSeverity.Error);
         }
     }
 
@@ -161,7 +161,6 @@
         }
 
         _busy = true;
-        _error = null;
         try
         {
             var result = await ProjectApiClient.SubmitHitsterVoteAsync(
@@ -170,12 +169,29 @@
         }
         catch (Exception exception)
         {
-            _error = exception.Message;
+            Notifications.Show(exception.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    private void NotifyGameState(string key, string message, ParticipantToastSeverity severity)
+    {
+        if (string.Equals(_lastNotifiedGameState, key, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastNotifiedGameState = key;
+        Notifications.Show(message, severity);
+    }
+
+    private Task ShowChatError(string message)
+    {
+        Notifications.Show(message, ParticipantToastSeverity.Error);
+        return Task.CompletedTask;
     }
 
     private string GetPositionLabel(int position) =>
