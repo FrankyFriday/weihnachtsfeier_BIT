@@ -5,13 +5,6 @@
         <h1>Wie dürfen wir dich nennen?</h1>
         <p class="participant-name-intro">Du kannst einen Namen angeben oder ohne Namen weitermachen.</p>
 
-        @if (!string.IsNullOrEmpty(ErrorMessage))
-        {
-            <div class="participant-login-error">
-                <FrameworkNotice Message="@ErrorMessage" Severity="error" />
-            </div>
-        }
-
         <form @onsubmit="SaveNameAsync" @onsubmit:preventDefault="true">
             <label class="participant-field-label" for="participant-name">Dein Name</label>
             <input @ref="_nameElement"
@@ -48,7 +41,6 @@
     [Parameter] public string Name { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> NameChanged { get; set; }
     [Parameter] public bool IsSaving { get; set; }
-    [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
     [Parameter] public EventCallback OnSkip { get; set; }
 

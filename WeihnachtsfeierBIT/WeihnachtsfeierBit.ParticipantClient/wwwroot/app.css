@@ -484,6 +484,134 @@ html.canvas-document body {
     padding: 4px 0 12px;
 }
 
+.participant-toast-wrap {
+    position: fixed;
+    z-index: 100000;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    padding: 0 12px;
+    pointer-events: none;
+}
+
+.participant-toast {
+    width: min(460px, 100%);
+    min-height: 58px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    color: #fff;
+    box-shadow: 0 10px 32px rgba(20, 35, 31, 0.24);
+    box-sizing: border-box;
+    pointer-events: auto;
+    touch-action: none;
+    animation: participant-toast-enter 280ms cubic-bezier(.2,.8,.2,1) both;
+    transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.participant-toast.is-dragging {
+    transition: none;
+}
+
+.participant-toast.is-success {
+    background: #146b57;
+}
+
+.participant-toast.is-warning {
+    background: #94620b;
+}
+
+.participant-toast.is-error {
+    background: #a12e32;
+}
+
+.participant-toast-icon {
+    flex: 0 0 auto;
+    font-size: 23px;
+}
+
+.participant-toast-message {
+    min-width: 0;
+    flex: 1;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.participant-toast-dismiss {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    cursor: pointer;
+    transition: background 140ms ease, transform 140ms ease;
+}
+
+.participant-toast-dismiss:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.05);
+}
+
+.participant-dashboard-page {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    animation: participant-content-enter 220ms ease-out both;
+}
+
+.participant-dashboard-page > * {
+    animation: participant-content-enter 260ms ease-out both;
+}
+
+.participant-dashboard-page > *:nth-child(2) {
+    animation-delay: 35ms;
+}
+
+.participant-dashboard-page > *:nth-child(3) {
+    animation-delay: 70ms;
+}
+
+.participant-dashboard-page > *:nth-child(4) {
+    animation-delay: 105ms;
+}
+
+.participant-nav-button {
+    transition: color 140ms ease, transform 140ms ease;
+}
+
+.participant-nav-button:active {
+    transform: translateY(1px) scale(.96);
+}
+
+.participant-action-menu .participant-action-item {
+    animation: participant-content-enter 240ms ease-out both;
+}
+
+.participant-action-category:nth-child(2) .participant-action-item {
+    animation-delay: 30ms;
+}
+
+.participant-action-category:nth-child(3) .participant-action-item {
+    animation-delay: 60ms;
+}
+
+.participant-action-category:nth-child(4) .participant-action-item {
+    animation-delay: 90ms;
+}
+
 .participant-action-category {
     display: flex;
     flex-direction: column;
@@ -523,6 +651,12 @@ html.canvas-document body {
 
 .participant-action-item:active {
     transform: scale(0.99);
+}
+
+.participant-action-item:focus-visible,
+.participant-toast-dismiss:focus-visible {
+    outline: 3px solid #78c9b3;
+    outline-offset: 2px;
 }
 
 .participant-action-item-icon {
@@ -623,6 +757,16 @@ html.canvas-document body {
 
 @keyframes participant-view-out {
     from { opacity: 1; transform: translateX(0); }
+
+    @keyframes participant-toast-enter {
+        from { opacity: 0; transform: translateY(-18px) scale(.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes participant-content-enter {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
     to { opacity: 0; transform: translateX(22px); }
 }
 
@@ -644,6 +788,17 @@ html.canvas-document body {
     .participant-action-view,
     .participant-action-view.is-leaving {
         animation-duration: 1ms;
+    }
+
+    .participant-toast {
+        animation-duration: 1ms;
+        transition-duration: 1ms;
+    }
+
+    .participant-dashboard-page,
+    .participant-dashboard-page > * {
+        animation-duration: 1ms;
+        animation-delay: 0ms !important;
     }
 }
 

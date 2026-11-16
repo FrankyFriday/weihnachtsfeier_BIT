@@ -8,9 +8,11 @@
 @inject IConfiguration Configuration
 @inject ILogger<PlayHome> Logger
 @inject IJSRuntime JavaScript
+@inject ParticipantNotificationService Notifications
 @implements IAsyncDisposable
 
 <PageTitle>@(_resolvedSession?.ProjectName ?? _project?.Name ?? "Teilnehmer") | WeihnachtsfeierBIT</PageTitle>
+<ParticipantToastHost />
 
 @if (_isLoading)
 {
@@ -22,7 +24,6 @@ else if (!_isLoggedIn)
 {
     <ParticipantLoginView SessionCodeInput="@_sessionCodeInput"
                           ResolvedSession="@_resolvedSession"
-                          ErrorMessage="@_errorMessage"
                           IsSubmitting="@_isSubmitting"
                           ParticipantNumberInput="@_participantNumberInput"
                           SessionCodeChanged="v => _sessionCodeInput = v"
@@ -35,7 +36,6 @@ else if (_showNameOnboarding)
 {
     <ParticipantNameOnboarding Name="@_nameInput"
                                IsSaving="@_isSavingName"
-                               ErrorMessage="@_errorMessage"
                                NameChanged="v => _nameInput = v"
                                OnSaveName="SaveMyNameAsync"
                                OnSkip="SkipNameOnboardingAsync" />
@@ -57,10 +57,6 @@ else if (_isSessionEnded)
         <span class="material-symbols-outlined" style="font-size: 64px; color: #105c4d; margin-bottom: 16px;">celebration</span>
         <h2 style="font-size: 22px; font-weight: 800; color: #1d2528; margin: 0 0 8px 0;">Session beendet</h2>
         <p style="font-size: 14px; color: #64748b; margin: 0 0 24px 0; max-width: 320px;">Vielen Dank für deine Teilnahme! Die Session wurde vom Spielleiter beendet.</p>
-        @if (!string.IsNullOrEmpty(_errorMessage))
-        {
-            <div style="max-width: 360px; margin-bottom: 16px;"><FrameworkNotice Message="@_errorMessage" Severity="error" /></div>
-        }
         <FrameworkButton Label="Neue Session beitreten" Variant="primary" OnClick="LogoutAsync" />
     </div>
 }
@@ -95,8 +91,6 @@ else
                               ScheduledEvents="_liveGameState?.ScheduledEvents ?? []"
                               NameInput="@_nameInput"
                               IsSavingName="@_isSavingName"
-                              ErrorMessage="@_errorMessage"
-                              SuccessMessage="@_successMessage"
                               NameInputChanged="v => _nameInput = v"
                               OnSaveName="SaveMyNameAsync"
                               OnLogout="LogoutAsync"
@@ -128,9 +122,6 @@ else
     private bool _isSessionEnded;
     private bool _showNameOnboarding;
     private bool _pendingRouteLogin;
-
-    private string? _errorMessage;
-    private string? _successMessage;
 
     private string _participantNumberInput = string.Empty;
     private string _nameInput = string.Empty;
@@ -201,10 +192,9 @@ else
 
     private async Task CheckCodeAsync()
     {
-        _errorMessage = null;
         if (string.IsNullOrWhiteSpace(_sessionCodeInput))
         {
-            _errorMessage = "Bitte gib einen 6-stelligen Code ein.";
+            Notifications.Show("Bitte gib einen 6-stelligen Code ein.", ParticipantToastSeverity.Error);
             return;
         }
 
@@ -216,7 +206,7 @@ else
         }
         catch (HttpRequestException ex)
         {
-            _errorMessage = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
@@ -232,13 +222,13 @@ else
             _participantNumberInput.Length < _resolvedSession.MinParticipantNumberLength ||
             _participantNumberInput.Length > _resolvedSession.MaxParticipantNumberLength)
         {
-            _errorMessage = $"Die Teilnehmernummer muss {_resolvedSession.MinParticipantNumberLength} bis {_resolvedSession.MaxParticipantNumberLength} Ziffern haben.";
+            Notifications.Show(
+                $"Die Teilnehmernummer muss {_resolvedSession.MinParticipantNumberLength} bis {_resolvedSession.MaxParticipantNumberLength} Ziffern haben.",
+                ParticipantToastSeverity.Error);
             return;
         }
 
         _isSubmitting = true;
-        _errorMessage = null;
-
         try
         {
             var login = await ProjectApiClient.LoginByCodeAsync(
@@ -258,7 +248,7 @@ else
         }
         catch (HttpRequestException ex)
         {
-            _errorMessage = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
@@ -273,7 +263,6 @@ else
         _project = null;
         _sessionCodeInput = string.Empty;
         _participantNumberInput = string.Empty;
-        _errorMessage = null;
         Navigation.NavigateTo("/play");
     }
 
@@ -285,18 +274,15 @@ else
         if (string.IsNullOrWhiteSpace(_accessToken) || string.IsNullOrWhiteSpace(_nameInput)) return;
 
         _isSavingName = true;
-        _errorMessage = null;
-        _successMessage = null;
-
         try
         {
             _participant = await ProjectApiClient.UpdateMyNameAsync(_accessToken, ProjectId, _nameInput.Trim());
-            _successMessage = "Dein Name wurde gespeichert.";
+            Notifications.Show("Dein Name wurde gespeichert.", ParticipantToastSeverity.Success);
             _showNameOnboarding = false;
         }
         catch (HttpRequestException ex)
         {
-            _errorMessage = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {
@@ -402,7 +388,7 @@ else
                 CurrentTeamState = null;
                 _isLoggedIn = false;
                 _connectionCancellation?.Cancel();
-                _errorMessage = "Deine Sitzung wurde beendet. Bitte melde dich erneut an.";
+                Notifications.Show("Deine Sitzung wurde beendet. Bitte melde dich erneut an.", ParticipantToastSeverity.Warning);
                 StateHasChanged();
             });
         });
@@ -477,7 +463,7 @@ else
             }
             catch (HttpRequestException ex)
             {
-                _errorMessage = ex.Message;
+                Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
                 return;
             }
         }
@@ -495,8 +481,6 @@ else
         _showNameOnboarding = false;
         _selectedPassiveEvent = null;
         ProjectId = Guid.Empty;
-        _errorMessage = null;
-        _successMessage = null;
         _isSessionEnded = false;
         _isDisconnected = false;
         Navigation.NavigateTo("/play", replace: true);

@@ -1,5 +1,6 @@
 @using WeihnachtsfeierBit.Framework
 @inject ProjectApiClient ProjectApiClient
+@inject ParticipantNotificationService Notifications
 
 <div @key="ActionViewKey" class="participant-action-view @(_isLeavingAction ? "is-leaving" : string.Empty)">
 @if (_selectedInfoPage is not null)
@@ -44,10 +45,6 @@ else if (_activeActionView == "name")
                 <FrameworkButton Label="@(IsSavingName ? "Wird gespeichert..." : "Name speichern")" Variant="primary" Type="submit" Disabled="@IsSavingName" />
             </form>
         }
-        else
-        {
-            <FrameworkNotice Message="Du darfst deinen Namen derzeit nicht ändern." Severity="warning" />
-        }
     </Card>
 }
 else if (_activeActionView == "team_name")
@@ -73,16 +70,6 @@ else if (_activeActionView == "team_name")
                 <FrameworkButton Label="Vorschlagen" Variant="primary" Type="submit" Disabled="@(string.IsNullOrWhiteSpace(_newTeamNameInput))" />
             </form>
         }
-        @if (!CanSuggestTeamNames && !CanVoteTeamNames)
-        {
-            <FrameworkNotice Message="Vorschläge und Abstimmungen sind für dein Profil gesperrt." Severity="warning" />
-        }
-
-        @if (!string.IsNullOrEmpty(_teamNameError))
-        {
-            <FrameworkNotice Message="@_teamNameError" Severity="error" Style="margin-bottom: 10px;" />
-        }
-
         <FrameworkFlexColumn Gap="6px">
             @if (_teamSuggestions.Length == 0)
             {
@@ -136,16 +123,6 @@ else if (_activeActionView == "song_wishes")
                 </FrameworkFlexRow>
             </form>
         }
-        @if (!CanSuggestSongs && !CanVoteSongs)
-        {
-            <FrameworkNotice Message="Musikwünsche und Abstimmungen sind für dein Profil gesperrt." Severity="warning" />
-        }
-
-        @if (!string.IsNullOrEmpty(_songWishError))
-        {
-            <FrameworkNotice Message="@_songWishError" Severity="error" Style="margin-bottom: 10px;" />
-        }
-
         <FrameworkFlexColumn Gap="6px">
             @if (_songWishes.Length == 0)
             {
@@ -178,21 +155,6 @@ else if (_activeActionView == "song_wishes")
 else
 {
     <div class="participant-action-menu">
-        @if (_infoPages.Length > 0)
-        {
-            <section class="participant-action-category">
-                <h2 class="mobile-eyebrow">EVENT-INFOS</h2>
-                @foreach (var infoPage in _infoPages)
-                {
-                    <button type="button" class="participant-action-item" @onclick="() => OpenInfoPage(infoPage)">
-                        <span class="participant-action-item-icon"><span class="material-symbols-outlined">@infoPage.Icon</span></span>
-                        <span class="participant-action-item-title">@infoPage.Title</span>
-                        <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
-                    </button>
-                }
-            </section>
-        }
-
         <section class="participant-action-category">
             <h2 class="mobile-eyebrow">PROFIL</h2>
             @if (CanChangeName)
@@ -219,12 +181,23 @@ else
             </button>
         </section>
 
+        @if (_infoPages.Length > 0)
+        {
+            <section class="participant-action-category">
+                <h2 class="mobile-eyebrow">INFORMATIONEN</h2>
+                @foreach (var infoPage in _infoPages)
+                {
+                    <button type="button" class="participant-action-item" @onclick="() => OpenInfoPage(infoPage)">
+                        <span class="participant-action-item-icon"><span class="material-symbols-outlined">@infoPage.Icon</span></span>
+                        <span class="participant-action-item-title">@infoPage.Title</span>
+                        <span class="material-symbols-outlined participant-action-chevron">chevron_right</span>
+                    </button>
+                }
+            </section>
+        }
+
         <section class="participant-action-category">
             <h2 class="mobile-eyebrow">SITZUNG</h2>
-            <div class="participant-action-session">
-                <span class="participant-action-item-icon"><span class="material-symbols-outlined">badge</span></span>
-                <span class="participant-action-item-title">Teilnehmer #@ParticipantNumber · @ProjectName</span>
-            </div>
             <button type="button" class="participant-action-item participant-action-logout" @onclick="OnLogout">
                 <span class="participant-action-item-icon"><span class="material-symbols-outlined">logout</span></span>
                 <span class="participant-action-item-title">Abmelden</span>
@@ -254,12 +227,10 @@ else
 
     private TeamNameSuggestionDto[] _teamSuggestions = [];
     private string _newTeamNameInput = string.Empty;
-    private string? _teamNameError;
 
     private SongWishDto[] _songWishes = [];
     private string _newSongTitleInput = string.Empty;
     private string _newSongArtistInput = string.Empty;
-    private string? _songWishError;
     private bool CanInteract => ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.IsMuted) != false;
     private bool CanChangeName => CanInteract &&
         ParticipantPermissions?.HasPermission(ParticipantPermissionKeys.CanChangeName) != false;
@@ -311,6 +282,7 @@ else
         }
         catch
         {
+            Notifications.Show("Die Event-Informationen konnten nicht geladen werden.", ParticipantToastSeverity.Error);
         }
     }
 
@@ -323,6 +295,10 @@ else
     private async Task OpenTeamNameViewAsync()
     {
         _activeActionView = "team_name";
+        if (!CanSuggestTeamNames && !CanVoteTeamNames)
+        {
+            Notifications.Show("Vorschläge und Abstimmungen sind für dein Profil gesperrt.", ParticipantToastSeverity.Warning);
+        }
         await LoadTeamSuggestionsAsync();
     }
 
@@ -335,13 +311,13 @@ else
         }
         catch
         {
+            Notifications.Show("Die Teamnamen konnten nicht geladen werden.", ParticipantToastSeverity.Error);
         }
     }
 
     private async Task SubmitTeamNameSuggestionAsync()
     {
         if (!CanSuggestTeamNames || string.IsNullOrWhiteSpace(_newTeamNameInput) || string.IsNullOrEmpty(AccessToken)) return;
-        _teamNameError = null;
         try
         {
             var text = _newTeamNameInput.Trim();
@@ -351,7 +327,7 @@ else
         }
         catch (Exception ex)
         {
-            _teamNameError = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
     }
 
@@ -365,12 +341,17 @@ else
         }
         catch
         {
+            Notifications.Show("Deine Stimme für den Teamnamen konnte nicht gespeichert werden.", ParticipantToastSeverity.Error);
         }
     }
 
     private async Task OpenSongWishesViewAsync()
     {
         _activeActionView = "song_wishes";
+        if (!CanSuggestSongs && !CanVoteSongs)
+        {
+            Notifications.Show("Musikwünsche und Abstimmungen sind für dein Profil gesperrt.", ParticipantToastSeverity.Warning);
+        }
         await LoadSongWishesAsync();
     }
 
@@ -383,13 +364,13 @@ else
         }
         catch
         {
+            Notifications.Show("Die Musikwünsche konnten nicht geladen werden.", ParticipantToastSeverity.Error);
         }
     }
 
     private async Task SubmitSongWishAsync()
     {
         if (!CanSuggestSongs || string.IsNullOrWhiteSpace(_newSongTitleInput) || string.IsNullOrEmpty(AccessToken)) return;
-        _songWishError = null;
         try
         {
             var title = _newSongTitleInput.Trim();
@@ -401,7 +382,7 @@ else
         }
         catch (Exception ex)
         {
-            _songWishError = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
     }
 
@@ -415,6 +396,7 @@ else
         }
         catch
         {
+            Notifications.Show("Deine Stimme für den Musikwunsch konnte nicht gespeichert werden.", ParticipantToastSeverity.Error);
         }
     }
 

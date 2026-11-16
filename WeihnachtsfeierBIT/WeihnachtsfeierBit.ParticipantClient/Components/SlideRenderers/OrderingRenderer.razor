@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using WeihnachtsfeierBit.Framework
 @inject ProjectApiClient ProjectApiClient
+@inject ParticipantNotificationService Notifications
 
 <div style="flex: 1; width: 100%; padding: 16px 14px; box-sizing: border-box; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
     <div>
@@ -25,16 +26,6 @@
             }
         </div>
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <FrameworkNotice Message="@_error" Severity="error" Style="margin-bottom: 12px;" />
-        }
-
-        @if (_submitted)
-        {
-            <FrameworkNotice Message="Sortierung erfolgreich abgegeben!" Severity="success" Style="margin-bottom: 12px;" />
-        }
-
         <FrameworkButton Label="@(_submitted ? "Sortierung aktualisieren" : "Sortierung abgeben")" Variant="primary" OnClick="SubmitOrderingAsync" Busy="_isSubmitting" />
     </div>
 </div>
@@ -48,7 +39,6 @@
     private List<string> _userItems = [];
     private bool _isSubmitting;
     private bool _submitted;
-    private string? _error;
 
     private string _question => ReadString(CurrentSlide.Parameters, "question");
 
@@ -78,17 +68,16 @@
     {
         if (string.IsNullOrEmpty(AccessToken)) return;
         _isSubmitting = true;
-        _error = null;
-
         try
         {
             var payload = JsonSerializer.SerializeToElement(new { items = _userItems });
             await ProjectApiClient.SubmitEventResponseAsync(AccessToken, ProjectId, Event.EventId, CurrentSlide.SlideId, payload);
             _submitted = true;
+            Notifications.Show("Sortierung erfolgreich abgegeben!", ParticipantToastSeverity.Success);
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            Notifications.Show(ex.Message, ParticipantToastSeverity.Error);
         }
         finally
         {

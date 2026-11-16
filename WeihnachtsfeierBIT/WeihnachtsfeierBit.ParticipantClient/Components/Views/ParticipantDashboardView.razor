@@ -1,5 +1,6 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using WeihnachtsfeierBit.Framework
+@inject ParticipantNotificationService Notifications
 
 <div style="position: fixed; inset: 0; width: 100vw; height: 100dvh; background: #f6f8f7; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; z-index: 999;">
     <!-- TOP APP BAR -->
@@ -29,15 +30,7 @@
     <!-- MAIN SCROLLABLE CONTENT AREA -->
     <div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; box-sizing: border-box;">
         <div style="max-width: 580px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;">
-            @if (!string.IsNullOrEmpty(ErrorMessage))
-            {
-                <div style="margin-bottom: 12px;"><FrameworkNotice Message="@ErrorMessage" Severity="error" /></div>
-            }
-            @if (!string.IsNullOrEmpty(SuccessMessage))
-            {
-                <div style="margin-bottom: 12px;"><FrameworkNotice Message="@SuccessMessage" Severity="success" /></div>
-            }
-
+            <div @key="_activeTab" class="participant-dashboard-page">
             @if (_activeTab == "home")
             {
                 <ParticipantTeamCard TeamState="@TeamState" ParticipantId="@ParticipantId" TotalTeamCount="@TotalTeamCount" />
@@ -53,7 +46,8 @@
                                    ParticipantId="@ParticipantId"
                                    Permissions="@ParticipantPermissions"
                                    HubConnection="HubConnection"
-                                   IsAdmin="false" />
+                                   IsAdmin="false"
+                                   OnError="ShowChatError" />
                 </div>
             }
             else if (_activeTab == "profile")
@@ -68,20 +62,21 @@
                                            OnSaveName="@OnSaveName"
                                            OnLogout="@OnLogout" />
             }
+            </div>
         </div>
     </div>
 
     <!-- BOTTOM MOBILE NAVIGATION BAR -->
     <div style="background: #ffffff; border-top: 1.5px solid #dce5e2; display: flex; justify-content: space-around; align-items: center; height: max(56px, calc(56px + env(safe-area-inset-bottom, 0px))); padding-bottom: env(safe-area-inset-bottom, 0px); flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.04); z-index: 1000; box-sizing: border-box;">
-        <button type="button" @onclick='() => _activeTab = "home"' style="border: none; background: transparent; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick='() => _activeTab = "home"' style="border: none; background: transparent; color: @(_activeTab == "home" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">home</span>
             <span>Home</span>
         </button>
-        <button type="button" @onclick='() => _activeTab = "chat"' style="border: none; background: transparent; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick='() => _activeTab = "chat"' style="border: none; background: transparent; color: @(_activeTab == "chat" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">chat</span>
             <span>Chat</span>
         </button>
-        <button type="button" @onclick="ShowActions" style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
+        <button type="button" class="participant-nav-button" @onclick="ShowActions" style="border: none; background: transparent; color: @(_activeTab == "profile" ? "#105c4d" : "#657276"); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; cursor: pointer; flex: 1; height: 100%; justify-content: center;">
             <span class="material-symbols-outlined" style="font-size: 22px;">person</span>
             <span>Aktionen</span>
         </button>
@@ -101,8 +96,6 @@
     [Parameter] public EventState[] ScheduledEvents { get; set; } = [];
     [Parameter] public string NameInput { get; set; } = string.Empty;
     [Parameter] public bool IsSavingName { get; set; }
-    [Parameter] public string? ErrorMessage { get; set; }
-    [Parameter] public string? SuccessMessage { get; set; }
     [Parameter] public EventCallback<string> NameInputChanged { get; set; }
     [Parameter] public EventCallback OnSaveName { get; set; }
     [Parameter] public EventCallback OnLogout { get; set; }
@@ -116,6 +109,12 @@
     private int TotalTeamCount => AllTeams.Length;
 
     private void ToggleProfileMenu() => _isProfileMenuOpen = !_isProfileMenuOpen;
+
+    private Task ShowChatError(string message)
+    {
+        Notifications.Show(message, ParticipantToastSeverity.Error);
+        return Task.CompletedTask;
+    }
 
     private async Task ShowActions()
     {

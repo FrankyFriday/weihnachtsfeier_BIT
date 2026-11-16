@@ -10,13 +10,6 @@
                 <PageHeading Eyebrow="@ResolvedSession.ProjectName" Title="Dabei sein" Description="Gib deine Teilnehmernummer ein." />
             }
 
-            @if (!string.IsNullOrEmpty(ErrorMessage))
-            {
-                <div class="participant-login-error">
-                    <FrameworkNotice Message="@ErrorMessage" Severity="error" />
-                </div>
-            }
-
             @if (ResolvedSession is null)
             {
                 <form @onsubmit="OnCheckCode" @onsubmit:preventDefault="true">
@@ -84,7 +77,6 @@
 @code {
     [Parameter] public string? SessionCodeInput { get; set; }
     [Parameter] public ResolveCodeResponse? ResolvedSession { get; set; }
-    [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public bool IsSubmitting { get; set; }
     [Parameter] public string ParticipantNumberInput { get; set; } = string.Empty;
     [Parameter] public EventCallback<string?> SessionCodeChanged { get; set; }

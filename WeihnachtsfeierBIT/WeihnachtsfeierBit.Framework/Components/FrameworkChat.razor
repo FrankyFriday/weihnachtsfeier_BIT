@@ -239,7 +239,7 @@
                         </div>
                     </div>
 
-                    @if (!string.IsNullOrEmpty(_modalError))
+                    @if (!string.IsNullOrEmpty(_modalError) && !OnError.HasDelegate)
                     {
                         <FrameworkNotice Message="@_modalError" Severity="error" />
                     }
@@ -318,6 +318,7 @@
     [Parameter] public Guid? ParticipantId { get; set; }
     [Parameter] public bool IsAdmin { get; set; }
     [Parameter] public ParticipantPermissions? Permissions { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
     [Parameter] public HubConnection? HubConnection { get; set; }
 
     private string _currentView = "overview"; // "overview" or "room"
@@ -522,9 +523,10 @@
                 _allContacts = await ProjectApiClient.GetChatContactsAsync(AccessToken, ProjectId);
             }
         }
-        catch
+        catch (Exception ex)
         {
             _allContacts = [];
+            await ReportCreateErrorAsync("Teilnehmer konnten nicht geladen werden: " + ex.Message);
         }
 
         _isCreateModalOpen = true;
@@ -542,13 +544,13 @@
     {
         if (!CanCreateChats)
         {
-            _modalError = "Das Erstellen neuer Chats ist für dein Profil gesperrt.";
+            await ReportCreateErrorAsync("Das Erstellen neuer Chats ist für dein Profil gesperrt.");
             return;
         }
 
         if (_selectedContactIds.Count == 0)
         {
-            _modalError = "Bitte wähle mindestens einen Teilnehmer oder Moderator aus.";
+            await ReportCreateErrorAsync("Bitte wähle mindestens einen Teilnehmer oder Moderator aus.");
             return;
         }
 
@@ -575,11 +577,24 @@
         }
         catch (Exception ex)
         {
-            _modalError = "Fehler beim Erstellen: " + ex.Message;
+            await ReportCreateErrorAsync("Fehler beim Erstellen: " + ex.Message);
         }
         finally
         {
             _isCreating = false;
+        }
+    }
+
+    private async Task ReportCreateErrorAsync(string message)
+    {
+        if (OnError.HasDelegate)
+        {
+            _modalError = null;
+            await OnError.InvokeAsync(message);
+        }
+        else
+        {
+            _modalError = message;
         }
     }
 
