@@ -48,6 +48,14 @@ public static class SessionControlEndpoints
             return false;
         }
 
+        if (parameters.TryGetProperty("maxSkipsPerPerformer", out var skipLimit)
+            && (skipLimit.ValueKind != JsonValueKind.Number
+                || !skipLimit.TryGetInt32(out var maxSkips)
+                || maxSkips is < 0 or > 100))
+        {
+            return false;
+        }
+
         var cleanTerms = terms.EnumerateArray()
             .Where(term => term.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(term.GetString()))
             .Select(term => term.GetString()!.Trim())
@@ -325,7 +333,7 @@ public static class SessionControlEndpoints
         if (string.Equals(request.SlideType, "pantomime", StringComparison.OrdinalIgnoreCase)
             && !IsValidPantomimeConfiguration(request.Parameters))
         {
-            return Results.BadRequest(new ApiError("Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen) und eine Rundendauer von 10 bis 600 Sekunden."));
+            return Results.BadRequest(new ApiError("Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen), eine Rundendauer von 10 bis 600 Sekunden und ein optionales Skip-Limit von 0 bis 100."));
         }
 
         var mode = string.Equals(request.Mode, "active", StringComparison.OrdinalIgnoreCase) ? "active" : "passive";

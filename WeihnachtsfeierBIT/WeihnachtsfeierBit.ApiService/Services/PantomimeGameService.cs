@@ -102,11 +102,16 @@ public static class PantomimeGameService
         int termsCount,
         int durationSeconds,
         DateTime startedAtUtc,
-        Random? random = null)
+        Random? random = null,
+        int maxSkipsPerPerformer = 0)
     {
         ArgumentNullException.ThrowIfNull(assignments);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(termsCount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(durationSeconds);
+        if (maxSkipsPerPerformer is < 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxSkipsPerPerformer));
+        }
 
         var termOrder = Enumerable.Range(0, termsCount).ToArray();
         random ??= RandomNumberGeneratorWrapper.Instance;
@@ -140,6 +145,7 @@ public static class PantomimeGameService
                 ["performerId"] = assignment.PerformerId,
                 ["performerName"] = assignment.PerformerName,
                 ["correctCount"] = 0,
+                ["skipsUsed"] = 0,
                 ["currentTermIndex"] = null,
                 ["hasCurrentTerm"] = false
             };
@@ -183,6 +189,34 @@ public static class PantomimeGameService
         teamState["hasCurrentTerm"] = true;
         state["nextTermPosition"] = nextPosition + 1;
         state["termsRemaining"] = Math.Max(0, termOrder.Count - nextPosition - 1);
+        return true;
+    }
+
+    public static int SkipsRemaining(JsonObject teamState, int maxSkipsPerPerformer) =>
+        Math.Max(0, maxSkipsPerPerformer - ReadInt(teamState, "skipsUsed"));
+
+    public static bool TrySkipCurrentTerm(
+        JsonObject state,
+        JsonObject teamState,
+        int termsCount,
+        int maxSkipsPerPerformer,
+        bool freeSkip = false)
+    {
+        var termIndex = GetCurrentTermIndex(teamState);
+        if (!ReadBool(state, "isRunning")
+            || termIndex is null
+            || termIndex < 0
+            || termIndex >= termsCount
+            || (!freeSkip && SkipsRemaining(teamState, maxSkipsPerPerformer) <= 0))
+        {
+            return false;
+        }
+
+        if (!freeSkip)
+        {
+            teamState["skipsUsed"] = ReadInt(teamState, "skipsUsed") + 1;
+        }
+        AssignNextTerm(state, teamState);
         return true;
     }
 

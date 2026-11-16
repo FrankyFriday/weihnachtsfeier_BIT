@@ -464,13 +464,15 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         string action,
         PantomimeAssignment[]? assignments = null,
         int? roundDurationSeconds = null,
+        Guid? teamId = null,
+        int? expectedTermIndex = null,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(
             HttpMethod.Post,
             $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/admin/{Uri.EscapeDataString(action)}",
             accessToken,
-            new { assignments, roundDurationSeconds });
+            new { assignments, roundDurationSeconds, teamId, expectedTermIndex });
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -492,7 +494,7 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
             ?? throw new InvalidOperationException("Der aktuelle Pantomime-Begriff konnte nicht geladen werden.");
     }
 
-    public async Task MarkPantomimeTermCorrectAsync(
+    public async Task SkipPantomimeTermAsync(
         string accessToken,
         Guid projectId,
         Guid eventId,
@@ -501,7 +503,7 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
     {
         using var request = CreateRequest(
             HttpMethod.Post,
-            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/correct",
+            $"/api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/pantomime/skip",
             accessToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
@@ -1348,9 +1350,25 @@ public sealed record EventState(
     Guid? ActiveTeamId = null,
     EventNavigationContext? NavigationContext = null);
 
-public sealed record PantomimeAdminData(string Category, int TermCount, int RoundDurationSeconds, JsonElement State);
+public sealed record PantomimeAdminData(
+    string Category,
+    int TermCount,
+    int RoundDurationSeconds,
+    int MaxSkipsPerPerformer,
+    JsonElement State,
+    PantomimeModeratorTeamData[] TeamTerms);
 
 public sealed record PantomimeAssignment(Guid TeamId, Guid PerformerId);
+
+public sealed record PantomimeModeratorTeamData(
+    Guid TeamId,
+    string TeamName,
+    Guid PerformerId,
+    string PerformerName,
+    int? CurrentTermIndex,
+    string? Term,
+    int CorrectCount,
+    int SkipsRemaining);
 
 public sealed record PantomimePerformerData(
     string Category,
@@ -1360,7 +1378,8 @@ public sealed record PantomimePerformerData(
     bool IsPaused,
     bool IsEnded,
     int RemainingSeconds,
-    int CorrectCount);
+    int CorrectCount,
+    int SkipsRemaining);
 
 public sealed record ProjectGameState(
     Guid ProjectId,

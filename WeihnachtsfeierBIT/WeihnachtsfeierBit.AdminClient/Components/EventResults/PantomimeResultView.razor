@@ -5,14 +5,12 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @implements IAsyncDisposable
 
-<div style="margin-top: 16px; padding: 20px; background: #f8faf9; border: 1px solid #dce5e2; border-radius: 12px;">
+<div style="@(_focusedTeamId.HasValue
+    ? "position: fixed; inset: 0; z-index: 1200; margin: 0; padding: 16px; overflow-y: auto; overscroll-behavior: contain; background: #f8faf9; border-radius: 0;"
+    : "margin-top: 16px; padding: 20px; background: #f8faf9; border: 1px solid #dce5e2; border-radius: 12px;")">
     @if (_isLoading)
     {
         <FrameworkLoading Message="Pantomime wird geladen ..." />
-    }
-    else if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <FrameworkNotice Message="@_error" Severity="error" />
     }
     else if (_data is not null)
     {
@@ -20,54 +18,155 @@
             <div>
                 <span class="mobile-eyebrow">PANTOMIME · @_data.Category</span>
                 <div style="font-size: 13px; color: #64748b;">@_data.TermCount eindeutige Begriffe im Pool · @_roundDurationSeconds Sekunden</div>
+                @if (_focusedTeam is not null)
+                {
+                    <strong style="display: block; margin-top: 8px; font-size: 20px;">Teamansicht · @_focusedTeam.DisplayName</strong>
+                }
             </div>
-            <div style="font: 800 36px/1 monospace; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d");">
-                @FormatSeconds(_remainingSeconds)
-            </div>
+            @if (_focusedTeamId.HasValue)
+            {
+                <div style="font: 900 clamp(52px, 18vw, 92px)/1 monospace; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d");">
+                    @FormatSeconds(_remainingSeconds)
+                </div>
+            }
+            else
+            {
+                <div style="font: 800 36px/1 monospace; color: @(_remainingSeconds == 0 ? "#991b1b" : "#105c4d");">
+                    @FormatSeconds(_remainingSeconds)
+                </div>
+            }
         </div>
 
         @if (_isRunning || _isPaused || _isEnded)
         {
-            <div style="display: grid; gap: 8px; margin: 20px 0;">
-                @foreach (var team in _teams)
-                {
-                    var state = GetTeamState(team.Id);
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: white; border: 1px solid #dce5e2; border-radius: 10px;">
-                        <div>
-                            <strong>@team.DisplayName</strong>
-                            <div style="font-size: 13px; color: #64748b;">@ReadString(state, "performerName")</div>
+            @if (_focusedTeam is not null && _focusedTeamData is not null)
+            {
+                <div style="display: grid; gap: 16px; max-width: 720px; margin: 20px auto;">
+                    <FrameworkButton Label="Zur Teamübersicht" Icon="arrow_back" Variant="secondary" OnClick="ExitFocusedTeam" Style="min-height: 48px;" />
+                    <div style="padding: clamp(20px, 6vw, 36px); text-align: center; background: white; border: 2px solid #105c4d; border-radius: 18px; box-shadow: 0 8px 24px rgba(16, 92, 77, .12);">
+                        <div style="font-size: 13px; font-weight: 800; letter-spacing: .08em; color: #64748b; text-transform: uppercase;">@_focusedTeam.DisplayName · Aktueller Begriff</div>
+                        @if (!string.IsNullOrWhiteSpace(_focusedTeamData.Term))
+                        {
+                            <div style="margin-top: 14px; font-size: clamp(36px, 12vw, 72px); font-weight: 900; line-height: 1.08; color: #1d2528; overflow-wrap: anywhere;">@_focusedTeamData.Term</div>
+                        }
+                        else
+                        {
+                            <div style="margin-top: 14px; font-size: 18px; font-weight: 700; color: #64748b;">Kein weiterer Begriff verfügbar</div>
+                        }
+                        <div style="margin-top: 16px; color: #475569;">
+                            Darstellende Person: <strong>@_focusedTeamData.PerformerName</strong>
+                            <span aria-hidden="true"> · </span>
+                            Erraten: <strong>@_focusedTeamData.CorrectCount</strong>
+                            <span aria-hidden="true"> · </span>
+                            Übersprünge übrig: <strong>@_focusedTeamData.SkipsRemaining</strong>
                         </div>
-                        <strong>@ReadInt(state, "correctCount") erraten</strong>
                     </div>
-                }
-            </div>
 
-            @if (_isPaused)
-            {
-                <FrameworkNotice Message="Die gemeinsame Runde ist pausiert." Severity="info" />
+                    @if (_isPaused)
+                    {
+                        <FrameworkNotice Message="Die gemeinsame Runde ist pausiert. In der Teamansicht sind deshalb keine Spielaktionen möglich." Severity="info" />
+                    }
+                    else if (_isEnded)
+                    {
+                        <FrameworkNotice Message="Die Runde ist beendet." Severity="success" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_focusedTeamData.Term))
+                    {
+                        <div style="display: grid; gap: 10px;">
+                            <FrameworkButton
+                                Label="Als erraten markieren"
+                                Variant="primary"
+                                OnClick='() => RunActionAsync("correct", teamId: _focusedTeam.Id, expectedTermIndex: _focusedTeamData.CurrentTermIndex)'
+                                Disabled="@_isBusy"
+                                Style="width: 100%; min-height: 58px; font-size: 18px;" />
+                            <FrameworkButton
+                                Label="@GetSkipLabel(_focusedTeamData)"
+                                Variant="secondary"
+                                OnClick='() => RunActionAsync("skip", teamId: _focusedTeam.Id, expectedTermIndex: _focusedTeamData.CurrentTermIndex)'
+                                Disabled="@IsSkipDisabled(_focusedTeamData)"
+                                Style="width: 100%; min-height: 58px; font-size: 18px;" />
+                            <FrameworkButton
+                                Label="Gratis überspringen"
+                                Variant="danger"
+                                OnClick="() => RequestFreeSkip(_focusedTeam.Id)"
+                                Disabled="@_isBusy"
+                                Style="width: 100%; min-height: 58px; font-size: 18px;" />
+                        </div>
+                    }
+                </div>
             }
-            else if (_isEnded)
+            else
             {
-                <FrameworkNotice Message="Die Runde ist beendet. Die angezeigte Anzahl erratener Begriffe ist der Endstand." Severity="success" />
+                <div style="display: grid; gap: 8px; margin: 20px 0;">
+                    @foreach (var team in _teams)
+                    {
+                        var state = GetTeamState(team.Id);
+                        var moderatorData = GetModeratorTeamData(team.Id);
+                        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; background: white; border: 1px solid #dce5e2; border-radius: 10px;">
+                            <div style="min-width: 0;">
+                                <strong>@team.DisplayName</strong>
+                                <div style="font-size: 13px; color: #64748b;">@ReadString(state, "performerName") · @ReadInt(state, "correctCount") erraten · @(moderatorData?.SkipsRemaining ?? 0) Skips übrig</div>
+                                @if (!string.IsNullOrWhiteSpace(moderatorData?.Term))
+                                {
+                                    <div style="margin-top: 6px; overflow-wrap: anywhere;">
+                                        <span style="font-size: 12px; color: #64748b;">Aktueller Begriff: </span><strong>@moderatorData.Term</strong>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="margin-top: 6px; font-size: 13px; color: #64748b;">Kein aktueller Begriff</div>
+                                }
+                            </div>
+                            @if (_isRunning && !string.IsNullOrWhiteSpace(moderatorData?.Term))
+                            {
+                                <FrameworkButton Label="Handyansicht" Icon="smartphone" Variant="secondary" OnClick="() => EnterFocusedTeam(team.Id)" Style="min-height: 48px;" />
+                            }
+                            <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px;">
+                                @if (_isRunning && !string.IsNullOrWhiteSpace(moderatorData?.Term))
+                                {
+                                    <FrameworkButton
+                                        Label="Erraten markieren"
+                                        Variant="primary"
+                                        OnClick='() => RunActionAsync("correct", teamId: team.Id, expectedTermIndex: moderatorData?.CurrentTermIndex)'
+                                        Disabled="@_isBusy" />
+                                    <FrameworkButton
+                                        Label="@GetSkipLabel(moderatorData)"
+                                        Variant="secondary"
+                                        OnClick='() => RunActionAsync("skip", teamId: team.Id, expectedTermIndex: moderatorData?.CurrentTermIndex)'
+                                        Disabled="@IsSkipDisabled(moderatorData)" />
+                                    <FrameworkButton Label="Gratis überspringen" Variant="danger" OnClick="() => RequestFreeSkip(team.Id)" Disabled="@_isBusy" />
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (_isPaused)
+                {
+                    <FrameworkNotice Message="Die gemeinsame Runde ist pausiert." Severity="info" />
+                }
+                else if (_isEnded)
+                {
+                    <FrameworkNotice Message="Die Runde ist beendet. Die angezeigte Anzahl erratener Begriffe ist der Endstand." Severity="success" />
+                }
+                else if (ReadInt(_state, "termsRemaining") == 0)
+                {
+                    <FrameworkNotice Message="Alle Begriffe wurden bereits ausgegeben. Die Teams spielen bis zum Ende des gemeinsamen Timers weiter." Severity="info" />
+                }
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    @if (_isRunning)
+                    {
+                        <FrameworkButton Label="Gemeinsam pausieren" Variant="secondary" OnClick='() => RunActionAsync("pause")' Disabled="@_isBusy" />
+                    }
+                    else if (_isPaused)
+                    {
+                        <FrameworkButton Label="Gemeinsam fortsetzen" Variant="primary" OnClick='() => RunActionAsync("resume")' Disabled="@_isBusy" />
+                    }
+                    @if (!_isEnded)
+                    {
+                        <FrameworkButton Label="Runde beenden" Variant="danger" OnClick='() => RunActionAsync("end")' Disabled="@_isBusy" />
+                    }
+                </div>
             }
-            else if (ReadInt(_state, "termsRemaining") == 0)
-            {
-                <FrameworkNotice Message="Alle Begriffe wurden bereits ausgegeben. Die Teams spielen bis zum Ende des gemeinsamen Timers weiter." Severity="info" />
-            }
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                @if (_isRunning)
-                {
-                    <FrameworkButton Label="Gemeinsam pausieren" Variant="secondary" OnClick='() => RunActionAsync("pause")' Disabled="@_isBusy" />
-                }
-                else if (_isPaused)
-                {
-                    <FrameworkButton Label="Gemeinsam fortsetzen" Variant="primary" OnClick='() => RunActionAsync("resume")' Disabled="@_isBusy" />
-                }
-                @if (!_isEnded)
-                {
-                    <FrameworkButton Label="Runde beenden" Variant="danger" OnClick='() => RunActionAsync("end")' Disabled="@_isBusy" />
-                }
-            </div>
         }
         else
         {
@@ -90,6 +189,9 @@
                     <FrameworkInputNumber Id="pantomime-round-duration" @bind-Value="_roundDurationSeconds" Min="10" Max="600" />
                     <span>Sekunden</span>
                 </label>
+                <div style="font-size: 13px; color: #64748b;">
+                    Pro darstellender Person können @(_data.MaxSkipsPerPerformer) Begriffe übersprungen werden.
+                </div>
             </div>
             <FrameworkButton Label="Alle Teams gleichzeitig starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_allPerformersSelected || _roundDurationSeconds is < 10 or > 600 || _data.TermCount == 0)" />
         }
@@ -98,6 +200,21 @@
         {
             <div style="margin-top: 12px;"><FrameworkNotice Message="@_error" Severity="error" /></div>
         }
+
+        <FrameworkModal IsOpen="@_showFreeSkipConfirmation" Title="Gratis überspringen?" OnClose="CloseFreeSkipConfirmation">
+            <div style="display: grid; gap: 14px;">
+                <FrameworkNotice Message="Der Begriff wird ohne Verbrauch des Skip-Limits übersprungen. Diese Aktion lässt sich nicht rückgängig machen." Severity="warning" />
+                <p style="margin: 0;">Team: <strong>@_freeSkipTeamName</strong><br />Begriff: <strong>@_freeSkipTerm</strong></p>
+                <div class="framework-button-row" style="justify-content: flex-end;">
+                    <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CloseFreeSkipConfirmation" Disabled="@_isBusy" />
+                    <FrameworkButton Label="Gratis überspringen" Variant="danger" OnClick="ConfirmFreeSkipAsync" Busy="@_isBusy" />
+                </div>
+            </div>
+        </FrameworkModal>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <FrameworkNotice Message="@_error" Severity="error" />
     }
 </div>
 
@@ -118,6 +235,12 @@
     private bool _isLoading = true;
     private bool _isBusy;
     private bool _endingExpiredRound;
+    private bool _showFreeSkipConfirmation;
+    private Guid? _focusedTeamId;
+    private Guid? _freeSkipTeamId;
+    private int? _freeSkipExpectedTermIndex;
+    private string? _freeSkipTeamName;
+    private string? _freeSkipTerm;
     private int _roundDurationSeconds = 60;
     private int _remainingSeconds;
     private CancellationTokenSource? _timerCancellation;
@@ -126,6 +249,12 @@
     private bool _isRunning => ReadBool(_state, "isRunning");
     private bool _isPaused => ReadBool(_state, "isPaused");
     private bool _isEnded => ReadBool(_state, "isEnded");
+    private TeamSummary? _focusedTeam => _focusedTeamId is Guid teamId
+        ? _teams.FirstOrDefault(team => team.Id == teamId)
+        : null;
+    private PantomimeModeratorTeamData? _focusedTeamData => _focusedTeamId is Guid teamId
+        ? GetModeratorTeamData(teamId)
+        : null;
     private bool _allPerformersSelected => _teams.Length > 0
         && _teams.All(team => _selectedPerformers.ContainsKey(team.Id)
             && _participants.Any(participant => participant.Id == _selectedPerformers[team.Id] && participant.TeamId == team.Id));
@@ -141,6 +270,8 @@
 
         _loadedEventId = Event.EventId;
         _loadedSlideId = CurrentSlide.SlideId;
+        ExitFocusedTeam();
+        CloseFreeSkipConfirmation();
         _isLoading = true;
         _error = null;
         try
@@ -198,7 +329,11 @@
         await RunActionAsync("start", assignments);
     }
 
-    private async Task RunActionAsync(string action, PantomimeAssignment[]? assignments = null)
+    private async Task RunActionAsync(
+        string action,
+        PantomimeAssignment[]? assignments = null,
+        Guid? teamId = null,
+        int? expectedTermIndex = null)
     {
         if (_isBusy || string.IsNullOrWhiteSpace(_accessToken))
         {
@@ -215,8 +350,10 @@
                 Event.EventId,
                 CurrentSlide.SlideId,
                 action,
-                assignments,
-                _roundDurationSeconds);
+                assignments: assignments,
+                roundDurationSeconds: _roundDurationSeconds,
+                teamId: teamId,
+                expectedTermIndex: expectedTermIndex);
             _data = await ProjectApiClient.GetPantomimeAsync(_accessToken, ProjectId, Event.EventId, CurrentSlide.SlideId);
             _state = _data.State;
             RestoreAssignments(_state);
@@ -240,6 +377,10 @@
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
                 UpdateRemaining();
+                if (_isRunning && !_isBusy && !string.IsNullOrWhiteSpace(_accessToken))
+                {
+                    await RefreshAdminDataAsync(cancellationToken);
+                }
                 if (_isRunning && _remainingSeconds == 0 && !_endingExpiredRound)
                 {
                     _endingExpiredRound = true;
@@ -251,6 +392,26 @@
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private async Task RefreshAdminDataAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _data = await ProjectApiClient.GetPantomimeAsync(
+                _accessToken!,
+                ProjectId,
+                Event.EventId,
+                CurrentSlide.SlideId,
+                cancellationToken);
+            _state = _data.State;
+            _error = null;
+            UpdateRemaining();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
+        {
+            _error = ex.Message;
         }
     }
 
@@ -303,6 +464,59 @@
         }
     }
 
+    private string GetSkipLabel(PantomimeModeratorTeamData? team) =>
+        team is not null && team.SkipsRemaining > 0
+            ? $"Überspringen ({team.SkipsRemaining} übrig)"
+            : "Skip-Limit erreicht";
+
+    private bool IsSkipDisabled(PantomimeModeratorTeamData? team) =>
+        _isBusy || team is null || team.SkipsRemaining <= 0;
+
+    private void EnterFocusedTeam(Guid teamId)
+    {
+        if (_isRunning && GetModeratorTeamData(teamId)?.CurrentTermIndex is not null)
+        {
+            _focusedTeamId = teamId;
+        }
+    }
+
+    private void ExitFocusedTeam() => _focusedTeamId = null;
+
+    private void RequestFreeSkip(Guid teamId)
+    {
+        if (!_isRunning || _isBusy || GetModeratorTeamData(teamId) is not { CurrentTermIndex: int termIndex, Term: string term } team)
+        {
+            return;
+        }
+
+        _freeSkipTeamId = teamId;
+        _freeSkipExpectedTermIndex = termIndex;
+        _freeSkipTeamName = team.TeamName;
+        _freeSkipTerm = term;
+        _showFreeSkipConfirmation = true;
+    }
+
+    private async Task ConfirmFreeSkipAsync()
+    {
+        if (_freeSkipTeamId is not Guid teamId || _freeSkipExpectedTermIndex is not int termIndex)
+        {
+            CloseFreeSkipConfirmation();
+            return;
+        }
+
+        await RunActionAsync("free-skip", teamId: teamId, expectedTermIndex: termIndex);
+        CloseFreeSkipConfirmation();
+    }
+
+    private void CloseFreeSkipConfirmation()
+    {
+        _showFreeSkipConfirmation = false;
+        _freeSkipTeamId = null;
+        _freeSkipExpectedTermIndex = null;
+        _freeSkipTeamName = null;
+        _freeSkipTerm = null;
+    }
+
     private JsonElement GetTeamState(Guid teamId)
     {
         if (_state.ValueKind == JsonValueKind.Object
@@ -320,6 +534,9 @@
 
         return default;
     }
+
+    private PantomimeModeratorTeamData? GetModeratorTeamData(Guid teamId) =>
+        _data?.TeamTerms.FirstOrDefault(team => team.TeamId == teamId);
 
     private void UpdateRemaining()
     {

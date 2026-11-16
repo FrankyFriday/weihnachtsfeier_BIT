@@ -31,7 +31,12 @@ else
                 <div style="font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Nur für dich</div>
                 <div style="font-size: clamp(28px, 7vw, 52px); font-weight: 900; color: #1d2528; margin-top: 8px;">@term</div>
             </div>
-            <FrameworkButton Label="Erraten" Variant="primary" OnClick="MarkCorrectAsync" Busy="_isBusy" />
+            <FrameworkButton
+                Label="@(_skipsRemaining > 0 ? $"Überspringen ({_skipsRemaining} übrig)" : "Keine Übersprünge mehr")"
+                Variant="secondary"
+                OnClick="SkipCurrentTermAsync"
+                Busy="_isBusy"
+                Disabled="@(_skipsRemaining <= 0)" />
         }
         else
         {
@@ -58,6 +63,7 @@ else
     private string? _lastError;
     private bool _hasShownRoundResult;
     private int _remainingSeconds;
+    private int _skipsRemaining => _privateData?.SkipsRemaining ?? 0;
     private string _teamName = string.Empty;
     private CancellationTokenSource? _pollCancellation;
     private Task? _pollTask;
@@ -136,9 +142,9 @@ else
         }
     }
 
-    private async Task MarkCorrectAsync()
+    private async Task SkipCurrentTermAsync()
     {
-        if (_isBusy || string.IsNullOrWhiteSpace(AccessToken) || _privateData?.Term is null)
+        if (_isBusy || string.IsNullOrWhiteSpace(AccessToken) || _privateData?.Term is null || _privateData.SkipsRemaining <= 0)
         {
             return;
         }
@@ -147,7 +153,7 @@ else
         _lastError = null;
         try
         {
-            await ProjectApiClient.MarkPantomimeTermCorrectAsync(AccessToken, ProjectId, EventId, SlideId);
+            await ProjectApiClient.SkipPantomimeTermAsync(AccessToken, ProjectId, EventId, SlideId);
             await RefreshPrivateDataAsync();
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
