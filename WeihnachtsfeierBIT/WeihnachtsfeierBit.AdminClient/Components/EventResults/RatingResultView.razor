@@ -22,39 +22,12 @@
             </div>
         </div>
 
-        <div style="margin-top: 16px;">
-            <button type="button" @onclick="() => _showDetails = !_showDetails" style="border: none; background: transparent; color: #105c4d; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;">
-                @(_showDetails ? "▲ Einzelne Bewertungen ausblenden" : "▼ Einzelne Bewertungen anzeigen")
-            </button>
-
-            @if (_showDetails)
-            {
-                <div style="display: grid; gap: 6px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
-                    @foreach (var resp in _slideResponses)
-                    {
-                        var rating = ReadResponseValue(resp.ResponseData);
-                        <div style="padding: 8px 12px; border: 1px solid #dce5e2; border-radius: 6px; background: #fafcfb; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                            <div>
-                                <strong style="color: #105c4d;">#@resp.ParticipantNumber @(string.IsNullOrWhiteSpace(resp.ParticipantName) ? "" : $"({resp.ParticipantName})")</strong>
-                                @if (!string.IsNullOrEmpty(resp.TeamName))
-                                {
-                                    <span style="color: #64748b; margin-left: 6px;">• Team @resp.TeamName</span>
-                                }
-                            </div>
-                            <strong style="color: #1d2528;">⭐ @rating / @_maxStars</strong>
-                        </div>
-                    }
-                </div>
-            }
-        </div>
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
-
-    private bool _showDetails;
 
     private string _question => ReadString(CurrentSlide.Parameters, "question");
     private int _maxStars => ReadInt(CurrentSlide.Parameters, "maxStars", 5);

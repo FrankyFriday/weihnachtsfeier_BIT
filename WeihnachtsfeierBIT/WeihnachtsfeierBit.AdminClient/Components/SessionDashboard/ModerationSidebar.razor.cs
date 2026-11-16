@@ -16,7 +16,9 @@ public partial class ModerationSidebar : ComponentBase
         new("participants", "Teilnehmer & Rechte", "group"),
         new("leaderboard", "Punkte & Rangliste", "leaderboard"),
         new("chat", "Quick-Chat", "chat"),
-        new("beamer", "Beamer-Steuerung", "present_to_all")
+        new("beamer", "Beamer-Steuerung", "present_to_all"),
+        new("notes", "Regie-Notizen", "sticky_note_2"),
+        new("responses", "Antworten", "forum")
     ];
 
     private const int MinimumCanvasPreviewWidth = 320;
@@ -35,6 +37,7 @@ public partial class ModerationSidebar : ComponentBase
     [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
     [Parameter] public GameInstanceSummary? Instance { get; set; }
     [Parameter] public ProjectGameState? SessionState { get; set; }
+    [Parameter] public EventState? SelectedEvent { get; set; }
     [Parameter] public Guid? ActiveCanvasEventId { get; set; }
     [Parameter] public Guid ProjectId { get; set; }
     [Parameter] public string AccessToken { get; set; } = string.Empty;
@@ -85,6 +88,11 @@ public partial class ModerationSidebar : ComponentBase
     private int _observedCanvasPreviewHeight;
 
     private string CanvasPreviewResolutionLabel => $"{_canvasPreviewWidth} × {_canvasPreviewHeight} px";
+    private EventSlideState? CurrentSlide => SelectedEvent is { } selectedEvent
+        && selectedEvent.CurrentSlideIndex >= 0
+        && selectedEvent.CurrentSlideIndex < selectedEvent.Slides.Length
+            ? selectedEvent.Slides[selectedEvent.CurrentSlideIndex]
+            : null;
     private string CanvasPreviewStageStyle
     {
         get

@@ -1,0 +1,403 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.EventResults
+@using System.Globalization
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ProjectApiClient ProjectApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<section style="display: grid; gap: 8px; min-width: 0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <strong style="font-size: 14px; color: #1d2528;">Einzelantworten</strong>
+        <FrameworkBadge Text="@($"{SlideResponses.Length} Antworten")" Variant="secondary" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FrameworkNotice Message="@_error" Severity="error" />
+    }
+
+    @if (SlideResponses.Length == 0)
+    {
+        <p style="margin: 0; color: #657276; font-size: 13px;">Für diese Folie liegen keine einzelnen Antworten vor.</p>
+    }
+    else
+    {
+        <div style="display: grid; gap: 8px;">
+            @foreach (var response in SlideResponses)
+            {
+                var currentResponse = response;
+                <article style="display: grid; gap: 7px; padding: 10px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                        <div style="min-width: 0;">
+                            <strong style="display: block; color: #105c4d; font-size: 12px;">
+                                @GetParticipantLabel(currentResponse)
+                            </strong>
+                            @if (!string.IsNullOrWhiteSpace(currentResponse.TeamName))
+                            {
+                                <span style="display: block; color: #657276; font-size: 11px;">@currentResponse.TeamName</span>
+                            }
+                        </div>
+                        <span style="flex: 0 0 auto; color: #889698; font-size: 10px;">@currentResponse.SubmittedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                    </div>
+
+                    @if (_editingResponseId == currentResponse.Id)
+                    {
+                        @if (CanEditResponse)
+                        {
+                            @switch (ResponseType)
+                            {
+                                case "quiz":
+                                    <FrameworkSelect Id="@($"response-answer-{currentResponse.Id}")"
+                                                     Label="Antwort"
+                                                     Value="@_selectedAnswer"
+                                                     ValueChanged="value => _selectedAnswer = value ?? string.Empty"
+                                                     Options="@AnswerOptions" />
+                                    break;
+                                case "poll":
+                                    <FrameworkSelect Id="@($"response-option-{currentResponse.Id}")"
+                                                     Label="Auswahl"
+                                                     Value="@_selectedOption"
+                                                     ValueChanged="value => _selectedOption = value ?? string.Empty"
+                                                     Options="@PollOptions" />
+                                    break;
+                                case "estimation":
+                                case "slider":
+                                    <FrameworkInputDouble Id="@($"response-number-{currentResponse.Id}")"
+                                                         @bind-Value="_numberValue" />
+                                    break;
+                                case "rating":
+                                    <FrameworkInputNumber TValue="int"
+                                                          Id="@($"response-rating-{currentResponse.Id}")"
+                                                          @bind-Value="_integerValue"
+                                                          Min="1"
+                                                          Max="@ReadInt(CurrentSlide.Parameters, "maxStars", 5)"
+                                                          Step="1" />
+                                    break;
+                                case "ordering":
+                                    <FrameworkInputText Id="@($"response-order-{currentResponse.Id}")"
+                                                        @bind-Value="_textValue"
+                                                        Placeholder="Reihenfolge, getrennt durch Kommas"
+                                                        MaxLength="2000" />
+                                    break;
+                                case "text":
+                                case "word_cloud":
+                                    <FrameworkInputText Id="@($"response-text-{currentResponse.Id}")"
+                                                        @bind-Value="_textValue"
+                                                        Placeholder="Antwort"
+                                                        MaxLength="2000" />
+                                    break;
+                            }
+                            <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                                <FrameworkButton Label="Abbrechen" Variant="secondary" OnClick="CancelEdit" Disabled="@_busy" />
+                                <FrameworkButton Label="Speichern" Variant="primary" OnClick="() => SaveResponseAsync(currentResponse)" Disabled="@_busy" />
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p style="margin: 0; color: #1d2528; font-size: 13px; overflow-wrap: anywhere;">@GetResponseSummary(currentResponse)</p>
+                        <div style="display: flex; justify-content: flex-end; gap: 4px;">
+                            @if (CanEditResponse)
+                            {
+                                <FrameworkIconButton Icon="edit"
+                                                     Title="Antwort bearbeiten"
+                                                     OnClick="() => BeginEdit(currentResponse)"
+                                                     Disabled="@_busy" />
+                            }
+                            <FrameworkIconButton Icon="delete"
+                                                 Title="Antwort löschen"
+                                                 OnClick="() => DeleteResponseAsync(currentResponse)"
+                                                 Disabled="@_busy"
+                                                 Style="color: #b42318;" />
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private Guid? _editingResponseId;
+    private Guid _loadedSlideId;
+    private bool _busy;
+    private string? _error;
+    private string _selectedAnswer = string.Empty;
+    private string _selectedOption = string.Empty;
+    private string _textValue = string.Empty;
+    private double _numberValue;
+    private int _integerValue;
+
+    private string ResponseType => CurrentSlide.Type.ToLowerInvariant();
+    private bool CanEditResponse => ResponseType is "quiz" or "poll" or "estimation" or "slider" or "rating" or "ordering" or "text" or "word_cloud";
+    private EventResponseState[] SlideResponses => Event.Responses
+        .Where(response => response.SlideId == CurrentSlide.SlideId)
+        .OrderByDescending(response => response.SubmittedAtUtc)
+        .ToArray();
+
+    private FrameworkSelectOption[] AnswerOptions => ReadStringList(CurrentSlide.Parameters, "answers")
+        .Select((answer, index) => new FrameworkSelectOption(
+            index.ToString(CultureInfo.InvariantCulture),
+            $"{index + 1}. {answer}"))
+        .ToArray();
+
+    private FrameworkSelectOption[] PollOptions
+    {
+        get
+        {
+            var options = ReadStringList(CurrentSlide.Parameters, "options");
+            if (options.Count == 0)
+            {
+                options = ["Ja", "Nein"];
+            }
+            return options.Select(option => new FrameworkSelectOption(option, option)).ToArray();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_loadedSlideId != CurrentSlide.SlideId)
+        {
+            _loadedSlideId = CurrentSlide.SlideId;
+            _editingResponseId = null;
+            _error = null;
+        }
+    }
+
+    private void BeginEdit(EventResponseState response)
+    {
+        _error = null;
+        _editingResponseId = response.Id;
+        switch (ResponseType)
+        {
+            case "quiz":
+                _selectedAnswer = ReadInt(response.ResponseData, "answerIndex")
+                    .ToString(CultureInfo.InvariantCulture);
+                break;
+            case "poll":
+                _selectedOption = ReadString(response.ResponseData, "selectedOption");
+                break;
+            case "estimation":
+                _numberValue = ReadDouble(response.ResponseData, "estimationValue");
+                break;
+            case "slider":
+                _numberValue = ReadDouble(response.ResponseData, "value");
+                break;
+            case "rating":
+                _integerValue = ReadInt(response.ResponseData, "rating");
+                break;
+            case "ordering":
+                _textValue = string.Join(", ", ReadStringList(response.ResponseData, "items"));
+                break;
+            case "text":
+            case "word_cloud":
+                _textValue = ReadString(response.ResponseData, "text");
+                break;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        _editingResponseId = null;
+        _error = null;
+    }
+
+    private async Task SaveResponseAsync(EventResponseState response)
+    {
+        if (!TryBuildResponseData(out var responseData))
+        {
+            return;
+        }
+
+        if (await RunAsync(token => ProjectApiClient.AdminUpdateResponseAsync(
+                token, ProjectId, Event.EventId, response.Id, responseData)))
+        {
+            _editingResponseId = null;
+        }
+    }
+
+    private async Task DeleteResponseAsync(EventResponseState response)
+    {
+        if (await RunAsync(token => ProjectApiClient.AdminDeleteResponseAsync(
+                token, ProjectId, Event.EventId, response.Id)))
+        {
+            _editingResponseId = null;
+        }
+    }
+
+    private bool TryBuildResponseData(out JsonElement responseData)
+    {
+        responseData = default;
+        switch (ResponseType)
+        {
+            case "quiz":
+                if (!int.TryParse(_selectedAnswer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var answerIndex)
+                    || answerIndex < 0
+                    || answerIndex >= AnswerOptions.Length)
+                {
+                    _error = "Bitte eine gültige Quizantwort auswählen.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { answerIndex });
+                return true;
+            case "poll":
+                if (!PollOptions.Any(option => option.Value == _selectedOption))
+                {
+                    _error = "Bitte eine gültige Abstimmungsoption auswählen.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { selectedOption = _selectedOption });
+                return true;
+            case "estimation":
+                if (!double.IsFinite(_numberValue))
+                {
+                    _error = "Bitte einen gültigen Schätzwert eingeben.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { estimationValue = _numberValue });
+                return true;
+            case "slider":
+                if (!double.IsFinite(_numberValue))
+                {
+                    _error = "Bitte einen gültigen Reglerwert eingeben.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { value = _numberValue });
+                return true;
+            case "rating":
+                var maximumRating = ReadInt(CurrentSlide.Parameters, "maxStars", 5);
+                if (_integerValue < 1 || _integerValue > maximumRating)
+                {
+                    _error = $"Die Bewertung muss zwischen 1 und {maximumRating} liegen.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { rating = _integerValue });
+                return true;
+            case "ordering":
+                var items = _textValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var allowedItems = ReadStringList(CurrentSlide.Parameters, "items");
+                if (items.Length != allowedItems.Count
+                    || items.Any(item => !allowedItems.Contains(item, StringComparer.OrdinalIgnoreCase))
+                    || allowedItems.Any(item => items.Count(candidate => string.Equals(candidate, item, StringComparison.OrdinalIgnoreCase)) != 1))
+                {
+                    _error = "Bitte jeden Listeneintrag der Folie genau einmal und durch Kommas getrennt angeben.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { items });
+                return true;
+            case "text":
+            case "word_cloud":
+                if (string.IsNullOrWhiteSpace(_textValue))
+                {
+                    _error = "Die Antwort darf nicht leer sein.";
+                    return false;
+                }
+                responseData = JsonSerializer.SerializeToElement(new { text = _textValue.Trim() });
+                return true;
+            default:
+                _error = "Dieser Antworttyp kann nicht bearbeitet werden.";
+                return false;
+        }
+    }
+
+    private async Task<bool> RunAsync(Func<string, Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (ProjectId == Guid.Empty)
+            {
+                _error = "Das Projekt für die Antwortverwaltung fehlt.";
+                return false;
+            }
+
+            var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var token = auth.User.FindFirst("api_access_token")?.Value;
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Die Admin-Sitzung ist nicht verfügbar.";
+                return false;
+            }
+
+            await action(token);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+            return false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private string GetResponseSummary(EventResponseState response) => ResponseType switch
+    {
+        "quiz" => GetAnswerText(ReadInt(response.ResponseData, "answerIndex")),
+        "poll" => ReadString(response.ResponseData, "selectedOption"),
+        "estimation" => ReadDouble(response.ResponseData, "estimationValue").ToString("G", CultureInfo.CurrentCulture),
+        "slider" => ReadDouble(response.ResponseData, "value").ToString("G", CultureInfo.CurrentCulture),
+        "rating" => $"{ReadInt(response.ResponseData, "rating")} / {ReadInt(CurrentSlide.Parameters, "maxStars", 5)} Sterne",
+        "ordering" => string.Join(" → ", ReadStringList(response.ResponseData, "items")),
+        "text" or "word_cloud" => ReadText(response.ResponseData),
+        "buzzer" => $"Gebuzzert um {response.SubmittedAtUtc.ToLocalTime():HH:mm:ss.fff}",
+        _ => response.ResponseData.ValueKind == JsonValueKind.Undefined ? "Keine Antwortdaten" : response.ResponseData.GetRawText()
+    };
+
+    private string GetAnswerText(int answerIndex)
+    {
+        var answers = ReadStringList(CurrentSlide.Parameters, "answers");
+        return answerIndex >= 0 && answerIndex < answers.Count ? $"{answerIndex + 1}. {answers[answerIndex]}" : "Keine Antwort";
+    }
+
+    private static string GetParticipantLabel(EventResponseState response) =>
+        string.IsNullOrWhiteSpace(response.ParticipantName)
+            ? $"Teilnehmer #{response.ParticipantNumber}"
+            : $"{response.ParticipantName} · #{response.ParticipantNumber}";
+
+    private static string ReadString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static string ReadText(JsonElement element) =>
+        element.ValueKind == JsonValueKind.String
+            ? element.GetString() ?? string.Empty
+            : ReadString(element, "text");
+
+    private static int ReadInt(JsonElement element, string property, int fallback = -1) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var result)
+            ? result
+            : fallback;
+
+    private static double ReadDouble(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetDouble(out var result)
+            ? result
+            : 0;
+
+    private static List<string> ReadStringList(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString() ?? string.Empty)
+                .ToList()
+            : [];
+}

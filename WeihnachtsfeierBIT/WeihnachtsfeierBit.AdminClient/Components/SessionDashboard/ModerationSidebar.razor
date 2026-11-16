@@ -1,5 +1,6 @@
 @namespace WeihnachtsfeierBit.AdminClient.Components.SessionDashboard
 @using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.AdminClient.Components.EventResults
 @implements IAsyncDisposable
 
 @if (CompactMode)
@@ -241,7 +242,7 @@ else
             }
         </div>
     }
-    else
+    else if (_activeCompartment == "beamer")
     {
         <div class="regie-sidebar-body regie-beamer-body">
             @if (Instance is null)
@@ -429,6 +430,34 @@ else
                         <p class="regie-beamer-error" role="alert">@ActionError</p>
                     }
                 </section>
+            }
+        </div>
+    }
+    else if (_activeCompartment == "notes")
+    {
+        <div class="regie-sidebar-body regie-notes-body">
+            @if (CurrentSlide is { } currentSlide)
+            {
+                <SlideModeratorNotes CurrentSlide="currentSlide" />
+            }
+            else
+            {
+                <EmptyState Title="Keine aktive Folie" Description="Wähle im Dashboard ein Event mit einer aktuellen Folie aus, um die Regie-Notizen zu sehen." />
+            }
+        </div>
+    }
+    else if (_activeCompartment == "responses")
+    {
+        <div class="regie-sidebar-body regie-responses-body">
+            @if (SelectedEvent is { } selectedEvent && CurrentSlide is { } currentSlide)
+            {
+                <SlideRegieResponseView Event="selectedEvent"
+                                        CurrentSlide="currentSlide"
+                                        ProjectId="ProjectId" />
+            }
+            else
+            {
+                <EmptyState Title="Keine Antworten verfügbar" Description="Wähle im Dashboard ein Event mit einer aktuellen Folie aus." />
             }
         </div>
     }

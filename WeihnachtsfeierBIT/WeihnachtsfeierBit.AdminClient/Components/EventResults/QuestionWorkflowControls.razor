@@ -76,24 +76,6 @@
             {
                 <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss eine offizielle Antwort festgelegt werden.</span>
             }
-            <div style="display: grid; gap: 6px;">
-                @for (int index = 0; index < Answers.Count; index++)
-                {
-                    var answerIndex = index;
-                    var voters = GetQuizVotes(answerIndex).ToArray();
-                    <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px; border-radius: 6px; background: #f8faf9;">
-                        <strong style="min-width: 82px; font-size: 12px; color: #536164;">@voters.Length @(voters.Length == 1 ? "Stimme" : "Stimmen")</strong>
-                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                            @foreach (var voter in voters)
-                            {
-                                <span style="padding: 3px 8px; border-radius: 999px; background: #e8f3ef; color: #105c4d; font-size: 12px; font-weight: 700;">
-                                    @GetParticipantLabel(voter)
-                                </span>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
         </div>
     }
 
@@ -101,68 +83,12 @@
     {
         <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
             <strong>Antwortzeit beendet · offizielle Team-Schätzung festlegen</strong>
-            <FrameworkSelect Id="team-estimation-choice"
-                             Label="Teambeitrag übernehmen"
-                             Placeholder="Manuell eingeben"
-                             Value="@_selectedEstimationResponseId"
-                             ValueChanged="OnEstimationContributorChanged"
-                             Options="@TeamEstimationOptions" />
             <label for="official-estimation">Offizieller Wert</label>
             <FrameworkInputDouble Id="official-estimation" @bind-Value="_officialEstimationValue" />
             <FrameworkButton Label="Teamwert festlegen" Variant="secondary" OnClick="SaveOfficialEstimationAsync" Disabled="@_busy" />
             @if (_workflow.OfficialEstimationValue is null)
             {
                 <span style="font-size: 13px; color: #657276;">Vor der Auflösung muss ein offizieller Teamwert festgelegt werden.</span>
-            }
-        </div>
-    }
-
-    @if (IsQuiz)
-    {
-        <div style="display: grid; gap: 10px; padding: 12px; border: 1px solid #dce5e2; border-radius: 8px; background: #ffffff;">
-            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                <strong>Einzelstimmen verwalten (@SlideResponses.Count())</strong>
-                <span style="font-size: 12px; color: #657276;">Änderungen und Löschen sind in jeder Phase möglich.</span>
-            </div>
-            @if (!SlideResponses.Any())
-            {
-                <span style="font-size: 13px; color: #657276;">Noch keine Stimmen abgegeben.</span>
-            }
-            else
-            {
-                <div style="display: grid; gap: 8px;">
-                    @foreach (var response in SlideResponses.OrderBy(item => item.TeamName).ThenBy(item => item.ParticipantNumber))
-                    {
-                        var selectedResponse = response;
-                        var selectedValue = GetModeratorAnswerValue(selectedResponse);
-                        <div style="display: grid; grid-template-columns: minmax(110px, 1fr) minmax(140px, 1.5fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e6ece9; border-radius: 8px; background: #fbfcfc;">
-                            <div style="min-width: 0;">
-                                <strong style="display: block; font-size: 13px;">#@selectedResponse.ParticipantNumber @(string.IsNullOrWhiteSpace(selectedResponse.ParticipantName) ? "" : selectedResponse.ParticipantName)</strong>
-                                @if (!string.IsNullOrWhiteSpace(selectedResponse.TeamName))
-                                {
-                                    <span style="font-size: 11px; color: #657276;">@selectedResponse.TeamName</span>
-                                }
-                            </div>
-                            <FrameworkSelect Id="@($"moderator-vote-{selectedResponse.Id}")"
-                                             Label="Stimme"
-                                             Value="@selectedValue"
-                                             ValueChanged="value => OnModeratorAnswerChanged(selectedResponse.Id, value)"
-                                             Options="@ModeratorAnswerOptions"
-                                             Placeholder="Antwort auswählen" />
-                            <div style="display: flex; gap: 4px;">
-                                <FrameworkIconButton Icon="save"
-                                                     Title="Stimme speichern"
-                                                     OnClick="() => SaveModeratorAnswerAsync(selectedResponse.Id)"
-                                                     Disabled="@(_busy || !HasModeratorAnswerChanged(selectedResponse))" />
-                                <FrameworkIconButton Icon="delete"
-                                                     Title="Stimme löschen"
-                                                     OnClick="() => DeleteModeratorAnswerAsync(selectedResponse.Id)"
-                                                     Disabled="@_busy"
-                                                     Style="color: #b42318;" />
-                            </div>
-                        </div>
-                    }
-                </div>
             }
         </div>
     }
@@ -237,8 +163,6 @@
     private int _pointAdjustment = 10;
     private int _currentStep;
     private string _selectedAnswer = "majority";
-    private readonly Dictionary<Guid, string> _moderatorAnswerSelections = [];
-    private string _selectedEstimationResponseId = string.Empty;
     private double _officialEstimationValue;
     private Guid _loadedProjectId;
     private Guid _loadedSlideId;
@@ -288,19 +212,7 @@
         new[] { new FrameworkSelectOption("majority", MajorityAnswerIndex is int majority ? $"Mehrheit: {GetAnswerText(majority)}" : "Mehrheit: noch nicht eindeutig") }
         .Concat(Answers.Select((answer, index) => new FrameworkSelectOption(
             index.ToString(CultureInfo.InvariantCulture),
-            $"{index + 1}. {answer} · {GetVoteCount(index)} Stimmen")))
-        .ToArray();
-    private FrameworkSelectOption[] ModeratorAnswerOptions => Answers
-        .Select((answer, index) => new FrameworkSelectOption(
-            index.ToString(CultureInfo.InvariantCulture),
-            $"{index + 1}. {answer}"))
-        .ToArray();
-    private FrameworkSelectOption[] TeamEstimationOptions => TeamResponses
-        .Where(response => ReadEstimate(response).HasValue)
-        .OrderBy(response => response.ParticipantNumber)
-        .Select(response => new FrameworkSelectOption(
-            response.Id.ToString(),
-            $"#{response.ParticipantNumber}: {ReadEstimate(response)!.Value.ToString("G", CultureInfo.CurrentCulture)}"))
+            $"{index + 1}. {answer}")))
         .ToArray();
 
     protected override async Task OnParametersSetAsync()
@@ -308,10 +220,6 @@
         var previousWorkflow = _workflow;
         _workflow = QuestionWorkflowViewState.Read(CurrentSlide.Parameters);
         var slideChanged = CurrentSlide.SlideId != _loadedSlideId;
-        if (slideChanged)
-        {
-            _moderatorAnswerSelections.Clear();
-        }
         if (slideChanged || _workflow.Phase != _lastObservedPhase)
         {
             _currentStep = StepFromPhase(_workflow.Phase);
@@ -324,7 +232,6 @@
         if (slideChanged || previousWorkflow.OfficialEstimationValue != _workflow.OfficialEstimationValue)
         {
             _officialEstimationValue = _workflow.OfficialEstimationValue ?? 0;
-            _selectedEstimationResponseId = string.Empty;
         }
         _loadedSlideId = CurrentSlide.SlideId;
 
@@ -466,63 +373,10 @@
         }
     }
 
-    private Task OnEstimationContributorChanged(string? responseId)
-    {
-        _selectedEstimationResponseId = responseId ?? string.Empty;
-        if (Guid.TryParse(_selectedEstimationResponseId, out var selectedId))
-        {
-            var response = TeamResponses.FirstOrDefault(item => item.Id == selectedId);
-            if (response is not null && ReadEstimate(response) is double estimate)
-            {
-                _officialEstimationValue = estimate;
-            }
-        }
-        return Task.CompletedTask;
-    }
-
     private Task OnSelectedAnswerChanged(string? value)
     {
         _selectedAnswer = value ?? "majority";
         return Task.CompletedTask;
-    }
-
-    private string GetModeratorAnswerValue(EventResponseState response) =>
-        _moderatorAnswerSelections.TryGetValue(response.Id, out var selectedValue)
-            ? selectedValue
-            : ReadAnswerIndex(response)?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
-
-    private void OnModeratorAnswerChanged(Guid responseId, string? value) =>
-        _moderatorAnswerSelections[responseId] = value ?? string.Empty;
-
-    private bool HasModeratorAnswerChanged(EventResponseState response) =>
-        int.TryParse(GetModeratorAnswerValue(response), NumberStyles.Integer, CultureInfo.InvariantCulture, out var selectedIndex)
-        && selectedIndex >= 0
-        && selectedIndex < Answers.Count
-        && ReadAnswerIndex(response) != selectedIndex;
-
-    private async Task SaveModeratorAnswerAsync(Guid responseId)
-    {
-        if (!_moderatorAnswerSelections.TryGetValue(responseId, out var value)
-            || !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var answerIndex)
-            || answerIndex < 0
-            || answerIndex >= Answers.Count)
-        {
-            _error = "Bitte eine gültige Antwort für die Stimme auswählen.";
-            return;
-        }
-
-        var responseData = JsonSerializer.SerializeToElement(new { answerIndex });
-        await RunAsync(token => ProjectApiClient.AdminUpdateResponseAsync(
-            token, ProjectId, Event.EventId, responseId, responseData));
-    }
-
-    private async Task DeleteModeratorAnswerAsync(Guid responseId)
-    {
-        if (await RunAsync(token => ProjectApiClient.AdminDeleteResponseAsync(
-                token, ProjectId, Event.EventId, responseId)))
-        {
-            _moderatorAnswerSelections.Remove(responseId);
-        }
     }
 
     private Task SetTimerAsync(int seconds) => RunWorkflowAsync("set-timer", seconds: seconds);
@@ -725,11 +579,6 @@
         return auth.User.FindFirst("api_access_token")?.Value ?? string.Empty;
     }
 
-    private int GetVoteCount(int index) => GetQuizVotes(index).Count();
-
-    private IEnumerable<EventResponseState> GetQuizVotes(int answerIndex) =>
-        TeamResponses.Where(response => ReadAnswerIndex(response) == answerIndex);
-
     private static int StepFromPhase(string phase) => phase switch
     {
         "answers" => 1,
@@ -741,25 +590,12 @@
     private string GetAnswerText(int index) =>
         index >= 0 && index < Answers.Count ? $"{index + 1}. {Answers[index]}" : "—";
 
-    private static string GetParticipantLabel(EventResponseState response) =>
-        string.IsNullOrWhiteSpace(response.ParticipantName)
-            ? $"#{response.ParticipantNumber}"
-            : $"{response.ParticipantName} · #{response.ParticipantNumber}";
-
     private static int? ReadAnswerIndex(EventResponseState response) =>
         response.ResponseData.ValueKind == JsonValueKind.Object
         && response.ResponseData.TryGetProperty("answerIndex", out var value)
         && value.ValueKind == JsonValueKind.Number
         && value.TryGetInt32(out var index)
             ? index
-            : null;
-
-    private static double? ReadEstimate(EventResponseState response) =>
-        response.ResponseData.ValueKind == JsonValueKind.Object
-        && response.ResponseData.TryGetProperty("estimationValue", out var value)
-        && value.ValueKind == JsonValueKind.Number
-        && value.TryGetDouble(out var estimate)
-            ? estimate
             : null;
 
     private static string ReadString(JsonElement element, string property) =>

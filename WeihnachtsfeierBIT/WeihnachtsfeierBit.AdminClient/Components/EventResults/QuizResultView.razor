@@ -2,7 +2,6 @@
 @using WeihnachtsfeierBit.Framework
 
 <div style="margin-top: 16px;">
-    <QuestionWorkflowControls Event="Event" CurrentSlide="CurrentSlide" ProjectId="ProjectId" />
     @if (IsResolutionPhase)
     {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -17,7 +16,7 @@
         else
         {
             <p style="margin: 8px 0 0; color: #657276; font-size: 13px;">
-                Einzelstimmen können oben in der Fragen-Regie jederzeit geändert oder gelöscht werden.
+                Einzelstimmen werden in der Antwortverwaltung unten angezeigt.
             </p>
         }
     }
@@ -26,7 +25,6 @@
 @code {
     [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
     [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
-    [Parameter] public Guid ProjectId { get; set; }
 
     private IEnumerable<EventResponseState> SlideResponses => Event.Responses.Where(r => r.SlideId == CurrentSlide.SlideId);
     private int TotalAnswers => SlideResponses.Count();

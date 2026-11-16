@@ -35,16 +35,18 @@ Das Berechtigungssystem ermöglicht Administratoren eine feingranulare Steuerung
 
 ## Regie-Seitenleiste & Multi-Compartment Drawer
 
-Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock für fünf Fachbereiche:
+Das Session-Dashboard besitzt eine rechte Regie-Seitenleiste mit einem Icon-Dock für sieben Fachbereiche:
 1. **Handy-Emulator (📱):** Live-Simulation eines Teilnehmer-Smartphones mit anpassbarer maximaler Höhe, um Ansichten direkt zu testen.
 2. **Teilnehmer & Rechte (👥):** Durchsuchbare Teilnehmerliste mit Filtern (*Alle*, *Abweichend*, *+ Rechte*, *- Rechte*), Berechtigungs-Modal-Trigger und Direkt-Emulator.
 3. **Punkte & Rangliste (📊):** Live-Zeitverlaufsgraph, Team-Punktestände, Punkte-Anpassen-Trigger und Quick-Start-Dropdown für Zwischenstand-Events.
 4. **Quick-Chat (💬):** Eingebetteter Echtzeit-Chat mit Hub-Sharing, um ohne Seitenwechsel direkt mit Teams und Teilnehmern zu kommunizieren.
 5. **Beamer-Steuerung (📽️):** Event auswählen oder nur Punktestand zeigen, Beamer öffnen, Live-Vorschau sowie Einstellungen für Punktestand-Layout, Teilnahme-QR-Code und Anzeigegrößen.
+6. **Regie-Notizen (🗒️):** Moderator-Notizen der aktuellen Folie direkt in der rechten Schublade lesen.
+7. **Antworten (🗳️):** Aktuelle Folie typgerecht auswerten sowie gespeicherte Teilnehmerantworten bearbeiten oder löschen.
 
 Die mobile Regie-Seite und die Desktop-Seitenleiste verwenden dieselben Tabs und Inhalte. Neue Regie-Bereiche werden daher zentral konfiguriert und erscheinen automatisch auch mobil.
 
-Für die aktuell angezeigte Slide lassen sich die nur für Admins bestimmten Moderator-Notizen über eine unten angeheftete, höhenverstellbare Schublade einblenden. Die Breite der rechten Regie-Schublade ist per Maus verstellbar.
+Die Ansichten für Teilnehmerantworten liegen in der rechten Regie-Schublade statt unter dem Event auf der Dashboard-Hauptseite. Spiel- und Phasensteuerungen bleiben auf der Hauptseite. Gespeicherte Quiz-, Abstimmungs-, Text-, Schätz-, Regler-, Bewertungs- und Sortierungsantworten können in der Schublade typgerecht bearbeitet und gelöscht werden; Buzzer-Einträge sind dort löschbar. Hitster-Stimmen werden als Teamverteilung angezeigt und sind nicht einzeln bearbeitbar. Slides ohne gespeicherte Teilnehmerantworten zeigen im Antworten-Tab einen passenden Hinweis. Die Breite der rechten Regie-Schublade ist per Maus verstellbar.
 
 Beamer-Einstellungen gelten nur für die aktive Session und werden nach einer Dropdown-Auswahl sofort übernommen. Team-Punktestände können rechts mit Diagramm, als schmale Punkte-Leiste unten oder gar nicht angezeigt werden. Der QR-Code kann als kleine Karte, als großes Popup mit Teilnahmehinweisen und Session-Code oder gar nicht erscheinen. Schrift, Event-Inhalt, Punktestand und QR-Code lassen sich in begrenzten Stufen skalieren; Event- und Punktestandskalierung ändern zusätzlich die relative Größe ihrer Kacheln. Projekttitel und Event-Typ-Beschriftung lassen sich ausblenden. Die Beameransicht blendet Scrollleisten aus und passt Event- und Punktestandsinhalte automatisch an den verfügbaren Bildschirmplatz an. Für die lokale Vorschau lassen sich Breite und Höhe der Beamer-Auflösung manuell in einem Popup einstellen; die Vorschau rendert mit diesen Viewport-Abmessungen und wird in die Sidebar-Fläche skaliert. Standardmäßig bleibt das bisherige Layout mit rechter Punktestand-Anzeige und QR-Karte aktiv.
 

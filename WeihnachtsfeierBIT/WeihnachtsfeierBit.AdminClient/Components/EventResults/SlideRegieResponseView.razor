@@ -1,0 +1,147 @@
+@namespace WeihnachtsfeierBit.AdminClient.Components.EventResults
+@using System.Text.Json
+@using WeihnachtsfeierBit.Framework
+
+<div style="display: grid; gap: 12px; min-width: 0;">
+    <div style="padding-bottom: 8px; border-bottom: 1px solid #dce5e2;">
+        <strong style="display: block; color: #1d2528;">@GetSlideTitle()</strong>
+        <span style="font-size: 12px; color: #657276;">@CurrentSlide.Type · Folie @(Event.CurrentSlideIndex + 1) von @Event.Slides.Length</span>
+    </div>
+
+    @switch (CurrentSlide.Type.ToLowerInvariant())
+    {
+        case "poll":
+            <PollResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "quiz":
+            <QuizResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "ranking":
+            <RankingResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "estimation":
+            <EstimationResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "buzzer":
+            <BuzzerResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "hitster":
+            <section style="display: grid; gap: 8px;">
+                <strong>Hitster-Teamabstimmung</strong>
+                <p style="margin: 0; color: #657276; font-size: 13px;">
+                    @ReadInt(HitsterVoteSummary, "submittedVotes") von @ReadInt(HitsterVoteSummary, "eligibleVoters") Teammitgliedern haben abgestimmt.
+                    @if (ReadInt(HitsterVoteSummary, "remainingVotes") > 0)
+                    {
+                        <span>Noch offen: @ReadInt(HitsterVoteSummary, "remainingVotes").</span>
+                    }
+                </p>
+                @if (HitsterVotePositions.Length > 0)
+                {
+                    <div style="display: grid; gap: 6px;">
+                        @foreach (var position in HitsterVotePositions)
+                        {
+                            <div style="display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid #dce5e2; border-radius: 6px; background: #fff;">
+                                <span>Position @position.Position</span>
+                                <strong>@position.Votes Stimmen</strong>
+                            </div>
+                        }
+                    </div>
+                }
+                <span style="color: #657276; font-size: 12px;">Hitster-Stimmen werden teamweise aggregiert; einzelne Stimmen können nicht separat bearbeitet oder gelöscht werden.</span>
+            </section>
+            break;
+        case "text":
+            <TextResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "word_cloud":
+            <WordCloudResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "slider":
+            <SliderResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "rating":
+            <RatingResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        case "ordering":
+            <OrderingResultView Event="Event" CurrentSlide="CurrentSlide" />
+            break;
+        default:
+            <FrameworkNotice Message="@NoResponseMessage" Severity="info" />
+            break;
+    }
+
+    @if (HasResponseCollection)
+    {
+        <SlideResponseManager Event="Event" CurrentSlide="CurrentSlide" ProjectId="ProjectId" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EventState Event { get; set; } = null!;
+    [Parameter, EditorRequired] public EventSlideState CurrentSlide { get; set; } = null!;
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private bool HasResponseCollection => CurrentSlide.Type.ToLowerInvariant() is
+        "poll" or "quiz" or "estimation" or "buzzer" or "text" or "word_cloud" or "slider" or "rating" or "ordering";
+
+    private JsonElement HitsterGame => ReadObject(CurrentSlide.Parameters, "game");
+    private JsonElement HitsterVoteSummary => ReadObject(HitsterGame, "voteSummary");
+    private HitsterVotePosition[] HitsterVotePositions => ReadArray(HitsterVoteSummary, "positions")
+        .Select(item => new HitsterVotePosition(ReadInt(item, "position"), ReadInt(item, "votes")))
+        .ToArray();
+
+    private string NoResponseMessage => CurrentSlide.Type.ToLowerInvariant() switch
+    {
+        "announcement" => "Ankündigungen sammeln keine Teilnehmerantworten.",
+        "ranking" => "Ranglisten zeigen den Team-Punktestand, speichern aber keine Teilnehmerantworten.",
+        "countdown" => "Countdowns sammeln keine Teilnehmerantworten.",
+        "point_award" => "Punktevergaben werden über den Spielstand verwaltet und speichern keine Teilnehmerantworten.",
+        "jeopardy" => "Jeopardy-Auswahlen werden im Spielzustand verwaltet und nicht als einzelne Antworten gespeichert.",
+        "pantomime" => "Pantomime-Ergebnisse werden im Spielzustand verwaltet und nicht als einzelne Antworten gespeichert.",
+        _ => "Diese Folie sammelt keine einzelnen Teilnehmerantworten."
+    };
+
+    private string GetSlideTitle()
+    {
+        if (CurrentSlide.Parameters.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return CurrentSlide.Type;
+        }
+
+        foreach (var property in new[] { "question", "title", "message" })
+        {
+            if (CurrentSlide.Parameters.TryGetProperty(property, out var value)
+                && value.ValueKind == System.Text.Json.JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(value.GetString()))
+            {
+                return value.GetString()!;
+            }
+        }
+
+        return CurrentSlide.Type;
+    }
+
+    private static JsonElement ReadObject(JsonElement element, string property) =>
+        element.ValueKind == System.Text.Json.JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == System.Text.Json.JsonValueKind.Object
+            ? value
+            : default;
+
+    private static IEnumerable<JsonElement> ReadArray(JsonElement element, string property) =>
+        element.ValueKind == System.Text.Json.JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? value.EnumerateArray().ToArray()
+            : Array.Empty<JsonElement>();
+
+    private static int ReadInt(JsonElement element, string property) =>
+        element.ValueKind == System.Text.Json.JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == System.Text.Json.JsonValueKind.Number
+        && value.TryGetInt32(out var result)
+            ? result
+            : 0;
+
+    private sealed record HitsterVotePosition(int Position, int Votes);
+}
