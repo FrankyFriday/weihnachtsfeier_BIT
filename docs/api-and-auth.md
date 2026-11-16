@@ -81,6 +81,18 @@ Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-N
 
 Der Teilnehmerclient führt nach erfolgreicher Anmeldung die Route `/play/{code}/{number}`. Bei einem Neuladen wird über den Session-Code und die Teilnehmernummer erneut angemeldet; das API-Session-Token bleibt dabei außerhalb von URL und Browser-Speicher. Ein freiwilliges Überspringen der erstmaligen Namenseingabe wird nur für die aktuelle Browser-Session gespeichert.
 
+## Projekt-Info-Seiten
+
+| Methode/Route | Zugriff | Zweck |
+| --- | --- | --- |
+| `GET /api/projects/{projectId}/info-pages` | Projektadmin / Teilnehmer | Info-Seiten eines Projekts abrufen; Teilnehmer erhalten nur sichtbare Seiten. |
+| `GET /api/projects/{projectId}/info-pages/{id}` | Projektadmin / Teilnehmer | Eine projektgebundene Info-Seite abrufen. |
+| `POST /api/projects/{projectId}/info-pages` | Projektadmin | Info-Seite anlegen; optionales `id` ist eine Wiederholungs-ID. Eine identische Wiederholung liefert dieselbe Seite statt ein Duplikat anzulegen. |
+| `PUT /api/projects/{projectId}/info-pages/{id}` | Projektadmin | Titel, Icon, Position, Sichtbarkeit und Markdown-Inhalt aktualisieren. |
+| `DELETE /api/projects/{projectId}/info-pages/{id}` | Projektadmin | Info-Seite löschen. |
+
+Info-Seiten-Endpunkte liefern ausschließlich Response-DTOs, keine EF-Entitäten mit Navigationen. So kann die JSON-Antwort nach dem Speichern keine zyklischen Projektbeziehungen serialisieren.
+
 ## Live Session & Event Steuerung
 
 | Methode/Route | Zugriff | Zweck |

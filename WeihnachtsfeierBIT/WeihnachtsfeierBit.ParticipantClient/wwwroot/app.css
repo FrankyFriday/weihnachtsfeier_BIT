@@ -330,6 +330,7 @@ html.canvas-document body {
 .participant-name-card {
     padding: 28px 24px;
     background: #fff;
+    animation: participant-step-enter 240ms ease-out both;
 }
 
 .participant-name-icon {
@@ -414,6 +415,11 @@ html.canvas-document body {
 
 .participant-app-bar {
     position: relative;
+    animation: participant-content-enter 220ms ease-out both;
+}
+
+.participant-app-bar.has-profile-menu {
+    z-index: 1002;
 }
 
 .participant-profile-icon {
@@ -428,10 +434,38 @@ html.canvas-document body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
 .participant-profile-icon .material-symbols-outlined {
     font-size: 25px;
+}
+
+.participant-profile-icon:active {
+    transform: scale(.94);
+}
+
+.participant-profile-icon:focus-visible {
+    outline: 3px solid #78c9b3;
+    outline-offset: 2px;
+}
+
+.participant-profile-backdrop {
+    position: fixed;
+    z-index: 1001;
+    inset: 0;
+    background: rgba(15, 35, 29, 0.1);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.participant-profile-backdrop.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 180ms ease;
 }
 
 .participant-profile-menu {
@@ -446,6 +480,20 @@ html.canvas-document body {
     background: #fff;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
     box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-6px) scale(.98);
+    transform-origin: top right;
+    transition: opacity 160ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.participant-profile-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    transition: opacity 160ms ease, transform 180ms ease;
 }
 
 .participant-profile-menu-title {
@@ -569,11 +617,11 @@ html.canvas-document body {
     flex: 1;
     min-height: 0;
     flex-direction: column;
-    animation: participant-content-enter 220ms ease-out both;
+    animation: participant-content-enter 240ms cubic-bezier(.2, .7, .25, 1) both;
 }
 
 .participant-dashboard-page > * {
-    animation: participant-content-enter 260ms ease-out both;
+    animation: participant-content-enter 280ms cubic-bezier(.2, .7, .25, 1) both;
 }
 
 .participant-dashboard-page > *:nth-child(2) {
@@ -588,12 +636,58 @@ html.canvas-document body {
     animation-delay: 105ms;
 }
 
+.participant-timeline-item {
+    position: relative;
+}
+
+.participant-timeline-rail {
+    position: relative;
+    width: 16px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.participant-timeline-line {
+    position: absolute;
+    z-index: 1;
+    top: 18px;
+    bottom: -26px;
+    width: 2px;
+    background: #cbd7d3;
+}
+
+.participant-timeline-marker {
+    position: relative;
+    z-index: 2;
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    margin-top: 10px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-sizing: content-box;
+}
+
 .participant-nav-button {
-    transition: color 140ms ease, transform 140ms ease;
+    transition: color 180ms ease, transform 140ms ease;
+}
+
+.participant-nav-button .material-symbols-outlined {
+    transition: transform 180ms cubic-bezier(.2, .7, .25, 1);
+}
+
+.participant-nav-button.is-active .material-symbols-outlined {
+    transform: translateY(-1px) scale(1.06);
 }
 
 .participant-nav-button:active {
     transform: translateY(1px) scale(.96);
+}
+
+.participant-bottom-nav {
+    animation: participant-content-enter 260ms ease-out both;
 }
 
 .participant-action-menu .participant-action-item {
@@ -642,15 +736,16 @@ html.canvas-document body {
 
 .participant-action-item {
     cursor: pointer;
-    transition: background 130ms ease, transform 100ms ease;
+    transition: background 150ms ease, transform 140ms ease, box-shadow 150ms ease;
 }
 
 .participant-action-item:hover {
     background: #f0f7f4;
+    box-shadow: 0 3px 10px rgba(16, 92, 77, 0.07);
 }
 
 .participant-action-item:active {
-    transform: scale(0.99);
+    transform: scale(0.985);
 }
 
 .participant-action-item:focus-visible,
@@ -717,17 +812,75 @@ html.canvas-document body {
 }
 
 .participant-action-back {
-    min-height: 40px;
-    padding: 0 4px 0 0;
-    border: 0;
-    background: transparent;
+    width: 100%;
+    min-height: 46px;
+    padding: 8px 12px;
+    border: 1px solid #dce5e2;
+    border-radius: 10px;
+    background: #f4f8f6;
     color: #105c4d;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-start;
+    gap: 9px;
+    text-align: left;
+    touch-action: manipulation;
+    transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.participant-action-card > .framework-card-content {
+    padding: 16px;
+}
+
+.participant-action-subview-toolbar {
+    margin-bottom: 16px;
+}
+
+.participant-info-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e6ece9;
+}
+
+.participant-info-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: #e8f3ef;
+    color: #105c4d;
+    font-size: 23px;
+}
+
+.participant-info-heading h2 {
+    min-width: 0;
+    margin: 0;
+    color: #1d2528;
+    font-size: clamp(18px, 5vw, 22px);
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.participant-info-markdown {
+    padding-top: 2px;
+}
+
+.participant-action-back:active {
+    transform: scale(.99);
+}
+
+.participant-action-back:focus-visible {
+    outline: 3px solid #78c9b3;
+    outline-offset: 2px;
 }
 
 @media (max-width: 520px) {
@@ -743,6 +896,10 @@ html.canvas-document body {
     .participant-action-view .participant-song-form-row {
         flex-wrap: wrap !important;
     }
+
+    .participant-action-card > .framework-card-content {
+        padding: 14px;
+    }
 }
 
 @keyframes participant-step-enter {
@@ -757,17 +914,32 @@ html.canvas-document body {
 
 @keyframes participant-view-out {
     from { opacity: 1; transform: translateX(0); }
-
-    @keyframes participant-toast-enter {
-        from { opacity: 0; transform: translateY(-18px) scale(.97); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    @keyframes participant-content-enter {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
     to { opacity: 0; transform: translateX(22px); }
+}
+
+@keyframes participant-toast-enter {
+    from { opacity: 0; transform: translateY(-18px) scale(.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes participant-content-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (hover: hover) {
+    .participant-profile-icon:hover {
+        background: #dcefe8;
+        box-shadow: 0 3px 10px rgba(16, 92, 77, 0.12);
+        transform: scale(1.04);
+    }
+
+    .participant-action-back:hover {
+        color: #197b67;
+        background: #e8f3ef;
+        border-color: #b6d6cb;
+        transform: translateX(-2px);
+    }
 }
 
 @media (max-width: 420px) {
@@ -796,9 +968,25 @@ html.canvas-document body {
     }
 
     .participant-dashboard-page,
-    .participant-dashboard-page > * {
+    .participant-dashboard-page > *,
+    .participant-app-bar,
+    .participant-bottom-nav {
         animation-duration: 1ms;
         animation-delay: 0ms !important;
+    }
+
+    .participant-profile-menu,
+    .participant-profile-backdrop {
+        transition-duration: 1ms;
+        transition-delay: 0ms;
+    }
+
+    .participant-nav-button,
+    .participant-nav-button .material-symbols-outlined,
+    .participant-profile-icon,
+    .participant-action-item,
+    .participant-action-back {
+        transition-duration: 1ms;
     }
 }
 

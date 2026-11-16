@@ -155,3 +155,32 @@ a { color: inherit; }
     .auth-copy h1 { font-size: 27px; }
     .auth-form { padding: 22px; }
 }
+
+.info-markdown-guide {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.info-markdown-guide > div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border: 1px solid #e3ebe7;
+    border-radius: 8px;
+    background: #f8fbf9;
+}
+
+.info-markdown-guide strong {
+    color: #475569;
+    font-size: 11px;
+}
+
+.info-markdown-guide code {
+    color: #105c4d;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
