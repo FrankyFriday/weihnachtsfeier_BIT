@@ -414,6 +414,7 @@ public sealed class PantomimeSlideParameters : SlideParameters
     public List<string> Terms { get; set; } = [];
     public int RoundDurationSeconds { get; set; } = 60;
     public int MaxSkipsPerPerformer { get; set; }
+    public int PointsPerCorrectTerm { get; set; } = 1;
 }
 
 public sealed class JeopardyCategory

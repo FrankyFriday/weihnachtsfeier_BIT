@@ -1,0 +1,67 @@
+@{
+    var game = CanvasSlideData.ReadObject(Parameters, "game");
+    var teams = game.ValueKind == System.Text.Json.JsonValueKind.Object
+        && game.TryGetProperty("teams", out var teamArray)
+        && teamArray.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? teamArray.EnumerateArray().ToArray()
+            : [];
+    var song = CanvasSlideData.ReadObject(game, "currentSong");
+}
+
+<section class="canvas-slide canvas-slide-hitster">
+    <div class="canvas-hitster-heading">
+        <h2>@CanvasSlideData.ReadString(Parameters, "title", Event.Title)</h2>
+        @if (!CanvasSlideData.ReadBool(game, "started"))
+        {
+            <p class="canvas-slide-hint">Die Spielleitung bereitet die Runde vor.</p>
+        }
+        else if (CanvasSlideData.ReadBool(game, "finished"))
+        {
+            <p class="canvas-hitster-status">Spiel beendet</p>
+        }
+        else
+        {
+            <p class="canvas-hitster-status">
+                Runde @CanvasSlideData.ReadInt(game, "round") ·
+                @CanvasSlideData.ReadString(game, "currentTeamName") ist dran
+            </p>
+        }
+        @if (CanvasSlideData.ReadString(game, "phase") == "revealed")
+        {
+            <div class="canvas-hitster-reveal">
+                <span class="canvas-slide-kicker">AUFGEDECKT</span>
+                <strong>@CanvasSlideData.ReadString(song, "title")</strong>
+                <span>@CanvasSlideData.ReadString(song, "artist") · @CanvasSlideData.ReadInt(song, "year")</span>
+            </div>
+        }
+    </div>
+    @if (teams.Length > 0)
+    {
+        <div class="canvas-hitster-teams">
+            @foreach (var team in teams)
+            {
+                var timeline = team.TryGetProperty("timeline", out var cards) && cards.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? cards.EnumerateArray().ToArray()
+                    : [];
+                <article class="canvas-hitster-team">
+                    <h3>@CanvasSlideData.ReadString(team, "name", "Team")</h3>
+                    <div class="canvas-hitster-timeline">
+                        @foreach (var card in timeline)
+                        {
+                            <div class="canvas-hitster-card">
+                                <span>@CanvasSlideData.ReadString(card, "title")</span>
+                                <strong>@CanvasSlideData.ReadInt(card, "year")</strong>
+                            </div>
+                        }
+                        @if (timeline.Length == 0)
+                        {
+                            <span class="canvas-slide-hint">Noch keine Karten</span>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@inherits CanvasSlideRendererBase

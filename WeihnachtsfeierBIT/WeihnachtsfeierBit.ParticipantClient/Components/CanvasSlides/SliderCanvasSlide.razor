@@ -1,0 +1,19 @@
+<section class="canvas-slide canvas-slide-slider">
+    <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+    @{
+        var min = CanvasSlideData.ReadDouble(Parameters, "min");
+        var max = CanvasSlideData.ReadDouble(Parameters, "max", 100);
+        var unit = CanvasSlideData.ReadString(Parameters, "unit");
+    }
+    <div class="canvas-slider-range" aria-label="Skala von @min @unit bis @max @unit">
+        <span>@min @unit</span>
+        <div class="canvas-slider-track"><i></i></div>
+        <span>@max @unit</span>
+    </div>
+    @if (CanvasSlideData.ReadDouble(Parameters, "step", 1) > 0)
+    {
+        <p class="canvas-slide-hint">Schrittweite: @CanvasSlideData.ReadDouble(Parameters, "step", 1) @unit</p>
+    }
+</section>
+
+@inherits CanvasSlideRendererBase

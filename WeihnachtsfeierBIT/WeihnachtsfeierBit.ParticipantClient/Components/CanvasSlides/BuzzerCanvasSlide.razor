@@ -1,0 +1,13 @@
+<section class="canvas-slide canvas-slide-buzzer">
+    <span class="canvas-slide-kicker">BUZZER · @CanvasSlideData.ReadInt(Parameters, "points", 100) PUNKTE</span>
+    <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+    <div class="canvas-buzzer-light" aria-hidden="true">
+        <span></span>
+    </div>
+    @if (CanvasSlideData.ReadInt(Parameters, "timeLimitSeconds") > 0)
+    {
+        <p class="canvas-slide-hint">Zeitlimit: @CanvasSlideData.ReadInt(Parameters, "timeLimitSeconds") Sekunden</p>
+    }
+</section>
+
+@inherits CanvasSlideRendererBase

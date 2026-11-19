@@ -1,0 +1,12 @@
+<section class="canvas-slide canvas-slide-rating">
+    <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+    <div class="canvas-rating-stars" aria-label="Bewertungsskala">
+        @for (var index = 0; index < Math.Clamp(CanvasSlideData.ReadInt(Parameters, "maxStars", 5), 1, 10); index++)
+        {
+            <span style="--canvas-stagger: @(index * 80)ms" aria-hidden="true">★</span>
+        }
+    </div>
+    <p class="canvas-slide-hint">Bewertung von 1 bis @CanvasSlideData.ReadInt(Parameters, "maxStars", 5)</p>
+</section>
+
+@inherits CanvasSlideRendererBase

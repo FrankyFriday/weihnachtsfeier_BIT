@@ -55,16 +55,19 @@ public static class CanvasStateBuilder
             .Select((team, index) => new CanvasTeamState(
                 team.Id,
                 team.DisplayName,
+                team.Color,
                 team.Punkte,
                 index + 1))
             .ToArray();
 
         CanvasEventState? activeEvent = null;
+        Guid? activeTeamId = null;
         if (instance.ActiveCanvasEventId is Guid eventId)
         {
             var gameEvent = instance.Events.FirstOrDefault(item => item.Id == eventId);
             if (gameEvent is not null)
             {
+                activeTeamId = QuestionWorkflowService.GetActiveTeamId(gameEvent);
                 var currentSlide = GetCurrentSlide(gameEvent);
                 if (currentSlide.HasValue)
                 {
@@ -72,7 +75,12 @@ public static class CanvasStateBuilder
                         gameEvent.Id,
                         currentSlide.Value.Type,
                         gameEvent.Title,
-                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters, teamParticipantIds));
+                        BuildPublicParameters(currentSlide.Value.Type, currentSlide.Value.Parameters, teamParticipantIds),
+                        currentSlide.Value.SlideId,
+                        gameEvent.StartedAtUtc,
+                        gameEvent.AccumulatedElapsedSeconds,
+                        gameEvent.IsPaused,
+                        gameEvent.LastResumedAtUtc);
                 }
             }
         }
@@ -106,10 +114,11 @@ public static class CanvasStateBuilder
             activeEvent,
             DateTime.UtcNow,
             pointLogs,
-            CanvasDisplaySettings.FromJson(instance.CanvasSettingsJson));
+            CanvasDisplaySettings.FromJson(instance.CanvasSettingsJson),
+            activeTeamId);
     }
 
-    private static (string Type, JsonElement Parameters)? GetCurrentSlide(GameInstanceEvent gameEvent)
+    private static (Guid SlideId, string Type, JsonElement Parameters)? GetCurrentSlide(GameInstanceEvent gameEvent)
     {
         try
         {
@@ -121,9 +130,14 @@ public static class CanvasStateBuilder
                 if (array.Count > idx)
                 {
                     var elem = array[idx];
+                    var slideId = elem.TryGetProperty("slideId", out var slideIdProperty)
+                        && slideIdProperty.ValueKind == JsonValueKind.String
+                        && Guid.TryParse(slideIdProperty.GetString(), out var parsedSlideId)
+                            ? parsedSlideId
+                            : Guid.Empty;
                     string type = elem.TryGetProperty("type", out var typeProp) && typeProp.ValueKind == JsonValueKind.String ? typeProp.GetString() ?? "announcement" : "announcement";
                     JsonElement paramsElem = elem.TryGetProperty("parameters", out var pProp) ? pProp.Clone() : JsonSerializer.SerializeToElement(new { });
-                    return (type, paramsElem);
+                    return (slideId, type, paramsElem);
                 }
             }
         }
@@ -142,11 +156,18 @@ public static class CanvasStateBuilder
         var allowedProperties = slideType.ToLowerInvariant() switch
         {
             "announcement" => new[] { "title", "message" },
-            "poll" => new[] { "question", "options" },
-            "quiz" => new[] { "question", "answers" },
-            "estimation" => new[] { "question", "unit" },
-            "buzzer" => new[] { "question" },
-            "ranking" => new[] { "chartType" },
+            "poll" => new[] { "question", "options", "showPercentage" },
+            "quiz" => new[] { "question", "answers", "questionTimeLimitSeconds", "timeLimitSeconds", "teamMode" },
+            "estimation" => new[] { "question", "unit", "questionTimeLimitSeconds", "timeLimitSeconds", "teamMode" },
+            "buzzer" => new[] { "question", "points", "timeLimitSeconds" },
+            "ranking" => new[] { "title", "chartType" },
+            "pointaward" => new[] { "title", "defaultReason", "defaultDeltaPoints" },
+            "text" => new[] { "question", "placeholder", "maxLength" },
+            "wordcloud" => new[] { "question", "maxWordsPerUser" },
+            "slider" => new[] { "question", "min", "max", "step", "unit" },
+            "rating" => new[] { "question", "maxStars" },
+            "ordering" => new[] { "question", "items" },
+            "countdown" => new[] { "title", "seconds", "message" },
             "hitster" => new[] { "title", "instructions", "cardsToWin", "game" },
             _ => Array.Empty<string>()
         };
@@ -189,6 +210,7 @@ public static class CanvasStateBuilder
                         timerEndsAtUtc = workflow.TimerEndsAtUtc,
                         timerPaused = workflow.TimerPaused,
                         remainingSeconds = workflow.RemainingSeconds,
+                        timerDurationSeconds = workflow.TimerDurationSeconds,
                         officialAnswerIndex = workflow.OfficialAnswerIndex,
                         officialEstimationValue = workflow.OfficialEstimationValue
                     }
@@ -264,6 +286,12 @@ public static class CanvasStateBuilder
             paused,
             remaining,
             officialAnswer,
-            officialEstimation);
+            officialEstimation,
+            workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("timerDurationSeconds", out var durationValue)
+            && durationValue.ValueKind == JsonValueKind.Number
+            && durationValue.TryGetInt32(out var durationSeconds)
+                ? durationSeconds
+                : 0);
     }
 }

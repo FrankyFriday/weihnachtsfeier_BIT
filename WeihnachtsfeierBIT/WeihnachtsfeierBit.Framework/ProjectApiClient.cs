@@ -1360,7 +1360,8 @@ public sealed record QuestionWorkflowViewState(
     bool TimerPaused,
     int RemainingSeconds,
     int? OfficialAnswerIndex,
-    double? OfficialEstimationValue)
+    double? OfficialEstimationValue,
+    int TimerDurationSeconds = 0)
 {
     public static QuestionWorkflowViewState Read(JsonElement parameters)
     {
@@ -1372,7 +1373,8 @@ public sealed record QuestionWorkflowViewState(
             ReadBool(workflow, "timerPaused"),
             ReadInt(workflow, "remainingSeconds") ?? 0,
             ReadInt(workflow, "officialAnswerIndex"),
-            ReadDouble(workflow, "officialEstimationValue"));
+            ReadDouble(workflow, "officialEstimationValue"),
+            ReadInt(workflow, "timerDurationSeconds") ?? 0);
     }
 
     private static JsonElement GetObject(JsonElement parent, string property) =>
@@ -1504,8 +1506,17 @@ public sealed record ProjectGameState(
     bool IsEnded = false,
     Guid? ActiveTeamId = null,
     CanvasDisplaySettings? CanvasSettings = null);
-public sealed record CanvasTeamState(Guid Id, string DisplayName, int Points, int Rank);
-public sealed record CanvasEventState(Guid EventId, string SlideType, string Title, JsonElement Parameters);
+public sealed record CanvasTeamState(Guid Id, string DisplayName, string Color, int Points, int Rank);
+public sealed record CanvasEventState(
+    Guid EventId,
+    string SlideType,
+    string Title,
+    JsonElement Parameters,
+    Guid SlideId = default,
+    DateTime StartedAtUtc = default,
+    int AccumulatedElapsedSeconds = 0,
+    bool IsPaused = false,
+    DateTime? LastResumedAtUtc = null);
 public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCodeMode)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -1523,17 +1534,20 @@ public sealed record CanvasDisplaySettings(string ScoreboardLayout, string QrCod
     public static CanvasDisplaySettings Default { get; } = new(ScoreboardRight, QrCodeCard);
 
     public int FontScalePercent { get; init; } = 100;
+    public int SpacingScalePercent { get; init; } = 80;
     public int EventScalePercent { get; init; } = 100;
     public int ScoreboardScalePercent { get; init; } = 100;
     public int QrCodeScalePercent { get; init; } = 100;
     public bool ShowProjectTitle { get; init; } = true;
     public bool ShowEventTypeLabel { get; init; } = true;
+    public bool ShowActiveTeam { get; init; } = true;
 
     [JsonIgnore]
     public bool IsValid =>
         (ScoreboardLayout is ScoreboardRight or ScoreboardBottom or ScoreboardHidden) &&
         (QrCodeMode is QrCodeCard or QrCodeHidden or QrCodePopup) &&
         IsScaleValid(FontScalePercent) &&
+        IsScaleValid(SpacingScalePercent) &&
         IsScaleValid(EventScalePercent) &&
         IsScaleValid(ScoreboardScalePercent) &&
         IsScaleValid(QrCodeScalePercent);
@@ -1569,7 +1583,8 @@ public sealed record CanvasGameState(
     CanvasEventState? Event,
     DateTime UpdatedAtUtc,
     TeamPointLogDto[] PointLogs,
-    CanvasDisplaySettings? DisplaySettings = null);
+    CanvasDisplaySettings? DisplaySettings = null,
+    Guid? ActiveTeamId = null);
 
 public sealed record ChatGroupSummary(
     Guid Id,

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 
 namespace WeihnachtsfeierBit.ApiService.Endpoints;
@@ -277,9 +278,10 @@ public static class ShowSlideEndpoints
                         || terms.Any(term => term!.Length > 120)
                         || terms.Distinct(StringComparer.OrdinalIgnoreCase).Count() != terms.Count
                         || pantomime.Parameters.RoundDurationSeconds is < 10 or > 600
-                        || pantomime.Parameters.MaxSkipsPerPerformer is < 0 or > 100)
+                        || pantomime.Parameters.MaxSkipsPerPerformer is < 0 or > 100
+                        || pantomime.Parameters.PointsPerCorrectTerm is < 0 or > PantomimeGameService.MaximumPointsPerCorrectTerm)
                     {
-                        return (false, "Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen), eine Rundendauer von 10 bis 600 Sekunden und ein Skip-Limit von 0 bis 100.");
+                        return (false, "Pantomime benötigt eine Kategorie, 3–100 eindeutige Begriffe (je maximal 120 Zeichen), eine Rundendauer von 10 bis 600 Sekunden, ein Skip-Limit von 0 bis 100 und 0 bis 1000 Punkte pro erratenem Begriff.");
                     }
 
                     pantomime.Parameters.Category = pantomime.Parameters.Category.Trim();

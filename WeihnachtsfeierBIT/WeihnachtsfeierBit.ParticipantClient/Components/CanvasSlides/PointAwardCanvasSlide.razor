@@ -1,0 +1,25 @@
+<section class="canvas-slide canvas-slide-point-award">
+    <h2>@CanvasSlideData.ReadString(Parameters, "title", Event.Title)</h2>
+    @if (!string.IsNullOrWhiteSpace(CanvasSlideData.ReadString(Parameters, "defaultReason")))
+    {
+        <p class="canvas-slide-copy">@CanvasSlideData.ReadString(Parameters, "defaultReason")</p>
+    }
+    @if (Teams.Length > 0)
+    {
+        <div class="canvas-point-award-teams">
+            @foreach (var (team, index) in Teams.OrderByDescending(team => team.Points)
+                .ThenBy(team => team.DisplayName)
+                .Select((team, index) => (team, index)))
+            {
+                <article class="canvas-point-award-team" @key="team.Id">
+                    <span class="canvas-score-rank">@(index + 1)</span>
+                    <strong>@team.DisplayName</strong>
+                    <span>@team.Points <small>PKT.</small></span>
+                </article>
+            }
+        </div>
+    }
+    <p class="canvas-point-award-default">Standardbuchung: +@CanvasSlideData.ReadInt(Parameters, "defaultDeltaPoints", 10) Pkt.</p>
+</section>
+
+@inherits CanvasSlideRendererBase

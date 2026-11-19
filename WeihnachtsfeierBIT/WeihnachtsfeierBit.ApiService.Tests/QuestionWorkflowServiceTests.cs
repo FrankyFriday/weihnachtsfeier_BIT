@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Framework;
 
@@ -26,6 +27,41 @@ public sealed class QuestionWorkflowServiceTests
         Assert.True(QuestionWorkflowService.TickActiveSlide(slide, now.AddSeconds(30)));
         Assert.Equal(QuestionWorkflowService.LockedPhase, QuestionWorkflowService.GetPhase(slide));
         Assert.Null(QuestionWorkflowService.GetTimerEnd(slide));
+    }
+
+    [Fact]
+    public void GetActiveTeamId_FindsSelectionEvenWhenAnotherSlideIsCurrent()
+    {
+        var activeTeamId = Guid.NewGuid();
+        var gameEvent = new GameInstanceEvent
+        {
+            CurrentSlideIndex = 0,
+            SlidesJson = JsonSerializer.Serialize(new object[]
+            {
+                new { type = "announcement", parameters = new { message = "next" } },
+                new { type = "jeopardy", parameters = new { state = new { selectedTeamId = activeTeamId } } }
+            })
+        };
+
+        Assert.Equal(activeTeamId, QuestionWorkflowService.GetActiveTeamId(gameEvent));
+    }
+
+    [Fact]
+    public void StartPhase_PersistsTimerDurationForProgressDisplay()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var slide = CreateWorkflowSlide("quiz", """{"phase":"answers"}""");
+
+        QuestionWorkflowService.StartPhase(slide, QuestionWorkflowService.AnswerPhase, 30, now);
+
+        var workflow = QuestionWorkflowService.GetWorkflowState(slide);
+        Assert.Equal(30, workflow["timerDurationSeconds"]!.GetValue<int>());
+
+        workflow["timerPaused"] = true;
+        workflow["timerEndsAtUtc"] = null;
+        workflow["remainingSeconds"] = 12;
+
+        Assert.Equal(30, workflow["timerDurationSeconds"]!.GetValue<int>());
     }
 
     [Fact]

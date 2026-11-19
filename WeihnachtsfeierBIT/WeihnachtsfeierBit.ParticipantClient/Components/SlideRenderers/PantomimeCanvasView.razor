@@ -1,10 +1,10 @@
 @using System.Text.Json
 @implements IDisposable
 
-<div style="width: 100%; max-width: 1000px; margin: auto; padding: 20px; box-sizing: border-box; text-align: center;">
-    <span style="font-size: 15px; font-weight: 800; letter-spacing: .12em; color: #64748b;">PANTOMIME · @ReadString(Parameters, "category")</span>
+<div class="canvas-pantomime-view">
     @if (_isRunning || _isPaused || _isEnded)
     {
+        <span class="canvas-pantomime-kicker">PANTOMIME · @ReadString(Parameters, "category")</span>
         <div style="font: 900 clamp(58px, 14vw, 150px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 14px 0;">
             @FormatSeconds(_remainingSeconds)
         </div>
@@ -30,8 +30,11 @@
     }
     else
     {
-        <h2 style="margin: 10px 0; font-size: clamp(26px, 5vw, 48px); font-weight: 900;">Alle Teams starten gleichzeitig</h2>
-        <p style="font-size: clamp(20px, 3vw, 30px); color: #475569;">Wählt eine darstellende Person pro Team. Die Begriffe sind nur auf dem Gerät der jeweiligen Person sichtbar.</p>
+        <div class="canvas-pantomime-intro">
+            <span class="canvas-pantomime-kicker">KATEGORIE</span>
+            <h2 class="canvas-pantomime-category">@ReadString(Parameters, "category")</h2>
+            <p>Alle Teams starten gleichzeitig</p>
+        </div>
     }
 </div>
 

@@ -194,6 +194,10 @@ public static class PantomimeEndpoints
                     {
                         return Results.BadRequest(new ApiError("Das Skip-Limit muss zwischen 0 und 100 liegen."));
                     }
+                    if (!PantomimeGameService.TryGetPointsPerCorrectTerm(parameters, out _))
+                    {
+                        return Results.BadRequest(new ApiError("Die Punkte pro erratenem Begriff müssen zwischen 0 und 1000 liegen."));
+                    }
 
                     parameters["roundDurationSeconds"] = duration;
                     state = PantomimeGameService.CreateRoundState(
@@ -287,6 +291,11 @@ public static class PantomimeEndpoints
                         break;
                     }
 
+                    if (!PantomimeGameService.TryGetPointsPerCorrectTerm(parameters, out var pointsPerCorrectTerm))
+                    {
+                        return Results.BadRequest(new ApiError("Die Punkte pro erratenem Begriff müssen zwischen 0 und 1000 liegen."));
+                    }
+
                     var teamEntity = await dbContext.Teams
                         .FirstOrDefaultAsync(item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
                     if (teamEntity is null)
@@ -294,12 +303,12 @@ public static class PantomimeEndpoints
                         return Results.Conflict(new ApiError("Das Team existiert nicht mehr."));
                     }
 
-                    teamEntity.Punkte = checked(teamEntity.Punkte + 1);
+                    teamEntity.Punkte = checked(teamEntity.Punkte + pointsPerCorrectTerm);
                     dbContext.TeamPointLogs.Add(new TeamPointLog
                     {
                         ProjektId = projectId,
                         TeamId = teamEntity.Id,
-                        DeltaPoints = 1,
+                        DeltaPoints = pointsPerCorrectTerm,
                         NewTotalPoints = teamEntity.Punkte,
                         Reason = "Pantomime-Begriff vom Moderator als erraten markiert",
                         CreatedAtUtc = now

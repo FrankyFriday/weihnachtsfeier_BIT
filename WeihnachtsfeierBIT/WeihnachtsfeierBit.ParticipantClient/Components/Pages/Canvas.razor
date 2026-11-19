@@ -1,13 +1,13 @@
 @page "/beamer/{Code}"
 @page "/canvas/{Code}"
 @layout WeihnachtsfeierBit.ParticipantClient.Components.Layout.CanvasLayout
-@using System.Text.Json
 @using System.Text
 @using System.Globalization
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.JSInterop
 @using QRCoder
 @using WeihnachtsfeierBit.Framework
+@using WeihnachtsfeierBit.ParticipantClient.Components.CanvasSlides
 @implements IAsyncDisposable
 @inject ProjectApiClient ProjectApiClient
 @inject IConfiguration Configuration
@@ -37,10 +37,17 @@
     else if (_state is not null)
     {
         var displaySettings = _state.DisplaySettings ?? CanvasDisplaySettings.Default;
+        var activeTeam = _state.ActiveTeamId is Guid activeTeamId
+            ? _state.Teams.FirstOrDefault(team => team.Id == activeTeamId)
+            : null;
+        var showActiveTeam = displaySettings.ShowActiveTeam && activeTeam is not null;
+        var showHeader = displaySettings.ShowProjectTitle ||
+                         showActiveTeam ||
+                         (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
+                          !string.IsNullOrEmpty(_qrCodeDataUri));
 
-        @if (displaySettings.ShowProjectTitle ||
-             (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
-              !string.IsNullOrEmpty(_qrCodeDataUri)))
+        <div class="canvas-surface @(showHeader ? "has-header" : null)">
+        @if (showHeader)
         {
             <header class="canvas-header">
                 @if (displaySettings.ShowProjectTitle)
@@ -49,15 +56,20 @@
                         <h1>@_state.ProjectName</h1>
                     </div>
                 }
+                @if (showActiveTeam)
+                {
+                    <div class="canvas-active-team" aria-live="polite">
+                        <span>JETZT AM ZUG</span>
+                        <strong>Team @activeTeam!.DisplayName</strong>
+                    </div>
+                }
                 <div class="canvas-header-actions">
                     @if (displaySettings.QrCodeMode == CanvasDisplaySettings.QrCodeCard &&
                          !string.IsNullOrEmpty(_qrCodeDataUri))
                     {
                         <aside class="canvas-join-card" aria-label="Session beitreten">
                             <div class="canvas-join-copy">
-                                <span>MITMACHEN</span>
-                                <strong>QR-Code scannen</strong>
-                                <small>Session-Code: @Code</small>
+                                <strong>@Code</strong>
                             </div>
                             <img class="canvas-join-qr" src="@_qrCodeDataUri" alt="QR-Code zum Beitreten zur Session" />
                         </aside>
@@ -68,7 +80,7 @@
 
         <div class="canvas-content scoreboard-@displaySettings.ScoreboardLayout">
             <section class="canvas-event" aria-live="polite" @ref="_eventContainerElement">
-                <div class="canvas-event-fit" @ref="_eventContentElement">
+                <div class="canvas-event-fit @(_state.Event is null ? null : "has-event")" @ref="_eventContentElement">
                     @if (_state.Event is CanvasEventState activeEvent)
                     {
                         var workflow = QuestionWorkflowViewState.Read(activeEvent.Parameters);
@@ -76,130 +88,8 @@
                         {
                             <div class="canvas-event-type">@GetEventTypeLabel(activeEvent.SlideType)</div>
                         }
-                        <h2>@GetEventHeading(activeEvent)</h2>
-                        @if ((activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase)
-                                || activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
-                            && (workflow.TimerEndsAtUtc.HasValue || workflow.TimerPaused))
-                        {
-                            <QuestionWorkflowTimer TimerEndsAtUtc="workflow.TimerEndsAtUtc" TimerPaused="workflow.TimerPaused" RemainingSeconds="workflow.RemainingSeconds" />
-                        }
-                        @if (activeEvent.SlideType.Equals("announcement", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "message")</p>
-                        }
-                        else if (activeEvent.SlideType.Equals("poll", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var options = ReadStringList(activeEvent.Parameters, "options");
-                            @if (options.Length > 0)
-                            {
-                                <ol class="canvas-options">
-                                    @foreach (var option in options)
-                                    {
-                                        <li>@option</li>
-                                    }
-                                </ol>
-                            }
-                        }
-                        else if (activeEvent.SlideType.Equals("quiz", StringComparison.OrdinalIgnoreCase))
-                        {
-                            @if (workflow.Phase == "answers" || workflow.Phase == "results")
-                            {
-                                var answers = ReadStringList(activeEvent.Parameters, "answers");
-                                var correctIndices = ReadIntList(activeEvent.Parameters, "correctAnswerIndices");
-                                <ol class="canvas-options">
-                                    @for (var index = 0; index < answers.Length; index++)
-                                    {
-                                        <li class="@(workflow.Phase == "results" && correctIndices.Contains(index) ? "is-correct" : null)">@answers[index]</li>
-                                    }
-                                </ol>
-                            }
-                            @if (workflow.Phase == "results" && !string.IsNullOrWhiteSpace(ReadString(activeEvent.Parameters, "explanation")))
-                            {
-                                <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "explanation")</p>
-                            }
-                        }
-                        else if (activeEvent.SlideType.Equals("estimation", StringComparison.OrdinalIgnoreCase))
-                        {
-                            @if (workflow.Phase == "results")
-                            {
-                                <p class="canvas-unit">@ReadDouble(activeEvent.Parameters, "correctValue").ToString("G", CultureInfo.CurrentCulture) @ReadString(activeEvent.Parameters, "unit")</p>
-                                @if (!string.IsNullOrWhiteSpace(ReadString(activeEvent.Parameters, "explanation")))
-                                {
-                                    <p class="canvas-message-text">@ReadString(activeEvent.Parameters, "explanation")</p>
-                                }
-                            }
-                            else
-                            {
-                                <p class="canvas-unit">@ReadString(activeEvent.Parameters, "unit")</p>
-                            }
-                        }
-                        else if (activeEvent.SlideType.Equals("ranking", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <div style="margin-top: 16px; width: 100%;">
-                                <FrameworkChart Teams="_mappedTeams" ChartType="@GetChartType(activeEvent)" PointLogs="_state.PointLogs" />
-                            </div>
-                        }
-                        else if (activeEvent.SlideType.Equals("jeopardy", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <JeopardyBoardView Parameters="activeEvent.Parameters" Large="true" />
-                        }
-                        else if (activeEvent.SlideType.Equals("pantomime", StringComparison.OrdinalIgnoreCase))
-                        {
-                            <PantomimeCanvasView Parameters="activeEvent.Parameters" />
-                        }
-                        else if (activeEvent.SlideType.Equals("hitster", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var game = ReadObject(activeEvent.Parameters, "game");
-                            @if (ReadBool(game, "started"))
-                            {
-                                @if (ReadBool(game, "finished"))
-                                {
-                                    <p class="canvas-message-text">
-                                        @if (ReadStringList(game, "winnerNames") is { Length: > 0 } winners)
-                                        {
-                                            <span>Spiel beendet · @string.Join(", ", winners) @(winners.Length == 1 ? "hat" : "haben") gewonnen.</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Spiel beendet.</span>
-                                        }
-                                    </p>
-                                }
-                                else
-                                {
-                                    <p class="canvas-message-text">Runde @ReadInt(game, "round") · @ReadString(game, "currentTeamName") ist dran</p>
-                                }
-                                @if (ReadString(game, "phase") == "revealed")
-                                {
-                                    var song = ReadObject(game, "currentSong");
-                                    <h3>@ReadString(song, "title") · @ReadString(song, "artist") (@ReadInt(song, "year"))</h3>
-                                }
-                                <div class="canvas-hitster-teams">
-                                    @if (game.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
-                                    {
-                                        @foreach (var team in teams.EnumerateArray())
-                                        {
-                                            <div>
-                                                <strong>@ReadString(team, "name")</strong>
-                                                <ol class="canvas-options">
-                                                    @if (team.TryGetProperty("timeline", out var timeline) && timeline.ValueKind == JsonValueKind.Array)
-                                                    {
-                                                        @foreach (var card in timeline.EnumerateArray())
-                                                        {
-                                                            <li>@ReadString(card, "title") · @ReadInt(card, "year")</li>
-                                                        }
-                                                    }
-                                                </ol>
-                                            </div>
-                                        }
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <p class="canvas-message-text">Die Spielleitung bereitet Hitster vor.</p>
-                            }
-                        }
+                        var transitionKey = $"{activeEvent.EventId}:{activeEvent.SlideId}:{activeEvent.SlideType}:{workflow.Phase}";
+                        <CanvasSlideView @key="transitionKey" Event="activeEvent" Teams="_mappedTeams" PointLogs="_state.PointLogs" />
                     }
                     else
                     {
@@ -219,11 +109,6 @@
                     <div class="canvas-scoreboard-fit" @ref="_scoreboardContentElement">
                         <div class="canvas-scoreboard-heading">
                             <div class="canvas-event-type">PUNKTSTAND</div>
-                            <h2>Teams</h2>
-                            @if (_state.Teams.Length > 0)
-                            {
-                                <p>@_state.Teams.Length @(_state.Teams.Length == 1 ? "Team" : "Teams") im Wettbewerb</p>
-                            }
                         </div>
                         @if (_state.Teams.Length == 0)
                         {
@@ -231,7 +116,7 @@
                         }
                         else
                         {
-                            <div style="margin-top: 12px;">
+                            <div class="canvas-scoreboard-chart">
                                 <FrameworkChart Teams="_mappedTeams" ChartType="bar_chart" />
                             </div>
                         }
@@ -276,6 +161,7 @@
                 </div>
             </aside>
         }
+        </div>
     }
 </main>
 
@@ -310,6 +196,7 @@
             var eventScale = settings.EventScalePercent / 100d;
             var scoreboardScale = settings.ScoreboardScalePercent / 100d;
             return $"--canvas-font-scale:{Scale(settings.FontScalePercent)};" +
+                   $"--canvas-spacing-scale:{Scale(settings.SpacingScalePercent)};" +
                    $"--canvas-event-scale:{Scale(settings.FontScalePercent, settings.EventScalePercent)};" +
                    $"--canvas-scoreboard-scale:{Scale(settings.FontScalePercent, settings.ScoreboardScalePercent)};" +
                    $"--canvas-qr-scale:{Scale(settings.QrCodeScalePercent)};" +
@@ -332,7 +219,7 @@
         value.ToString("0.####", CultureInfo.InvariantCulture);
 
     private TeamSummary[] _mappedTeams =>
-        _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, "#105c4d", t.Points)).ToArray() ?? [];
+        _state?.Teams.Select(t => new TeamSummary(t.Id, t.DisplayName, t.Color, t.Points)).ToArray() ?? [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -534,12 +421,6 @@
         }
     }
 
-    private static string GetChartType(CanvasEventState activeEvent)
-    {
-        var chartType = ReadString(activeEvent.Parameters, "chartType");
-        return !string.IsNullOrEmpty(chartType) ? chartType : "bar_chart";
-    }
-
     private static string GetEventTypeLabel(string slideType) => slideType.ToLowerInvariant() switch
     {
         "announcement" => "ANKÜNDIGUNG",
@@ -551,87 +432,15 @@
         "hitster" => "HITSTER · SPOTIFY",
         "jeopardy" => "JEOPARDY",
         "pantomime" => "PANTOMIME",
+        "pointaward" => "PUNKTEVERGABE",
+        "text" => "FREITEXT",
+        "wordcloud" => "WORTWOLKE",
+        "slider" => "SCHIEBEREGLER",
+        "rating" => "BEWERTUNG",
+        "ordering" => "REIHENFOLGE",
+        "countdown" => "COUNTDOWN",
         _ => "EVENT"
     };
-
-    private static string GetEventHeading(CanvasEventState activeEvent)
-    {
-        var parameterName = activeEvent.SlideType.ToLowerInvariant() switch
-        {
-            "announcement" => "title",
-            "poll" => "question",
-            "quiz" => "question",
-            "estimation" => "question",
-            "buzzer" => "question",
-            "jeopardy" => "title",
-            _ => string.Empty
-        };
-
-        return string.IsNullOrEmpty(parameterName)
-            ? activeEvent.Title
-            : ReadString(activeEvent.Parameters, parameterName) is { Length: > 0 } heading
-                ? heading
-                : activeEvent.Title;
-    }
-
-    private static string ReadString(JsonElement parameters, string propertyName) =>
-        parameters.ValueKind == JsonValueKind.Object &&
-        parameters.TryGetProperty(propertyName, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
-
-    private static JsonElement ReadObject(JsonElement parameters, string propertyName) =>
-        parameters.ValueKind == JsonValueKind.Object &&
-        parameters.TryGetProperty(propertyName, out var value) &&
-        value.ValueKind == JsonValueKind.Object ? value : default;
-
-    private static int ReadInt(JsonElement parameters, string propertyName) =>
-        parameters.ValueKind == JsonValueKind.Object &&
-        parameters.TryGetProperty(propertyName, out var value) &&
-        value.TryGetInt32(out var result) ? result : 0;
-
-    private static double ReadDouble(JsonElement parameters, string propertyName) =>
-        parameters.ValueKind == JsonValueKind.Object
-        && parameters.TryGetProperty(propertyName, out var value)
-        && value.TryGetDouble(out var result)
-            ? result
-            : 0;
-
-    private static int[] ReadIntList(JsonElement parameters, string propertyName)
-    {
-        if (parameters.ValueKind != JsonValueKind.Object
-            || !parameters.TryGetProperty(propertyName, out var value)
-            || value.ValueKind != JsonValueKind.Array)
-        {
-            return [];
-        }
-
-        return value.EnumerateArray()
-            .Where(item => item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out _))
-            .Select(item => item.GetInt32())
-            .ToArray();
-    }
-
-    private static bool ReadBool(JsonElement parameters, string propertyName) =>
-        parameters.ValueKind == JsonValueKind.Object &&
-        parameters.TryGetProperty(propertyName, out var value) &&
-        value.ValueKind == JsonValueKind.True;
-
-    private static string[] ReadStringList(JsonElement parameters, string propertyName)
-    {
-        if (parameters.ValueKind != JsonValueKind.Object ||
-            !parameters.TryGetProperty(propertyName, out var value) ||
-            value.ValueKind != JsonValueKind.Array)
-        {
-            return [];
-        }
-
-        return value.EnumerateArray()
-            .Where(item => item.ValueKind == JsonValueKind.String)
-            .Select(item => item.GetString() ?? string.Empty)
-            .ToArray();
-    }
 
     public async ValueTask DisposeAsync()
     {

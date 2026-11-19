@@ -328,9 +328,16 @@ public partial class ModerationSidebar : ComponentBase
     private Task OnShowEventTypeLabelChangedAsync(bool value) =>
         SaveCanvasSettingsAsync(_draftCanvasSettings with { ShowEventTypeLabel = value });
 
+    private Task OnShowActiveTeamChangedAsync(bool value) =>
+        SaveCanvasSettingsAsync(_draftCanvasSettings with { ShowActiveTeam = value });
+
     private Task AdjustFontScaleAsync(int delta) =>
         AdjustCanvasScaleAsync(value => _draftCanvasSettings with { FontScalePercent = value },
             _draftCanvasSettings.FontScalePercent, delta);
+
+    private Task AdjustSpacingScaleAsync(int delta) =>
+        AdjustCanvasScaleAsync(value => _draftCanvasSettings with { SpacingScalePercent = value },
+            _draftCanvasSettings.SpacingScalePercent, delta);
 
     private Task AdjustEventScaleAsync(int delta) =>
         AdjustCanvasScaleAsync(value => _draftCanvasSettings with { EventScalePercent = value },

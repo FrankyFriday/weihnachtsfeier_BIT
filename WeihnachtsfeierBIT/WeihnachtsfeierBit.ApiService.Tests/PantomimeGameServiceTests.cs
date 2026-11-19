@@ -7,6 +7,25 @@ namespace WeihnachtsfeierBit.ApiService.Tests;
 public sealed class PantomimeGameServiceTests
 {
     [Fact]
+    public void TryGetPointsPerCorrectTerm_UsesLegacyDefaultAndRejectsOutOfRangeValues()
+    {
+        Assert.True(PantomimeGameService.TryGetPointsPerCorrectTerm(new JsonObject(), out var defaultPoints));
+        Assert.Equal(1, defaultPoints);
+
+        Assert.True(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = 25 },
+            out var configuredPoints));
+        Assert.Equal(25, configuredPoints);
+
+        Assert.False(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = -1 },
+            out _));
+        Assert.False(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = 1001 },
+            out _));
+    }
+
+    [Fact]
     public void CreateRoundState_AssignsDifferentRandomTermsToAllTeams()
     {
         var startedAt = new DateTime(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);

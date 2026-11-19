@@ -59,6 +59,14 @@ public static class SessionControlEndpoints
             return false;
         }
 
+        if (parameters.TryGetProperty("pointsPerCorrectTerm", out var pointsPerCorrectTerm)
+            && (pointsPerCorrectTerm.ValueKind != JsonValueKind.Number
+                || !pointsPerCorrectTerm.TryGetInt32(out var points)
+                || points is < 0 or > PantomimeGameService.MaximumPointsPerCorrectTerm))
+        {
+            return false;
+        }
+
         var cleanTerms = terms.EnumerateArray()
             .Where(term => term.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(term.GetString()))
             .Select(term => term.GetString()!.Trim())
@@ -946,6 +954,7 @@ public static class SessionControlEndpoints
                 workflow["timerEndsAtUtc"] = null;
                 workflow["timerPaused"] = false;
                 workflow["remainingSeconds"] = 0;
+                workflow["timerDurationSeconds"] = 0;
                 workflow["phaseStartedAtUtc"] = now.ToString("O");
                 recalculateScore = true;
                 break;

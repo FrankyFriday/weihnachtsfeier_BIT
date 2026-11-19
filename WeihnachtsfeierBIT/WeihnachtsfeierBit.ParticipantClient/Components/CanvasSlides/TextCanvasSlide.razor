@@ -1,0 +1,11 @@
+<section class="canvas-slide canvas-slide-text">
+    <span class="canvas-slide-icon" aria-hidden="true">“</span>
+    <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+    @if (!string.IsNullOrWhiteSpace(CanvasSlideData.ReadString(Parameters, "placeholder")))
+    {
+        <p class="canvas-slide-copy">@CanvasSlideData.ReadString(Parameters, "placeholder")</p>
+    }
+    <div class="canvas-text-lines" aria-hidden="true"><span></span><span></span><span></span></div>
+</section>
+
+@inherits CanvasSlideRendererBase

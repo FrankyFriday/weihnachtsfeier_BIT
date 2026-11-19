@@ -63,6 +63,7 @@ public static class QuestionWorkflowService
         workflow["timerEndsAtUtc"] = null;
         workflow["timerPaused"] = false;
         workflow["remainingSeconds"] = 0;
+        workflow["timerDurationSeconds"] = 0;
         return true;
     }
 
@@ -82,6 +83,7 @@ public static class QuestionWorkflowService
         workflow["timerEndsAtUtc"] = null;
         workflow["timerPaused"] = false;
         workflow["remainingSeconds"] = 0;
+        workflow["timerDurationSeconds"] = 0;
         return true;
     }
 
@@ -213,6 +215,7 @@ public static class QuestionWorkflowService
             : null;
         workflow["timerPaused"] = false;
         workflow["remainingSeconds"] = durationSeconds ?? 0;
+        workflow["timerDurationSeconds"] = durationSeconds is > 0 ? durationSeconds.Value : 0;
     }
 
     public static Guid? GetActiveTeamId(GameInstanceEvent gameEvent)
