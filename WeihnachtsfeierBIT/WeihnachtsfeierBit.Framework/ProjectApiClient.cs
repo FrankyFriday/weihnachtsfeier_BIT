@@ -736,6 +736,13 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task ReorderSessionEventsAsync(string accessToken, Guid projectId, IReadOnlyList<Guid> eventIds, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, $"/api/projects/{projectId}/session/events/order", accessToken, new { eventIds });
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task SetCanvasDisplaySettingsAsync(
         string accessToken,
         Guid projectId,
@@ -1450,7 +1457,8 @@ public sealed record EventState(
     bool IsPaused = false,
     DateTime? LastResumedAtUtc = null,
     Guid? ActiveTeamId = null,
-    EventNavigationContext? NavigationContext = null);
+    EventNavigationContext? NavigationContext = null,
+    int Position = 0);
 
 public sealed record PantomimeAdminData(
     string Category,

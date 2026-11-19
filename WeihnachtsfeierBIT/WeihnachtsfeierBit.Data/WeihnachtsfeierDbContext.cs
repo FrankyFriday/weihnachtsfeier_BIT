@@ -134,6 +134,7 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
         gameInstanceEvents.Property(gie => gie.Status).HasMaxLength(16).HasDefaultValue("active");
         gameInstanceEvents.Property(gie => gie.NavigationMode).HasMaxLength(32).HasDefaultValue("host_controlled");
         gameInstanceEvents.Property(gie => gie.SlidesJson).HasColumnType("jsonb").IsRequired();
+        gameInstanceEvents.HasIndex(gie => new { gie.GameInstanceId, gie.Position });
         gameInstanceEvents.HasOne(gie => gie.GameInstance)
             .WithMany(gi => gi.Events)
             .HasForeignKey(gie => gie.GameInstanceId)

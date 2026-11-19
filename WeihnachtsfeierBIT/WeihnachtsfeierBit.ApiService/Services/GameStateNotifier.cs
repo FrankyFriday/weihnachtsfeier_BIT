@@ -142,12 +142,12 @@ public sealed class GameStateNotifier(
                 activeEvent = ToEventState(activeGie, teamParticipantIds);
             }
 
-            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive"))
+            foreach (var passiveGie in liveEvents.Where(e => e.Mode == "passive").OrderBy(e => e.Position).ThenBy(e => e.StartedAtUtc))
             {
                 passiveEvents.Add(ToEventState(passiveGie, teamParticipantIds));
             }
 
-            foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled").OrderBy(e => e.ScheduledStartUtc))
+            foreach (var schedGie in instance.Events.Where(e => e.Status == "scheduled").OrderBy(e => e.Position).ThenBy(e => e.ScheduledStartUtc))
             {
                 scheduledEvents.Add(ToEventState(schedGie, teamParticipantIds));
             }
@@ -319,6 +319,7 @@ public sealed class GameStateNotifier(
             gie.IsPaused,
             gie.LastResumedAtUtc,
             ActiveTeamId: activeTeamId,
-            NavigationContext: navContext);
+            NavigationContext: navContext,
+            Position: gie.Position);
     }
 }

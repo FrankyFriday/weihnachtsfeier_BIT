@@ -24,6 +24,9 @@ public class GameInstanceEvent
 
     public int CurrentSlideIndex { get; set; } = 0;
 
+    // Moderator-defined order shared by the live dashboard and participant program view.
+    public int Position { get; set; }
+
     public bool IsHidden { get; set; }
 
     public DateTime? ScheduledStartUtc { get; set; }

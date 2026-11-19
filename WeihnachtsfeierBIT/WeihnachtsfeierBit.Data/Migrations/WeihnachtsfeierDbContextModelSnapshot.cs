@@ -265,6 +265,9 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .HasColumnType("character varying(32)")
                         .HasDefaultValue("host_controlled");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("ScheduledStartUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -294,7 +297,7 @@ namespace WeihnachtsfeierBit.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GameInstanceId");
+                    b.HasIndex("GameInstanceId", "Position");
 
                     b.ToTable("GameInstanceEvents");
                 });

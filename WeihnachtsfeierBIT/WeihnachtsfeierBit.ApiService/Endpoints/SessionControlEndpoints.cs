@@ -24,6 +24,7 @@ public static class SessionControlEndpoints
         admin.MapPost("/session/events/{eventId:guid}/slides/{slideId:guid}/workflow", UpdateQuestionWorkflowAsync).WithName("UpdateQuestionWorkflow");
         admin.MapPut("/session/events/{eventId:guid}/mode", UpdateEventModeAsync).WithName("UpdateEventMode");
         admin.MapPut("/session/events/{eventId:guid}/close", CloseEventAsync).WithName("CloseEvent");
+        admin.MapPut("/session/events/order", ReorderSessionEventsAsync).WithName("ReorderSessionEvents");
         admin.MapPut("/session/canvas", SetCanvasEventAsync).WithName("SetCanvasEvent");
         admin.MapPut("/session/canvas-settings", SetCanvasDisplaySettingsAsync).WithName("SetCanvasDisplaySettings");
         admin.MapPost("/session/events", CreateSpontaneousEventAsync).WithName("CreateSpontaneousEvent");
@@ -188,6 +189,7 @@ public static class SessionControlEndpoints
             IsHidden = isHidden,
             ScheduledStartUtc = schedUtc,
             AutoStartOnSchedule = autoStart,
+            Position = SessionEventOrderService.NextPosition(instance.Events),
             SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 
@@ -387,6 +389,7 @@ public static class SessionControlEndpoints
             IsHidden = isHidden,
             ScheduledStartUtc = schedUtc,
             AutoStartOnSchedule = autoStart,
+            Position = SessionEventOrderService.NextPosition(instance.Events),
             SlidesJson = JsonSerializer.Serialize(slidesPayload)
         };
 
@@ -549,6 +552,48 @@ public static class SessionControlEndpoints
         }
 
         instance.ActiveCanvasEventId = request.EventId;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
+
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> ReorderSessionEventsAsync(
+        Guid projectId,
+        ReorderSessionEventsRequest request,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        IGameStateNotifier gameStateNotifier,
+        CancellationToken cancellationToken)
+    {
+        var access = (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+        if (!access.CanControlSession)
+        {
+            return Results.BadRequest(new ApiError("Du hast keine Berechtigung, die Reihenfolge der Events zu ändern."));
+        }
+
+        if (request.EventIds is not { Length: > 0 })
+        {
+            return Results.BadRequest(new ApiError("Die neue Reihenfolge enthält keine Events."));
+        }
+
+        var instance = await dbContext.GameInstances
+            .Include(gi => gi.Events)
+            .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
+        if (instance is null)
+        {
+            return Results.BadRequest(new ApiError("Keine aktive Play-Session vorhanden."));
+        }
+
+        var openEvents = instance.Events
+            .Where(gameEvent => gameEvent.Status is "active" or "scheduled")
+            .ToList();
+        var error = SessionEventOrderService.TryApplyOrder(openEvents, request.EventIds);
+        if (error is not null)
+        {
+            return Results.BadRequest(new ApiError(error));
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await gameStateNotifier.NotifyProjectChangedAsync(projectId, cancellationToken);
 
