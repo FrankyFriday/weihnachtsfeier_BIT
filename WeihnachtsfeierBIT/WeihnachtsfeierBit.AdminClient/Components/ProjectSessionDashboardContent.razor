@@ -45,7 +45,9 @@
                                   SelectedTabId="@_state.SelectedTabId"
                                   OnSelectTab="tabId => _state.SelectTab(tabId)"
                                   AddContentOptions="_addContentOptions"
-                                  OnAddContentSelect="HandleAddContentSelect" />
+                                  OnAddContentSelect="HandleAddContentSelect"
+                                  OnReorder="order => _state.ReorderEventsAsync(order)"
+                                  IsProcessing="_state.IsProcessing" />
 
                     @if (_state.SelectedTabItem is not null)
                     {

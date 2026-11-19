@@ -793,7 +793,10 @@
     box-shadow: 0 2px 6px rgba(25, 123, 103, 0.25);
 }
 
-.live-event-tab-actions { flex: 0 0 auto; }
+.live-event-tab.is-dragging { opacity: .45; }
+.live-event-tab.is-drop-target { border-color: #197b67; border-style: dashed; }
+.live-event-tab[draggable="true"] { cursor: grab; }
+.live-event-tab-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 
 .framework-modal-dialog.session-config-modal {
     max-width: 860px;

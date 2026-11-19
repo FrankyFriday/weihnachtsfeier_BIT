@@ -115,6 +115,8 @@ public sealed record UpdateQuestionWorkflowRequest(
     double? OfficialEstimationValue = null);
 public sealed record SetCanvasEventRequest(Guid? EventId);
 
+public sealed record ReorderSessionEventsRequest(Guid[]? EventIds);
+
 public sealed record ChatGroupSummary(
     Guid Id,
     string Name,

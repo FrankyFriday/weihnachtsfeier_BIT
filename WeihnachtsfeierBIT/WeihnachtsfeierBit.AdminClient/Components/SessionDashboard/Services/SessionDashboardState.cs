@@ -179,22 +179,19 @@ public class SessionDashboardState : IAsyncDisposable
 
         if (SessionState is null) return Task.CompletedTask;
 
+        // Tabs follow the moderator-defined order; the active event is marked but keeps its slot.
+        var events = new List<(EventState Event, string? Icon)>();
         if (SessionState.ActiveEvent is EventState activeEv)
         {
-            bool isBeamer = ActiveCanvasEventId.HasValue && activeEv.EventId == ActiveCanvasEventId.Value;
-            Tabs.Add(new TabItem(activeEv.EventId.ToString(), activeEv.Title, "play_arrow", isBeamer, activeEv));
+            events.Add((activeEv, "play_arrow"));
         }
+        events.AddRange(SessionState.PassiveEvents.Select(ev => (ev, (string?)null)));
+        events.AddRange(SessionState.ScheduledEvents.Select(ev => (ev, (string?)"schedule")));
 
-        foreach (var passEv in SessionState.PassiveEvents)
+        foreach (var (ev, icon) in events.OrderBy(entry => entry.Event.Position).ThenBy(entry => entry.Event.StartedAtUtc))
         {
-            bool isBeamer = ActiveCanvasEventId.HasValue && passEv.EventId == ActiveCanvasEventId.Value;
-            Tabs.Add(new TabItem(passEv.EventId.ToString(), passEv.Title, null, isBeamer, passEv));
-        }
-
-        foreach (var schedEv in SessionState.ScheduledEvents)
-        {
-            bool isBeamer = ActiveCanvasEventId.HasValue && schedEv.EventId == ActiveCanvasEventId.Value;
-            Tabs.Add(new TabItem(schedEv.EventId.ToString(), schedEv.Title, "schedule", isBeamer, schedEv));
+            bool isBeamer = ActiveCanvasEventId.HasValue && ev.EventId == ActiveCanvasEventId.Value;
+            Tabs.Add(new TabItem(ev.EventId.ToString(), ev.Title, icon, isBeamer, ev));
         }
 
         if (SelectedTabId is null || !Tabs.Any(t => t.Id == SelectedTabId))
@@ -363,6 +360,31 @@ public class SessionDashboardState : IAsyncDisposable
             await _runAuthenticated(async token =>
             {
                 await _apiClient.CloseEventAsync(token, ProjectId, eventId);
+                await LoadDataInternalAsync();
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            ActionError = ex.Message;
+        }
+        finally
+        {
+            IsProcessing = false;
+            NotifyStateChanged();
+        }
+    }
+
+    public async Task ReorderEventsAsync(IReadOnlyList<Guid> eventIds)
+    {
+        IsProcessing = true;
+        ActionError = null;
+        NotifyStateChanged();
+
+        try
+        {
+            await _runAuthenticated(async token =>
+            {
+                await _apiClient.ReorderSessionEventsAsync(token, ProjectId, eventIds);
                 await LoadDataInternalAsync();
             });
         }

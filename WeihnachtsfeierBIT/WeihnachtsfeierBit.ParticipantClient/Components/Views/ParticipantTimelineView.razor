@@ -99,12 +99,14 @@
     [Parameter] public EventCallback<EventState> OnSelectPassiveEvent { get; set; }
 
     private (EventState Event, bool IsScheduled)[] TimelineEntries =>
+        // Same moderator-defined order as the live dashboard; the active event is shown separately above.
         (PassiveEvents ?? [])
             .Where(e => !e.IsHidden)
             .Select(e => (Event: e, IsScheduled: false))
             .Concat((ScheduledEvents ?? [])
                 .Where(e => !e.IsHidden)
-                .OrderBy(e => e.ScheduledStartUtc ?? DateTime.MaxValue)
                 .Select(e => (Event: e, IsScheduled: true)))
+            .OrderBy(entry => entry.Event.Position)
+            .ThenBy(entry => entry.Event.StartedAtUtc)
             .ToArray();
 }

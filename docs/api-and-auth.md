@@ -103,6 +103,7 @@ Info-Seiten-Endpunkte liefern ausschließlich Response-DTOs, keine EF-Entitäten
 | `POST /api/projects/{projectId}/session/toggle-pause` | Projektadmin (`CanControlSession`) | Session pausieren / fortsetzen. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}` | Projektadmin (`CanControlSession`) | CurrentSlideIndex, Modus, Pausierung oder Status ändern. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/close` | Projektadmin (`CanControlSession`) | Event beenden. |
+| `PUT /api/projects/{projectId}/session/events/order` | Projektadmin (`CanControlSession`) | Reihenfolge offener Events festlegen; Body `{ "EventIds": [...] }`. Nicht genannte offene Events werden in ihrer bisherigen Reihenfolge hinten angehängt; fremde, beendete oder doppelte IDs werden abgelehnt. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses` | Teilnehmer / Admin | Antwort/Aktion einreichen. |
 | `PUT /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/responses/team` | Teilnehmer des aktiven Teams | Bei Quizfragen nur die eigene Stimme aktualisieren; bei Schätzfragen Beiträge des aktiven Teams gemeinsam bearbeiten. |
 | `POST /api/projects/{projectId}/session/events/{eventId}/slides/{slideId}/workflow` | Projektadmin (`CanControlSession`) | Quiz-/Schätzfrage steuern: Antworten öffnen, sperren oder wieder öffnen, Ergebnis freigeben, zur Frage zurückkehren, Timer pausieren/fortsetzen/zurücksetzen/setzen und im gesperrten Schritt die offizielle Teamantwort bzw. Team-Schätzung festlegen. |

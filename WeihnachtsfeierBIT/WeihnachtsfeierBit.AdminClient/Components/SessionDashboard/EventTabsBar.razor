@@ -2,14 +2,24 @@
 @using WeihnachtsfeierBit.AdminClient.Models
 
 <div class="live-event-tabs">
-    <div class="live-event-tab-list">
+    <div class="live-event-tab-list" role="tablist" aria-label="Events, per Ziehen sortierbar">
         @foreach (var tab in Tabs)
         {
             var selected = tab.Id == SelectedTabId;
+            var tabId = tab.Id;
             <button type="button"
-                    class="live-event-tab @(selected ? "is-active" : null)"
+                    class="live-event-tab @(selected ? "is-active" : null) @(tabId == _draggedTabId ? "is-dragging" : null) @(tabId == _dropTargetTabId && tabId != _draggedTabId ? "is-drop-target" : null)"
+                    role="tab"
                     aria-selected="@selected"
-                    @onclick="() => OnSelectTab.InvokeAsync(tab.Id)">
+                    title="Klicken zum Auswählen, ziehen zum Umsortieren"
+                    draggable="@(CanReorder ? "true" : "false")"
+                    @onclick="() => OnSelectTab.InvokeAsync(tabId)"
+                    @ondragstart="() => StartDrag(tabId)"
+                    @ondragenter="() => _dropTargetTabId = tabId"
+                    @ondragover:preventDefault="true"
+                    @ondrop="() => DropOnAsync(tabId)"
+                    @ondrop:preventDefault="true"
+                    @ondragend="EndDrag">
                 @if (tab.IsBeamerActive)
                 {
                     <span class="material-symbols-outlined" title="Wird aktuell auf dem Beamer angezeigt">present_to_all</span>
@@ -24,6 +34,11 @@
     </div>
 
     <div class="live-event-tab-actions">
+        @if (CanReorder && SelectedIndex >= 0)
+        {
+            <FrameworkIconButton Icon="chevron_left" Title="Ausgewähltes Event nach vorne verschieben" Disabled="@(SelectedIndex == 0)" OnClick="() => MoveSelectedAsync(-1)" />
+            <FrameworkIconButton Icon="chevron_right" Title="Ausgewähltes Event nach hinten verschieben" Disabled="@(SelectedIndex == Tabs.Count - 1)" OnClick="() => MoveSelectedAsync(1)" />
+        }
         <FrameworkContextMenu Label="Inhalt hinzufügen" Icon="add" Variant="primary" AlignRight="true" Options="AddContentOptions" OnSelect="OnAddContentSelect" Class="admin-add-event-btn" />
     </div>
 </div>
@@ -34,4 +49,60 @@
     [Parameter] public EventCallback<string> OnSelectTab { get; set; }
     [Parameter] public FrameworkDropdownOption[] AddContentOptions { get; set; } = [];
     [Parameter] public EventCallback<string> OnAddContentSelect { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<Guid>> OnReorder { get; set; }
+    [Parameter] public bool IsProcessing { get; set; }
+
+    private string? _draggedTabId;
+    private string? _dropTargetTabId;
+
+    private bool CanReorder => OnReorder.HasDelegate && Tabs.Count > 1 && !IsProcessing;
+    private int SelectedIndex => Tabs.FindIndex(tab => tab.Id == SelectedTabId);
+
+    private void StartDrag(string tabId)
+    {
+        if (CanReorder)
+        {
+            _draggedTabId = tabId;
+        }
+    }
+
+    private void EndDrag()
+    {
+        _draggedTabId = null;
+        _dropTargetTabId = null;
+    }
+
+    private async Task DropOnAsync(string targetTabId)
+    {
+        var draggedTabId = _draggedTabId;
+        EndDrag();
+        if (draggedTabId is null || draggedTabId == targetTabId)
+        {
+            return;
+        }
+
+        var from = Tabs.FindIndex(tab => tab.Id == draggedTabId);
+        var to = Tabs.FindIndex(tab => tab.Id == targetTabId);
+        if (from >= 0 && to >= 0)
+        {
+            await MoveAsync(from, to);
+        }
+    }
+
+    private Task MoveSelectedAsync(int offset)
+    {
+        var from = SelectedIndex;
+        var to = from + offset;
+        return from < 0 || to < 0 || to >= Tabs.Count ? Task.CompletedTask : MoveAsync(from, to);
+    }
+
+    private async Task MoveAsync(int from, int to)
+    {
+        // Dropping onto a tab takes over its slot; the tabs in between shift by one.
+        var order = Tabs.Select(tab => tab.Event.EventId).ToList();
+        var moved = order[from];
+        order.RemoveAt(from);
+        order.Insert(to, moved);
+        await OnReorder.InvokeAsync(order);
+    }
 }
