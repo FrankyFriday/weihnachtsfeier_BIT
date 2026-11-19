@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using WeihnachtsfeierBit.ApiService.Contracts;
+using WeihnachtsfeierBit.ApiService.Services;
 using WeihnachtsfeierBit.Data;
 using WeihnachtsfeierBit.Framework;
 
@@ -7,7 +9,8 @@ namespace WeihnachtsfeierBit.ApiService.Auth;
 
 public sealed class ProjectAuthenticationService(
     WeihnachtsfeierDbContext dbContext,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ParticipantEmulatorTicketStore emulatorTicketStore)
 {
     private static readonly TimeSpan AdminSessionLifetime = TimeSpan.FromDays(7);
     private static readonly TimeSpan ParticipantSessionLifetime = TimeSpan.FromDays(1);
@@ -82,8 +85,15 @@ public sealed class ProjectAuthenticationService(
         Guid projectId,
         int number,
         string? userAgent,
+        string? deviceId,
         CancellationToken cancellationToken)
     {
+        var deviceIdHash = HashDeviceId(deviceId, projectId);
+        if (!string.IsNullOrWhiteSpace(deviceId) && deviceIdHash is null)
+        {
+            return (null, "Die Gerätekennung ist ungültig.");
+        }
+
         var activeInstance = await dbContext.GameInstances
             .FirstOrDefaultAsync(gi => gi.ProjektId == projectId, cancellationToken);
 
@@ -105,7 +115,10 @@ public sealed class ProjectAuthenticationService(
             ErstelltAmUtc = now,
             LetzteAktivitaetAmUtc = now,
             LaeuftAbAmUtc = now.Add(ParticipantSessionLifetime),
-            UserAgent = NormalizeUserAgent(userAgent)
+            UserAgent = NormalizeUserAgent(userAgent),
+            DeviceIdHash = deviceIdHash,
+            DeviceName = GetDeviceName(userAgent),
+            CreatedByAdminEmulator = false
         };
         dbContext.Sitzungen.Add(session);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -118,6 +131,8 @@ public sealed class ProjectAuthenticationService(
         string code,
         int number,
         string? userAgent,
+        string? deviceId,
+        string? emulatorTicket,
         CancellationToken cancellationToken)
     {
         var cleanCode = code.Trim();
@@ -131,12 +146,22 @@ public sealed class ProjectAuthenticationService(
         }
 
         var projectId = activeInstance.ProjektId;
+        var deviceIdHash = HashDeviceId(deviceId, projectId);
+        if (!string.IsNullOrWhiteSpace(deviceId) && deviceIdHash is null)
+        {
+            return (null, "Die Gerätekennung ist ungültig.");
+        }
+
         var participant = await dbContext.Teilnehmer.FirstOrDefaultAsync(
             item => item.ProjektId == projectId && item.Nummer == number,
             cancellationToken);
-
         if (participant is null)
         {
+            if (!string.IsNullOrWhiteSpace(emulatorTicket))
+            {
+                return (null, "Das Admin-Emulator-Ticket ist ungültig oder abgelaufen.");
+            }
+
             participant = new Teilnehmer
             {
                 ProjektId = projectId,
@@ -148,8 +173,20 @@ public sealed class ProjectAuthenticationService(
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        var rawToken = ApiToken.Create();
+        var isAdminEmulator = !string.IsNullOrWhiteSpace(emulatorTicket);
         var now = DateTime.UtcNow;
+        if (isAdminEmulator
+            && !emulatorTicketStore.TryConsume(
+                emulatorTicket!,
+                projectId,
+                activeInstance.Id,
+                participant.Id,
+                now))
+        {
+            return (null, "Das Admin-Emulator-Ticket ist ungültig oder abgelaufen.");
+        }
+
+        var rawToken = ApiToken.Create();
         var session = new Sitzung
         {
             TeilnehmerId = participant.Id,
@@ -158,7 +195,10 @@ public sealed class ProjectAuthenticationService(
             ErstelltAmUtc = now,
             LetzteAktivitaetAmUtc = now,
             LaeuftAbAmUtc = now.Add(ParticipantSessionLifetime),
-            UserAgent = NormalizeUserAgent(userAgent)
+            UserAgent = NormalizeUserAgent(userAgent),
+            DeviceIdHash = deviceIdHash,
+            DeviceName = GetDeviceName(userAgent),
+            CreatedByAdminEmulator = isAdminEmulator
         };
         dbContext.Sitzungen.Add(session);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -258,5 +298,61 @@ public sealed class ProjectAuthenticationService(
 
         var trimmed = userAgent.Trim();
         return trimmed.Length > 512 ? trimmed[..512] : trimmed;
+    }
+
+    private static string? HashDeviceId(string? deviceId, Guid projectId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return null;
+        }
+
+        if (!Guid.TryParseExact(deviceId, "D", out var parsed))
+        {
+            return null;
+        }
+
+        var hashInput = new byte[32];
+        projectId.TryWriteBytes(hashInput.AsSpan(0, 16));
+        parsed.TryWriteBytes(hashInput.AsSpan(16, 16));
+        return Convert.ToHexString(SHA256.HashData(hashInput));
+    }
+
+    private static string? GetDeviceName(string? userAgent)
+    {
+        var agent = NormalizeUserAgent(userAgent);
+        if (agent is null)
+        {
+            return null;
+        }
+
+        var browser = agent.Contains("Edg/", StringComparison.OrdinalIgnoreCase)
+            ? "Microsoft Edge"
+            : agent.Contains("Firefox/", StringComparison.OrdinalIgnoreCase)
+                || agent.Contains("FxiOS/", StringComparison.OrdinalIgnoreCase)
+                    ? "Firefox"
+                    : agent.Contains("Chrome/", StringComparison.OrdinalIgnoreCase)
+                        || agent.Contains("CriOS/", StringComparison.OrdinalIgnoreCase)
+                            ? "Chrome"
+                            : agent.Contains("Safari/", StringComparison.OrdinalIgnoreCase)
+                                ? "Safari"
+                                : "Unbekannter Browser";
+
+        var platform = agent.Contains("Android", StringComparison.OrdinalIgnoreCase)
+            ? "Android"
+            : agent.Contains("iPhone", StringComparison.OrdinalIgnoreCase)
+                || agent.Contains("iPad", StringComparison.OrdinalIgnoreCase)
+                || agent.Contains("iPod", StringComparison.OrdinalIgnoreCase)
+                    ? "iOS"
+                    : agent.Contains("Windows", StringComparison.OrdinalIgnoreCase)
+                        ? "Windows"
+                        : agent.Contains("Mac OS X", StringComparison.OrdinalIgnoreCase)
+                            || agent.Contains("Macintosh", StringComparison.OrdinalIgnoreCase)
+                                ? "macOS"
+                                : agent.Contains("Linux", StringComparison.OrdinalIgnoreCase)
+                                    ? "Linux"
+                                    : "Unbekanntes Betriebssystem";
+
+        return $"{browser} · {platform}";
     }
 }

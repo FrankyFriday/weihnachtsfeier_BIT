@@ -91,6 +91,10 @@ public sealed class WeihnachtsfeierDbContext(DbContextOptions<WeihnachtsfeierDbC
             .IsRequired();
         sitzungen.Property(sitzung => sitzung.UserAgent)
             .HasMaxLength(512);
+        sitzungen.Property(sitzung => sitzung.DeviceIdHash)
+            .HasMaxLength(64);
+        sitzungen.Property(sitzung => sitzung.DeviceName)
+            .HasMaxLength(120);
         sitzungen.HasIndex(sitzung => sitzung.TokenHash)
             .IsUnique();
         sitzungen.HasIndex(sitzung => new

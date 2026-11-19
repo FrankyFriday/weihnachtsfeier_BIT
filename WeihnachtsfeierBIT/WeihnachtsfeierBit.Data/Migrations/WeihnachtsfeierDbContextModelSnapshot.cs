@@ -564,6 +564,17 @@ namespace WeihnachtsfeierBit.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("CreatedByAdminEmulator")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DeviceIdHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<DateTime>("ErstelltAmUtc")
                         .HasColumnType("timestamp with time zone");
 

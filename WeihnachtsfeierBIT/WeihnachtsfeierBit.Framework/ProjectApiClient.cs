@@ -248,9 +248,17 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
             ?? throw new InvalidOperationException("Die API hat keinen Session-Code aufgelöst.");
     }
 
-    public async Task<ParticipantSessionResponse> LoginByCodeAsync(string code, int number, CancellationToken cancellationToken = default)
+    public async Task<ParticipantSessionResponse> LoginByCodeAsync(
+        string code,
+        int number,
+        string? deviceId = null,
+        string? emulatorTicket = null,
+        CancellationToken cancellationToken = default)
     {
-        using var response = await httpClient.PostAsJsonAsync("/api/participant-sessions/by-code", new { code, number }, cancellationToken);
+        using var response = await httpClient.PostAsJsonAsync(
+            "/api/participant-sessions/by-code",
+            new { code, number, deviceId, emulatorTicket },
+            cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ParticipantSessionResponse>(cancellationToken)
             ?? throw new InvalidOperationException("Die API hat keine Sitzung zurückgegeben.");
@@ -314,6 +322,33 @@ public sealed class ProjectApiClient(HttpClient httpClient, Services.ClientDiagn
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<SessionSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<ActiveParticipantDeviceSummary[]> GetActiveParticipantDevicesAsync(
+        string accessToken,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"/api/projects/{projectId}/active-participant-devices", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ActiveParticipantDeviceSummary[]>(cancellationToken) ?? [];
+    }
+
+    public async Task<ParticipantEmulatorTicketResponse> CreateParticipantEmulatorTicketAsync(
+        string accessToken,
+        Guid projectId,
+        Guid participantId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/projects/{projectId}/participants/{participantId}/emulator-ticket",
+            accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ParticipantEmulatorTicketResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("Die API hat kein Emulator-Ticket zurückgegeben.");
     }
 
     public async Task RevokeParticipantSessionAsync(
@@ -1323,7 +1358,26 @@ public sealed record SessionSummary(
     DateTime CreatedAtUtc,
     DateTime LastActivityAtUtc,
     DateTime ExpiresAtUtc,
-    string? UserAgent);
+    string? UserAgent,
+    string? DeviceName = null,
+    bool CreatedByAdminEmulator = false);
+public sealed record ActiveParticipantDeviceSummary(
+    string? DeviceKey,
+    string DeviceName,
+    string? UserAgent,
+    DateTime LastActivityAtUtc,
+    int ParticipantCount,
+    int SessionCount,
+    ActiveParticipantDeviceSessionSummary[] Sessions);
+public sealed record ActiveParticipantDeviceSessionSummary(
+    Guid SessionId,
+    Guid ParticipantId,
+    int ParticipantNumber,
+    string? ParticipantName,
+    DateTime CreatedAtUtc,
+    DateTime LastActivityAtUtc,
+    bool CreatedByAdminEmulator);
+public sealed record ParticipantEmulatorTicketResponse(string Ticket, DateTime ExpiresAtUtc);
 public sealed record CreateParticipantRequest(int Number, string? Name, Guid? TeamId);
 public sealed record UpdateParticipantRequest(string? Name, Guid? TeamId, int? Number);
 public sealed record GenerateParticipantsRequest(int Count, int Digits, Guid? TeamId);

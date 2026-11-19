@@ -64,6 +64,9 @@ public partial class ModerationSidebar : ComponentBase
 
     private ParticipantSummary? _selectedEmulatorParticipant;
     private long _emulatorTicks = DateTime.UtcNow.Ticks;
+    private string? _emulatorTicket;
+    private string? _emulatorTicketError;
+    private string? _emulatorTicketRequestKey;
 
     private bool _isZwischenstandDropdownOpen;
     private bool _isCanvasSettingsSaving;
@@ -161,6 +164,40 @@ public partial class ModerationSidebar : ComponentBase
         }
     }
 
+    private async Task EnsureEmulatorTicketAsync()
+    {
+        if (_selectedEmulatorParticipant is null
+            || Instance is null
+            || string.IsNullOrWhiteSpace(AccessToken))
+        {
+            return;
+        }
+
+        var requestKey = $"{ProjectId:N}:{Instance.Id:N}:{_selectedEmulatorParticipant.Id:N}:{_emulatorTicks}";
+        if (_emulatorTicketRequestKey == requestKey)
+        {
+            return;
+        }
+
+        _emulatorTicketRequestKey = requestKey;
+        _emulatorTicket = null;
+        _emulatorTicketError = null;
+        try
+        {
+            var ticket = await ProjectApiClient.CreateParticipantEmulatorTicketAsync(
+                AccessToken,
+                ProjectId,
+                _selectedEmulatorParticipant.Id);
+            _emulatorTicket = ticket.Ticket;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _emulatorTicketError = exception.Message;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
     private Task SelectCompartment(string compartment)
     {
         _activeCompartment = compartment;
@@ -192,6 +229,8 @@ public partial class ModerationSidebar : ComponentBase
     {
         _selectedEmulatorParticipant = p;
         _emulatorTicks = DateTime.UtcNow.Ticks;
+        _emulatorTicket = null;
+        _emulatorTicketError = null;
         _activeCompartment = "emulator";
         _isDrawerOpen = true;
         await OnDrawerStateChanged.InvokeAsync(true);
@@ -274,6 +313,8 @@ public partial class ModerationSidebar : ComponentBase
             {
                 _selectedEmulatorParticipant = match;
                 _emulatorTicks = DateTime.UtcNow.Ticks;
+                _emulatorTicket = null;
+                _emulatorTicketError = null;
             }
         }
     }
@@ -382,6 +423,8 @@ public partial class ModerationSidebar : ComponentBase
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await EnsureEmulatorTicketAsync();
+
         try
         {
             _drawerResizeModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(

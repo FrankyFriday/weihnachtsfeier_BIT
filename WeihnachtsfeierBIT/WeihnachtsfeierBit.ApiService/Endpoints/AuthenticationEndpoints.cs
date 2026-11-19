@@ -51,6 +51,10 @@ public static class AuthenticationEndpoints
             .WithName("GetParticipantSessions");
         admin.MapDelete("/participants/{participantId:guid}/sessions/{sessionId:guid}", RevokeParticipantSessionAsync)
             .WithName("RevokeParticipantSession");
+        admin.MapGet("/active-participant-devices", GetActiveParticipantDevicesAsync)
+            .WithName("GetActiveParticipantDevices");
+        admin.MapPost("/participants/{participantId:guid}/emulator-ticket", CreateParticipantEmulatorTicketAsync)
+            .WithName("CreateParticipantEmulatorTicket");
 
         reader.MapGet("/me/sessions", GetMySessionsAsync).WithName("GetMySessions");
         reader.MapDelete("/me/sessions/{sessionId:guid}", RevokeMySessionAsync).WithName("RevokeMySession");
@@ -85,8 +89,17 @@ public static class AuthenticationEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        if (!IsValidDeviceId(request.DeviceId))
+        {
+            return Results.BadRequest(new ApiError("Die Gerätekennung ist ungültig."));
+        }
+
         var result = await authentication.LoginParticipantAsync(
-            projectId, request.Number, httpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
+            projectId,
+            request.Number,
+            httpContext.Request.Headers.UserAgent.ToString(),
+            request.DeviceId,
+            cancellationToken);
         return result.Session is null
             ? Results.Unauthorized()
             : Results.Ok(result.Session);
@@ -98,8 +111,18 @@ public static class AuthenticationEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        if (!IsValidDeviceId(request.DeviceId))
+        {
+            return Results.BadRequest(new ApiError("Die Gerätekennung ist ungültig."));
+        }
+
         var result = await authentication.LoginParticipantByCodeAsync(
-            request.Code, request.Number, httpContext.Request.Headers.UserAgent.ToString(), cancellationToken);
+            request.Code,
+            request.Number,
+            httpContext.Request.Headers.UserAgent.ToString(),
+            request.DeviceId,
+            request.EmulatorTicket,
+            cancellationToken);
         return result.Session is null
             ? Results.BadRequest(new ApiError(result.Error ?? "Login fehlgeschlagen."))
             : Results.Ok(result.Session);
@@ -281,9 +304,103 @@ public static class AuthenticationEndpoints
                 session.WiderrufenAmUtc == null && session.LaeuftAbAmUtc > now)
             .OrderByDescending(session => session.LetzteAktivitaetAmUtc)
             .Select(session => new SessionSummary(session.Id, session.TeilnehmerId, session.ErstelltAmUtc,
-                session.LetzteAktivitaetAmUtc, session.LaeuftAbAmUtc, session.UserAgent))
+                session.LetzteAktivitaetAmUtc, session.LaeuftAbAmUtc, session.UserAgent,
+                session.DeviceName, session.CreatedByAdminEmulator))
             .ToListAsync(cancellationToken);
         return Results.Ok(sessions);
+    }
+
+    private static async Task<IResult> GetActiveParticipantDevicesAsync(
+        Guid projectId,
+        WeihnachtsfeierDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var sessions = await dbContext.Sitzungen.AsNoTracking()
+            .Where(session => session.Teilnehmer.ProjektId == projectId
+                && session.WiderrufenAmUtc == null
+                && session.LaeuftAbAmUtc > now)
+            .OrderByDescending(session => session.LetzteAktivitaetAmUtc)
+            .Select(session => new
+            {
+                session.Id,
+                session.TeilnehmerId,
+                ParticipantNumber = session.Teilnehmer.Nummer,
+                ParticipantName = session.Teilnehmer.Name,
+                session.ErstelltAmUtc,
+                session.LetzteAktivitaetAmUtc,
+                session.DeviceIdHash,
+                session.DeviceName,
+                session.UserAgent,
+                session.CreatedByAdminEmulator
+            })
+            .ToArrayAsync(cancellationToken);
+
+        var devices = sessions
+            .GroupBy(session => session.DeviceIdHash is null
+                ? $"session:{session.Id:N}"
+                : $"device:{session.DeviceIdHash}",
+                StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var deviceSessions = group
+                    .OrderByDescending(session => session.LetzteAktivitaetAmUtc)
+                    .ToArray();
+                var latest = deviceSessions[0];
+                return new ActiveParticipantDeviceSummary(
+                    latest.DeviceIdHash is null ? null : latest.DeviceIdHash[..12],
+                    latest.DeviceName ?? "Gerät nicht erkannt",
+                    latest.UserAgent,
+                    latest.LetzteAktivitaetAmUtc,
+                    deviceSessions.Select(session => session.TeilnehmerId).Distinct().Count(),
+                    deviceSessions.Length,
+                    deviceSessions.Select(session => new ActiveParticipantDeviceSessionSummary(
+                        session.Id,
+                        session.TeilnehmerId,
+                        session.ParticipantNumber,
+                        session.ParticipantName,
+                        session.ErstelltAmUtc,
+                        session.LetzteAktivitaetAmUtc,
+                        session.CreatedByAdminEmulator)).ToArray());
+            })
+            .OrderByDescending(device => device.LastActivityAtUtc)
+            .ToArray();
+
+        return Results.Ok(devices);
+    }
+
+    private static async Task<IResult> CreateParticipantEmulatorTicketAsync(
+        Guid projectId,
+        Guid participantId,
+        HttpContext httpContext,
+        WeihnachtsfeierDbContext dbContext,
+        ParticipantEmulatorTicketStore ticketStore,
+        CancellationToken cancellationToken)
+    {
+        var access = GetAccess(httpContext);
+        if (!access.CanControlSession)
+        {
+            return Results.Forbid();
+        }
+
+        var participantExists = await dbContext.Teilnehmer.AsNoTracking()
+            .AnyAsync(participant => participant.Id == participantId && participant.ProjektId == projectId, cancellationToken);
+        if (!participantExists)
+        {
+            return Results.NotFound();
+        }
+
+        var gameInstanceId = await dbContext.GameInstances.AsNoTracking()
+            .Where(instance => instance.ProjektId == projectId)
+            .Select(instance => (Guid?)instance.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (gameInstanceId is not Guid activeGameInstanceId)
+        {
+            return Results.Conflict(new ApiError("Für dieses Projekt läuft keine aktive Session."));
+        }
+
+        var issuedTicket = ticketStore.Issue(projectId, activeGameInstanceId, participantId, DateTime.UtcNow);
+        return Results.Ok(new ParticipantEmulatorTicketResponse(issuedTicket.Ticket, issuedTicket.ExpiresAtUtc));
     }
 
     private static async Task<IResult> RevokeParticipantSessionAsync(
@@ -323,7 +440,8 @@ public static class AuthenticationEndpoints
             .Where(session => session.TeilnehmerId == participantId)
             .OrderByDescending(session => session.LetzteAktivitaetAmUtc)
             .Select(session => new SessionSummary(session.Id, session.TeilnehmerId, session.ErstelltAmUtc,
-                session.LetzteAktivitaetAmUtc, session.LaeuftAbAmUtc, session.UserAgent))
+                session.LetzteAktivitaetAmUtc, session.LaeuftAbAmUtc, session.UserAgent,
+                session.DeviceName, session.CreatedByAdminEmulator))
             .ToListAsync(cancellationToken);
         return Results.Ok(sessions);
     }
@@ -356,4 +474,7 @@ public static class AuthenticationEndpoints
 
     private static ProjectAccess GetAccess(HttpContext httpContext) =>
         (ProjectAccess)httpContext.Items[RequireProjectAccessFilter.AccessItemKey]!;
+
+    private static bool IsValidDeviceId(string? deviceId) =>
+        string.IsNullOrWhiteSpace(deviceId) || Guid.TryParseExact(deviceId, "D", out _);
 }

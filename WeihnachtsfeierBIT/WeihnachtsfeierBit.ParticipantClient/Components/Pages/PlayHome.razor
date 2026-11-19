@@ -231,9 +231,50 @@ else
         _isSubmitting = true;
         try
         {
+            string? deviceId = null;
+            string? emulatorTicket = null;
+            IJSObjectReference? browserStorage = null;
+            try
+            {
+                browserStorage = await GetBrowserStorageModuleAsync();
+            }
+            catch (JSException exception)
+            {
+                Logger.LogWarning(exception, "Das Browsermodul konnte nicht geladen werden.");
+                Notifications.Show(
+                    "Die Gerätezuordnung ist in diesem Browser nicht verfügbar. Du kannst dich trotzdem anmelden.",
+                    ParticipantToastSeverity.Warning);
+            }
+
+            if (browserStorage is not null)
+            {
+                try
+                {
+                    deviceId = await browserStorage.InvokeAsync<string>("getOrCreateDeviceId");
+                }
+                catch (JSException exception)
+                {
+                    Logger.LogWarning(exception, "Die Browserkennung konnte nicht gespeichert werden.");
+                    Notifications.Show(
+                        "Die Gerätezuordnung ist in diesem Browser nicht verfügbar. Du kannst dich trotzdem anmelden.",
+                        ParticipantToastSeverity.Warning);
+                }
+
+                try
+                {
+                    emulatorTicket = await browserStorage.InvokeAsync<string?>("consumeEmulatorTicketFromFragment");
+                }
+                catch (JSException exception)
+                {
+                    Logger.LogWarning(exception, "Das Emulator-Ticket konnte nicht aus der URL gelesen werden.");
+                }
+            }
+
             var login = await ProjectApiClient.LoginByCodeAsync(
                 _resolvedSession.Code,
-                participantNumber);
+                participantNumber,
+                deviceId,
+                emulatorTicket);
 
             _accessToken = login.AccessToken;
             _participant = await ProjectApiClient.GetCurrentParticipantAsync(_accessToken, ProjectId);

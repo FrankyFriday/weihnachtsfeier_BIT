@@ -23,4 +23,10 @@ public sealed class Sitzung
     public DateTime? WiderrufenAmUtc { get; set; }
 
     public string? UserAgent { get; set; }
+
+    public string? DeviceIdHash { get; set; }
+
+    public string? DeviceName { get; set; }
+
+    public bool CreatedByAdminEmulator { get; set; }
 }

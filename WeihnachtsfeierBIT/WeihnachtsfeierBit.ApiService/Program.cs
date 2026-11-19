@@ -20,6 +20,7 @@ builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.ProjectHubConnectionManager>();
 builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.IGameStateNotifier, WeihnachtsfeierBit.ApiService.Services.GameStateNotifier>();
+builder.Services.AddSingleton<WeihnachtsfeierBit.ApiService.Services.ParticipantEmulatorTicketStore>();
 builder.Services.AddScoped<WeihnachtsfeierBit.ApiService.Services.ChatHubAccessSynchronizer>();
 builder.Services.AddHostedService<WeihnachtsfeierBit.ApiService.Services.ScheduledEventsBackgroundService>();
 

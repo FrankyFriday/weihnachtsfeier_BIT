@@ -67,6 +67,9 @@
                     <button class="participant-primary-button" type="submit" disabled="@IsSubmitting">
                         @(IsSubmitting ? "Wird angemeldet ..." : "Beitreten")
                     </button>
+                    <p style="margin: 12px 0 0; color: #64748b; font-size: 12px; line-height: 1.5;">
+                        Zur Anzeige aktiver Geräte wird eine zufällige Kennung dieses Browsers gespeichert und zusammen mit Browser- und Plattformtyp an die Moderation übermittelt. Es wird kein geräteübergreifender Fingerprint erhoben.
+                    </p>
                     <button class="participant-text-button" type="button" @onclick="OnResetCode">Anderen Code eingeben</button>
                 </form>
             }

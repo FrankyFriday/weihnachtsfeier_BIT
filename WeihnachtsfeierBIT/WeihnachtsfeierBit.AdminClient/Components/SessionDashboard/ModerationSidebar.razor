@@ -74,12 +74,23 @@ else
 
             @if (_selectedEmulatorParticipant is not null && Instance is not null)
             {
-                <div class="phone-frame-container">
-                    <iframe key="@($"{_selectedEmulatorParticipant.Id}_{_emulatorTicks}")"
-                            src="@($"/play/{Instance.AccessCode}?number={_selectedEmulatorParticipant.Number}&_t={_emulatorTicks}")"
-                            class="phone-frame-iframe"
-                            title="Teilnehmer-Handy Emulator"></iframe>
-                </div>
+                @if (!string.IsNullOrWhiteSpace(_emulatorTicket))
+                {
+                    <div class="phone-frame-container">
+                        <iframe key="@($"{_selectedEmulatorParticipant.Id}_{_emulatorTicks}")"
+                                src="@($"/play/{Instance.AccessCode}?number={_selectedEmulatorParticipant.Number}&_t={_emulatorTicks}#emulatorTicket={Uri.EscapeDataString(_emulatorTicket)}")"
+                                class="phone-frame-iframe"
+                                title="Teilnehmer-Handy Emulator"></iframe>
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(_emulatorTicketError))
+                {
+                    <FrameworkNotice Message="@_emulatorTicketError" Severity="error" />
+                }
+                else
+                {
+                    <FrameworkLoading Message="Emulator wird vorbereitet ..." />
+                }
             }
             else
             {
