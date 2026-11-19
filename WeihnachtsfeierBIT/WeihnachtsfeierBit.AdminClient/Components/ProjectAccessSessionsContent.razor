@@ -62,6 +62,53 @@
         </section>
 
         <section class="access-session-section">
+            <h2>Aktive Teilnehmergeräte <span class="access-session-count">@_activeDevices.Length</span></h2>
+            <p class="access-session-description">
+                Sitzungen mit derselben zufälligen Browserkennung werden zusammengefasst. Die Kennung ist kein Geräte-Fingerprint; ältere Sitzungen ohne Kennung erscheinen einzeln.
+            </p>
+
+            @if (_activeDevices.Length == 0)
+            {
+                <p class="access-session-empty">Keine aktiven Teilnehmersitzungen.</p>
+            }
+            else
+            {
+                <div class="access-session-list">
+                    @foreach (var device in _activeDevices)
+                    {
+                        <article class="access-session-device" @key="device.Sessions[0].SessionId">
+                            <div class="access-session-details">
+                                <strong>@device.DeviceName</strong>
+                                <span>@device.ParticipantCount Teilnehmer · @device.SessionCount aktive Sitzungen · zuletzt aktiv: @FormatDate(device.LastActivityAtUtc)</span>
+                                <span>Browserkennung: @(device.DeviceKey ?? "nicht verfügbar")</span>
+                                @if (!string.IsNullOrWhiteSpace(device.UserAgent))
+                                {
+                                    <span class="access-session-user-agent">@device.UserAgent</span>
+                                }
+                                @if (device.ParticipantCount > 1)
+                                {
+                                    <span class="access-session-shared-device">Mehrere Teilnehmer verwenden dieses Gerät</span>
+                                }
+                            </div>
+                            <div class="access-session-device-participants">
+                                @foreach (var session in device.Sessions)
+                                {
+                                    <span class="access-session-device-participant" @key="session.SessionId">
+                                        Nr. @session.ParticipantNumber · @(string.IsNullOrWhiteSpace(session.ParticipantName) ? "Unbenannt" : session.ParticipantName)
+                                        @if (session.CreatedByAdminEmulator)
+                                        {
+                                            <strong class="access-session-emulator">Admin-Emulator</strong>
+                                        }
+                                    </span>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="access-session-section">
             <h2>Teilnehmersitzungen</h2>
             <p class="access-session-description">Wähle einen Teilnehmer aus, um seine aktiven Anmeldungen einzusehen.</p>
 
@@ -109,6 +156,14 @@
                                                     <div class="access-session-details">
                                                         <strong>Angemeldet: @FormatDate(session.CreatedAtUtc)</strong>
                                                         <span>Zuletzt aktiv: @FormatDate(session.LastActivityAtUtc) · Läuft ab: @FormatDate(session.ExpiresAtUtc)</span>
+                                                        @if (!string.IsNullOrWhiteSpace(session.DeviceName))
+                                                        {
+                                                            <span>@session.DeviceName</span>
+                                                        }
+                                                        @if (session.CreatedByAdminEmulator)
+                                                        {
+                                                            <span class="access-session-emulator">Durch Admin-Emulator erstellt</span>
+                                                        }
                                                         @if (!string.IsNullOrWhiteSpace(session.UserAgent))
                                                         {
                                                             <span class="access-session-user-agent">@session.UserAgent</span>
@@ -152,6 +207,7 @@
     [Parameter] public Guid ProjectId { get; set; }
 
     private AdminAccessSessionSummary[] _adminSessions = [];
+    private ActiveParticipantDeviceSummary[] _activeDevices = [];
     private ParticipantSummary[] _participants = [];
     private readonly Dictionary<Guid, SessionSummary[]> _participantSessions = [];
     private Guid? _expandedParticipantId;
@@ -170,9 +226,11 @@
         await LoadAuthenticatedAsync(async token =>
         {
             var adminSessionsTask = ProjectApiClient.GetAdminSessionsAsync(token, ProjectId);
+            var activeDevicesTask = ProjectApiClient.GetActiveParticipantDevicesAsync(token, ProjectId);
             var participantsTask = ProjectApiClient.GetParticipantsAsync(token, ProjectId);
-            await Task.WhenAll(adminSessionsTask, participantsTask);
+            await Task.WhenAll(adminSessionsTask, activeDevicesTask, participantsTask);
             _adminSessions = await adminSessionsTask;
+            _activeDevices = await activeDevicesTask;
             _participants = (await participantsTask).OrderBy(participant => participant.Number).ToArray();
         });
     }
@@ -275,6 +333,8 @@
                     _participantSessions[target.ParticipantId] =
                         sessions.Where(session => session.Id != target.SessionId).ToArray();
                 }
+
+                RemoveParticipantSessionFromDevices(target.SessionId);
             }
 
             _actionNotice = $"Die Sitzung von {target.DisplayName} wurde widerrufen.";
@@ -295,6 +355,23 @@
         _showRevokeConfirmation = false;
         _pendingRevoke = null;
         _revokeError = null;
+    }
+
+    private void RemoveParticipantSessionFromDevices(Guid sessionId)
+    {
+        _activeDevices = _activeDevices
+            .Select(device =>
+            {
+                var sessions = device.Sessions.Where(session => session.SessionId != sessionId).ToArray();
+                return device with
+                {
+                    SessionCount = sessions.Length,
+                    ParticipantCount = sessions.Select(session => session.ParticipantId).Distinct().Count(),
+                    Sessions = sessions
+                };
+            })
+            .Where(device => device.SessionCount > 0)
+            .ToArray();
     }
 
     private static string FormatDate(DateTime dateTimeUtc) =>

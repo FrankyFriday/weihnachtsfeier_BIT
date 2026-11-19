@@ -52,8 +52,33 @@ public sealed record SessionResponse(
     string DisplayName,
     Guid? ParticipantId = null,
     Guid? TeamId = null);
-public sealed record SessionSummary(Guid Id, Guid UserId, DateTime CreatedAtUtc, DateTime LastActivityAtUtc, DateTime ExpiresAtUtc, string? UserAgent);
-public sealed record ParticipantLoginRequest(int Number);
+public sealed record SessionSummary(
+    Guid Id,
+    Guid UserId,
+    DateTime CreatedAtUtc,
+    DateTime LastActivityAtUtc,
+    DateTime ExpiresAtUtc,
+    string? UserAgent,
+    string? DeviceName = null,
+    bool CreatedByAdminEmulator = false);
+public sealed record ParticipantLoginRequest(int Number, string? DeviceId = null);
+public sealed record ActiveParticipantDeviceSummary(
+    string? DeviceKey,
+    string DeviceName,
+    string? UserAgent,
+    DateTime LastActivityAtUtc,
+    int ParticipantCount,
+    int SessionCount,
+    ActiveParticipantDeviceSessionSummary[] Sessions);
+public sealed record ActiveParticipantDeviceSessionSummary(
+    Guid SessionId,
+    Guid ParticipantId,
+    int ParticipantNumber,
+    string? ParticipantName,
+    DateTime CreatedAtUtc,
+    DateTime LastActivityAtUtc,
+    bool CreatedByAdminEmulator);
+public sealed record ParticipantEmulatorTicketResponse(string Ticket, DateTime ExpiresAtUtc);
 public sealed record ApiError(string Message);
 public sealed record CreateTestEntryRequest(string? Name);
 
@@ -66,7 +91,11 @@ public sealed record ResolveCodeResponse(
     string Code,
     int MinParticipantNumberLength,
     int MaxParticipantNumberLength);
-public sealed record LoginByCodeRequest(string Code, int Number);
+public sealed record LoginByCodeRequest(
+    string Code,
+    int Number,
+    string? DeviceId = null,
+    string? EmulatorTicket = null);
 
 public sealed record StartSessionShowRequest(
     Guid ShowId,

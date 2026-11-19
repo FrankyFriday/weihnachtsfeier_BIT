@@ -200,9 +200,15 @@
 .access-session-list { display: grid; gap: 10px; }
 .access-session-row, .access-session-participant { min-width: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 9px; }
 .access-session-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.access-session-device { display: grid; gap: 12px; min-width: 0; padding: 14px; border: 1px solid #dce5e2; border-radius: 9px; background: #fbfdfc; }
 .access-session-details { display: grid; min-width: 0; gap: 4px; color: #64748b; font-size: 12px; }
 .access-session-details strong { color: #1d2528; font-size: 14px; }
 .access-session-user-agent { overflow-wrap: anywhere; }
+.access-session-device-participants { display: flex; flex-wrap: wrap; gap: 8px; }
+.access-session-device-participant, .access-session-shared-device, .access-session-emulator { display: inline-flex; align-items: center; gap: 5px; width: fit-content; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.access-session-device-participant { border: 1px solid #dce5e2; background: #ffffff; color: #334155; }
+.access-session-shared-device { border: 1px solid #b9d8cf; background: #e8f3f0; color: #105c4d; }
+.access-session-emulator { border: 1px solid #d6e5df; background: #f0f7f4; color: #35675c; }
 .access-session-current { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #197b67; border-radius: 999px; background: #e8f3f0; color: #105c4d; font-size: 12px; font-weight: 800; }
 .access-session-empty { margin: 12px 0 0; color: #64748b; font-size: 13px; }
 .access-session-participant-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }

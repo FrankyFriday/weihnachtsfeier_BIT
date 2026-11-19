@@ -68,18 +68,20 @@ Projektweite Standards und individuelle Teilnehmer-Berechtigungen (z. B. *Chat-N
 | `DELETE /api/projects/{projectId}/admin-sessions/{sessionId}` | Projektadmin | Adminsession widerrufen. |
 | `GET /api/projects/{projectId}/participants/{participantId}/sessions` | Projektadmin | Aktive Teilnehmersitzungen ansehen. |
 | `DELETE /api/projects/{projectId}/participants/{participantId}/sessions/{sessionId}` | Projektadmin | Teilnehmersitzung widerrufen. |
+| `GET /api/projects/{projectId}/active-participant-devices` | Projektadmin | Aktive Teilnehmersitzungen nach pseudonymer, projektgebundener Browserkennung gruppiert ansehen; markiert Admin-Emulator-Sitzungen. |
+| `POST /api/projects/{projectId}/participants/{participantId}/emulator-ticket` | Projektadmin mit `CanControlSession` | Ein kurzlebiges Einmal-Ticket für den Admin-Emulator ausstellen. |
 
 ## Teilnehmer-Sessions
 
 | Methode/Route | Zugriff | Zweck |
 | --- | --- | --- |
-| `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12 }`. |
+| `POST /api/participant-sessions/by-code` | öffentlich, rate-limited | Login mit 6-stelligem Session-Code `{ "code": "482910", "number": 12, "deviceId": "<zufällige UUID>" }`; der Admin-Emulator übermittelt zusätzlich sein Ticket. |
 | `GET /api/game-instances/by-code/{code}` | öffentlich, rate-limited | Löst einen aktiven 6-stelligen Code auf und liefert zusätzlich die minimale und maximale Ziffernzahl der Teilnehmernummern des Projekts. |
 | `GET /api/game-instances/by-code/{code}/canvas` | öffentlich, rate-limited | Liefert den ausgewählten Beamerinhalt und Team-Punktestand. |
-| `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12 }`. |
+| `POST /api/projects/{projectId}/participant-sessions` | öffentlich, rate-limited | Login mit `{ "number": 12, "deviceId": "<zufällige UUID>" }`. |
 | `DELETE /api/projects/{projectId}/participant-sessions/current` | Teilnehmer | Aktuelle Sitzung widerrufen. |
 
-Der Teilnehmerclient führt nach erfolgreicher Anmeldung die Route `/play/{code}/{number}`. Bei einem Neuladen wird über den Session-Code und die Teilnehmernummer erneut angemeldet; das API-Session-Token bleibt dabei außerhalb von URL und Browser-Speicher. Ein freiwilliges Überspringen der erstmaligen Namenseingabe wird nur für die aktuelle Browser-Session gespeichert.
+Der Teilnehmerclient führt nach erfolgreicher Anmeldung die Route `/play/{code}/{number}`. Bei einem Neuladen wird über den Session-Code und die Teilnehmernummer erneut angemeldet; das API-Session-Token bleibt dabei außerhalb von URL und Browser-Speicher. Ein freiwilliges Überspringen der erstmaligen Namenseingabe wird nur für die aktuelle Browser-Session gespeichert. Für die Moderationsseite „Aktive Geräte“ speichert der Browser eine zufällige First-Party-ID in `localStorage`; die API persistiert ausschließlich einen projektgebundenen SHA-256-Hash, den User-Agent und einen grob daraus abgeleiteten Browser-/Plattformnamen. Es findet kein geräteübergreifendes Fingerprinting statt. Das Login zeigt diese Gerätezuordnung vor der Anmeldung an. Sitzungen mit gleicher Browser-ID erscheinen gruppiert samt Teilnehmernummern; Sitzungen ohne Kennung werden nicht fälschlich zusammengefasst. Ein Emulator-Flag wird nur gesetzt, wenn die API ein maximal zwei Minuten gültiges, einmaliges Ticket für Projekt, aktive Session und Teilnehmer erfolgreich verbraucht. Die zugehörigen Metadaten verbleiben wie die übrigen Sitzungsdaten bis zur Löschung des Sitzungsdatensatzes in der Datenbank.
 
 ## Projekt-Info-Seiten
 
