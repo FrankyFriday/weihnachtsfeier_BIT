@@ -37,7 +37,7 @@
             }
         </div>
 
-        @if (_isRunning || _isPaused || _isEnded)
+        @if (!_showRoundSetup)
         {
             @if (_focusedTeam is not null && _focusedTeamData is not null)
             {
@@ -165,11 +165,21 @@
                     {
                         <FrameworkButton Label="Runde beenden" Variant="danger" OnClick='() => RunActionAsync("end")' Disabled="@_isBusy" />
                     }
+                    else
+                    {
+                        <FrameworkButton Label="Nächste Runde vorbereiten" Icon="replay" Variant="primary" OnClick="PrepareNextRoundAsync" Disabled="@_isBusy" />
+                    }
                 </div>
             }
         }
         else
         {
+            @if (_isEnded)
+            {
+                <div style="margin-top: 16px;">
+                    <FrameworkNotice Message="Nächste Runde: Wähle pro Team die darstellende Person aus. Der Endstand der vorherigen Runde wird beim Start ersetzt und die Begriffe werden neu gemischt." Severity="info" />
+                </div>
+            }
             <div style="display: grid; gap: 10px; margin: 20px 0;">
                 @foreach (var team in _teams)
                 {
@@ -193,7 +203,13 @@
                     Pro darstellender Person können @(_data.MaxSkipsPerPerformer) Begriffe übersprungen werden.
                 </div>
             </div>
-            <FrameworkButton Label="Alle Teams gleichzeitig starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_allPerformersSelected || _roundDurationSeconds is < 10 or > 600 || _data.TermCount == 0)" />
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <FrameworkButton Label="Alle Teams gleichzeitig starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_allPerformersSelected || _roundDurationSeconds is < 10 or > 600 || _data.TermCount == 0)" />
+                @if (_isEnded)
+                {
+                    <FrameworkButton Label="Zurück zum Endstand" Icon="arrow_back" Variant="secondary" OnClick="CancelNextRound" Disabled="@_isBusy" />
+                }
+            </div>
         }
 
         @if (!string.IsNullOrWhiteSpace(_error))
@@ -236,6 +252,7 @@
     private bool _isBusy;
     private bool _endingExpiredRound;
     private bool _showFreeSkipConfirmation;
+    private bool _isPreparingNextRound;
     private Guid? _focusedTeamId;
     private Guid? _freeSkipTeamId;
     private int? _freeSkipExpectedTermIndex;
@@ -249,6 +266,7 @@
     private bool _isRunning => ReadBool(_state, "isRunning");
     private bool _isPaused => ReadBool(_state, "isPaused");
     private bool _isEnded => ReadBool(_state, "isEnded");
+    private bool _showRoundSetup => !(_isRunning || _isPaused || _isEnded) || (_isEnded && _isPreparingNextRound);
     private TeamSummary? _focusedTeam => _focusedTeamId is Guid teamId
         ? _teams.FirstOrDefault(team => team.Id == teamId)
         : null;
@@ -272,6 +290,7 @@
         _loadedSlideId = CurrentSlide.SlideId;
         ExitFocusedTeam();
         CloseFreeSkipConfirmation();
+        _isPreparingNextRound = false;
         _isLoading = true;
         _error = null;
         try
@@ -327,7 +346,42 @@
             .Select(team => new PantomimeAssignment(team.Id, _selectedPerformers[team.Id]))
             .ToArray();
         await RunActionAsync("start", assignments);
+        if (!_isEnded)
+        {
+            _isPreparingNextRound = false;
+        }
     }
+
+    private async Task PrepareNextRoundAsync()
+    {
+        if (!_isEnded || _isBusy || string.IsNullOrWhiteSpace(_accessToken))
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+        try
+        {
+            // Teams and participants may have changed since the slide was loaded.
+            var teamsTask = ProjectApiClient.GetTeamsAsync(_accessToken, ProjectId);
+            var participantsTask = ProjectApiClient.GetParticipantsAsync(_accessToken, ProjectId);
+            await Task.WhenAll(teamsTask, participantsTask);
+            _teams = await teamsTask;
+            _participants = await participantsTask;
+            _isPreparingNextRound = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void CancelNextRound() => _isPreparingNextRound = false;
 
     private async Task RunActionAsync(
         string action,
