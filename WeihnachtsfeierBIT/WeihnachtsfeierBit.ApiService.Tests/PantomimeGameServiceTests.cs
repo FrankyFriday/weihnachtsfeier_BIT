@@ -79,6 +79,9 @@ public sealed class PantomimeGameServiceTests
             durationSeconds: 60,
             startedAtUtc: DateTime.UtcNow,
             random: new Random(1));
+        Assert.False(PantomimeGameService.ReadBool(state, "isPreparingNextRound"));
+        state["isEnded"] = true;
+        state["isPreparingNextRound"] = true;
         using var stateDocument = JsonDocument.Parse(state.ToJsonString());
         var parameters = JsonSerializer.SerializeToElement(new
         {
@@ -99,6 +102,7 @@ public sealed class PantomimeGameServiceTests
         Assert.False(publicTeam.TryGetProperty("skipsUsed", out _));
         Assert.True(publicTeam.TryGetProperty("performerId", out _));
         Assert.True(publicTeam.TryGetProperty("correctCount", out _));
+        Assert.True(publicState.GetProperty("isPreparingNextRound").GetBoolean());
     }
 
     [Fact]

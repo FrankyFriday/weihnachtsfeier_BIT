@@ -945,6 +945,47 @@
     font-size: clamp(1rem, 1.8cqi, 1.6rem);
 }
 
+.canvas-event-fit ::deep .canvas-pantomime-teams {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
+    gap: clamp(0.5rem, 1cqi, 1rem);
+    width: 100%;
+    margin: clamp(1rem, 2cqi, 2rem) auto;
+    text-align: left;
+}
+
+.canvas-event-fit ::deep .canvas-pantomime-team {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: clamp(0.65rem, 1.2cqi, 1.1rem);
+    border: 1px solid #dce5e2;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.canvas-event-fit ::deep .canvas-pantomime-team-name {
+    overflow-wrap: anywhere;
+    color: #1d2528;
+    font-size: clamp(0.95rem, 1.6cqi, 1.5rem);
+    font-weight: 800;
+}
+
+.canvas-event-fit ::deep .canvas-pantomime-team-performer {
+    margin-top: 0.25rem;
+    color: #657276;
+    font-size: clamp(0.75rem, 1cqi, 0.95rem);
+    overflow-wrap: anywhere;
+}
+
+.canvas-event-fit ::deep .canvas-pantomime-team-score {
+    margin-top: clamp(0.35rem, 0.8cqi, 0.75rem);
+    color: #105c4d;
+    font-size: clamp(0.9rem, 1.4cqi, 1.25rem);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
 .canvas-event-fit ::deep .canvas-slide-unknown {
     align-items: center;
     color: #657276;

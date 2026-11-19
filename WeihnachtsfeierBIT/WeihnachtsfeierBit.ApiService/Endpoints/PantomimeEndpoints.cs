@@ -95,7 +95,7 @@ public static class PantomimeEndpoints
             return Results.Forbid();
         }
 
-        if (action is not ("start" or "pause" or "resume" or "end" or "correct" or "skip" or "free-skip"))
+        if (action is not ("start" or "pause" or "resume" or "end" or "prepare-next-round" or "cancel-next-round" or "correct" or "skip" or "free-skip"))
         {
             return Results.BadRequest(new ApiError("Unbekannte Pantomime-Aktion."));
         }
@@ -206,6 +206,22 @@ public static class PantomimeEndpoints
                         duration,
                         now,
                         maxSkipsPerPerformer: maxSkipsPerPerformer);
+                    break;
+                case "prepare-next-round":
+                    if (!PantomimeGameService.ReadBool(state, "isEnded"))
+                    {
+                        return Results.Conflict(new ApiError("Die nächste Runde kann nur nach einer beendeten Runde vorbereitet werden."));
+                    }
+
+                    state["isPreparingNextRound"] = true;
+                    break;
+                case "cancel-next-round":
+                    if (!PantomimeGameService.ReadBool(state, "isEnded"))
+                    {
+                        return Results.Conflict(new ApiError("Es wird keine nächste Pantomime-Runde vorbereitet."));
+                    }
+
+                    state["isPreparingNextRound"] = false;
                     break;
                 case "pause":
                     if (!PantomimeGameService.ReadBool(state, "isRunning"))
