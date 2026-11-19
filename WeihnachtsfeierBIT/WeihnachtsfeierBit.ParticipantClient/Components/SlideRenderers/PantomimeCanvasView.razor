@@ -1,10 +1,10 @@
 @using System.Text.Json
 @implements IDisposable
 
-<div style="width: 100%; max-width: 1000px; margin: auto; padding: 20px; box-sizing: border-box; text-align: center;">
-    <span style="font-size: 15px; font-weight: 800; letter-spacing: .12em; color: #64748b;">PANTOMIME · @ReadString(Parameters, "category")</span>
-    @if (_isRunning || _isPaused || _isEnded)
+<div class="canvas-pantomime-view">
+    @if (_isRunning || _isPaused || (_isEnded && !_isPreparingNextRound))
     {
+        <span class="canvas-pantomime-kicker">PANTOMIME · @ReadString(Parameters, "category")</span>
         <div style="font: 900 clamp(58px, 14vw, 150px)/1 monospace; color: @(_remainingSeconds == 0 ? "#b91c1c" : "#105c4d"); margin: 14px 0;">
             @FormatSeconds(_remainingSeconds)
         </div>
@@ -17,21 +17,24 @@
             <p style="font-size: 22px; color: #b91c1c;">Runde beendet</p>
         }
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 20px auto; text-align: left;">
+        <div class="canvas-pantomime-teams">
             @foreach (var team in TeamStates)
             {
-                <div style="padding: 16px; background: white; border: 1px solid #dce5e2; border-radius: 12px;">
-                    <div style="font-size: 20px; font-weight: 800;">@ReadString(team, "teamName")</div>
-                    <div style="font-size: 14px; color: #64748b;">Darsteller: @ReadString(team, "performerName")</div>
-                    <div style="font-size: 18px; font-weight: 700; margin-top: 8px;">@ReadInt(team, "correctCount") Begriffe erraten</div>
-                </div>
+                <article class="canvas-pantomime-team">
+                    <div class="canvas-pantomime-team-name">@ReadString(team, "teamName")</div>
+                    <div class="canvas-pantomime-team-performer">Darsteller: @ReadString(team, "performerName")</div>
+                    <div class="canvas-pantomime-team-score">@ReadInt(team, "correctCount") Begriffe erraten</div>
+                </article>
             }
         </div>
     }
     else
     {
-        <h2 style="margin: 10px 0; font-size: clamp(26px, 5vw, 48px); font-weight: 900;">Alle Teams starten gleichzeitig</h2>
-        <p style="font-size: clamp(20px, 3vw, 30px); color: #475569;">Wählt eine darstellende Person pro Team. Die Begriffe sind nur auf dem Gerät der jeweiligen Person sichtbar.</p>
+        <div class="canvas-pantomime-intro">
+            <span class="canvas-pantomime-kicker">KATEGORIE</span>
+            <h2 class="canvas-pantomime-category">@ReadString(Parameters, "category")</h2>
+            <p>Alle Teams starten gleichzeitig</p>
+        </div>
     }
 </div>
 
@@ -46,6 +49,7 @@
     private bool _isRunning => ReadBool(_state, "isRunning");
     private bool _isPaused => ReadBool(_state, "isPaused");
     private bool _isEnded => ReadBool(_state, "isEnded");
+    private bool _isPreparingNextRound => ReadBool(_state, "isPreparingNextRound");
 
     private IEnumerable<JsonElement> TeamStates
     {

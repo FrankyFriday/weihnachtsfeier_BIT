@@ -1,0 +1,29 @@
+<div class="canvas-timer" role="progressbar"
+     aria-label="@Label"
+     aria-valuemin="0"
+     aria-valuemax="@Math.Max(1, TotalSeconds)"
+     aria-valuenow="@Math.Clamp(Math.Ceiling(RemainingSeconds), 0, Math.Max(1, TotalSeconds))">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <span class="canvas-timer-label">@Label</span>
+    }
+    <span class="canvas-timer-track">
+        <span class="canvas-timer-fill @(IsPaused ? "is-paused" : null)"
+              style="width: @ProgressPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+    </span>
+    <strong class="canvas-timer-value">@FormatRemainingSeconds()</strong>
+</div>
+
+@code {
+    [Parameter] public double RemainingSeconds { get; set; }
+    [Parameter] public double TotalSeconds { get; set; }
+    [Parameter] public bool IsPaused { get; set; }
+    [Parameter] public string Label { get; set; } = string.Empty;
+
+    private double ProgressPercent => TotalSeconds <= 0
+        ? 0
+        : Math.Clamp(RemainingSeconds / (double)TotalSeconds * 100, 0, 100);
+
+    private string FormatRemainingSeconds() =>
+        TimeSpan.FromSeconds(Math.Max(0, Math.Ceiling(RemainingSeconds))).ToString(@"mm\:ss");
+}

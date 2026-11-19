@@ -1,0 +1,45 @@
+@using WeihnachtsfeierBit.Framework
+@using System.Globalization
+
+@{
+    var workflow = QuestionWorkflowViewState.Read(Parameters);
+}
+
+<section class="canvas-slide canvas-slide-estimation phase-@workflow.Phase">
+    <div class="canvas-quiz-grid">
+        <div class="canvas-quiz-question">
+            <span class="canvas-slide-kicker">@PhaseLabel(workflow.Phase)</span>
+            <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+        </div>
+        <div class="canvas-estimation-value">
+            @if (workflow.Phase == "results")
+            {
+                <span class="canvas-slide-kicker">RICHTIGER WERT</span>
+                <strong>@CanvasSlideData.ReadDouble(Parameters, "correctValue").ToString("G", CultureInfo.CurrentCulture)</strong>
+            }
+            else
+            {
+                <span class="canvas-slide-kicker">EINHEIT</span>
+                <strong>@CanvasSlideData.ReadString(Parameters, "unit", "—")</strong>
+            }
+            @if (workflow.Phase == "results" && !string.IsNullOrWhiteSpace(CanvasSlideData.ReadString(Parameters, "explanation")))
+            {
+                <p>@CanvasSlideData.ReadString(Parameters, "explanation")</p>
+            }
+        </div>
+    </div>
+    <CanvasQuestionTimerBar @key="workflow.Phase" Event="Event" />
+</section>
+
+@code {
+    private static string PhaseLabel(string phase) => phase switch
+    {
+        "question" => "FRAGE",
+        "answers" => "SCHÄTZUNGEN",
+        "locked" => "ANTWORTZEIT BEENDET",
+        "results" => "AUFLÖSUNG",
+        _ => "SCHÄTZFRAGE"
+    };
+}
+
+@inherits CanvasSlideRendererBase

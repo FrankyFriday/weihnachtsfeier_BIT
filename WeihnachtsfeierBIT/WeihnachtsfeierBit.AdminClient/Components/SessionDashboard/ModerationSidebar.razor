@@ -351,6 +351,11 @@ else
                                        Label="Event-Typ (z. B. Quiz) anzeigen"
                                        Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
 
+                    <FrameworkCheckbox Value="@_draftCanvasSettings.ShowActiveTeam"
+                                       ValueChanged="OnShowActiveTeamChangedAsync"
+                                       Label="Aktives Team oben anzeigen"
+                                       Disabled="@(IsProcessing || _isCanvasSettingsSaving || !OnSaveCanvasSettings.HasDelegate)" />
+
                     <div class="regie-beamer-scales">
                         <div class="regie-beamer-scale">
                             <span>Schriftgröße</span>
@@ -366,6 +371,22 @@ else
                                         aria-label="Schrift vergrößern"
                                         disabled="@(_draftCanvasSettings.FontScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
                                         @onclick="() => AdjustFontScaleAsync(10)">+</button>
+                            </div>
+                        </div>
+                        <div class="regie-beamer-scale">
+                            <span>Abstände</span>
+                            <div>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Abstände verkleinern"
+                                        disabled="@(_draftCanvasSettings.SpacingScalePercent <= CanvasDisplaySettings.MinimumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustSpacingScaleAsync(-10)">−</button>
+                                <output>@_draftCanvasSettings.SpacingScalePercent%</output>
+                                <button type="button"
+                                        class="framework-button"
+                                        aria-label="Abstände vergrößern"
+                                        disabled="@(_draftCanvasSettings.SpacingScalePercent >= CanvasDisplaySettings.MaximumScalePercent || IsProcessing || _isCanvasSettingsSaving)"
+                                        @onclick="() => AdjustSpacingScaleAsync(10)">+</button>
                             </div>
                         </div>
                         <div class="regie-beamer-scale">

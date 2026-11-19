@@ -207,7 +207,7 @@
                 <FrameworkButton Label="Alle Teams gleichzeitig starten" Variant="primary" OnClick="StartRoundAsync" Disabled="@(_isBusy || !_allPerformersSelected || _roundDurationSeconds is < 10 or > 600 || _data.TermCount == 0)" />
                 @if (_isEnded)
                 {
-                    <FrameworkButton Label="Zurück zum Endstand" Icon="arrow_back" Variant="secondary" OnClick="CancelNextRound" Disabled="@_isBusy" />
+                    <FrameworkButton Label="Zurück zum Endstand" Icon="arrow_back" Variant="secondary" OnClick="CancelNextRoundAsync" Disabled="@_isBusy" />
                 }
             </div>
         }
@@ -252,7 +252,6 @@
     private bool _isBusy;
     private bool _endingExpiredRound;
     private bool _showFreeSkipConfirmation;
-    private bool _isPreparingNextRound;
     private Guid? _focusedTeamId;
     private Guid? _freeSkipTeamId;
     private int? _freeSkipExpectedTermIndex;
@@ -266,7 +265,8 @@
     private bool _isRunning => ReadBool(_state, "isRunning");
     private bool _isPaused => ReadBool(_state, "isPaused");
     private bool _isEnded => ReadBool(_state, "isEnded");
-    private bool _showRoundSetup => !(_isRunning || _isPaused || _isEnded) || (_isEnded && _isPreparingNextRound);
+    private bool _showRoundSetup => !(_isRunning || _isPaused || _isEnded)
+        || (_isEnded && ReadBool(_state, "isPreparingNextRound"));
     private TeamSummary? _focusedTeam => _focusedTeamId is Guid teamId
         ? _teams.FirstOrDefault(team => team.Id == teamId)
         : null;
@@ -290,7 +290,6 @@
         _loadedSlideId = CurrentSlide.SlideId;
         ExitFocusedTeam();
         CloseFreeSkipConfirmation();
-        _isPreparingNextRound = false;
         _isLoading = true;
         _error = null;
         try
@@ -346,10 +345,6 @@
             .Select(team => new PantomimeAssignment(team.Id, _selectedPerformers[team.Id]))
             .ToArray();
         await RunActionAsync("start", assignments);
-        if (!_isEnded)
-        {
-            _isPreparingNextRound = false;
-        }
     }
 
     private async Task PrepareNextRoundAsync()
@@ -369,7 +364,17 @@
             await Task.WhenAll(teamsTask, participantsTask);
             _teams = await teamsTask;
             _participants = await participantsTask;
-            _isPreparingNextRound = true;
+            await ProjectApiClient.UpdatePantomimeAsync(
+                _accessToken,
+                ProjectId,
+                Event.EventId,
+                CurrentSlide.SlideId,
+                "prepare-next-round",
+                roundDurationSeconds: _roundDurationSeconds);
+            _data = await ProjectApiClient.GetPantomimeAsync(_accessToken, ProjectId, Event.EventId, CurrentSlide.SlideId);
+            _state = _data.State;
+            RestoreAssignments(_state);
+            UpdateRemaining();
         }
         catch (Exception ex)
         {
@@ -381,7 +386,7 @@
         }
     }
 
-    private void CancelNextRound() => _isPreparingNextRound = false;
+    private Task CancelNextRoundAsync() => RunActionAsync("cancel-next-round");
 
     private async Task RunActionAsync(
         string action,

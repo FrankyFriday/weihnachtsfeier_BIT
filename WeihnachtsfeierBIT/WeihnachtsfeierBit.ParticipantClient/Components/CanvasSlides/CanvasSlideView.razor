@@ -1,0 +1,65 @@
+@using WeihnachtsfeierBit.Framework
+
+@switch (Event.SlideType.ToLowerInvariant())
+{
+    case "announcement":
+        <AnnouncementCanvasSlide Event="Event" />
+        break;
+    case "poll":
+        <PollCanvasSlide Event="Event" />
+        break;
+    case "quiz":
+        <QuizCanvasSlide Event="Event" />
+        break;
+    case "estimation":
+        <EstimationCanvasSlide Event="Event" />
+        break;
+    case "buzzer":
+        <BuzzerCanvasSlide Event="Event" />
+        break;
+    case "ranking":
+        <RankingCanvasSlide Event="Event" Teams="Teams" PointLogs="PointLogs" />
+        break;
+    case "hitster":
+        <HitsterCanvasSlide Event="Event" />
+        break;
+    case "jeopardy":
+        <JeopardyCanvasSlide Event="Event" />
+        break;
+    case "pantomime":
+        <PantomimeCanvasSlide Event="Event" />
+        break;
+    case "pointaward":
+        <PointAwardCanvasSlide Event="Event" Teams="Teams" />
+        break;
+    case "text":
+        <TextCanvasSlide Event="Event" />
+        break;
+    case "wordcloud":
+        <WordCloudCanvasSlide Event="Event" />
+        break;
+    case "slider":
+        <SliderCanvasSlide Event="Event" />
+        break;
+    case "rating":
+        <RatingCanvasSlide Event="Event" />
+        break;
+    case "ordering":
+        <OrderingCanvasSlide Event="Event" />
+        break;
+    case "countdown":
+        <CountdownCanvasSlide Event="Event" />
+        break;
+    default:
+        <section class="canvas-slide canvas-slide-unknown">
+            <h2>@Event.Title</h2>
+            <p>Für diesen Folientyp gibt es noch keine Beameransicht.</p>
+        </section>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public CanvasEventState Event { get; set; } = null!;
+    [Parameter] public TeamSummary[] Teams { get; set; } = [];
+    [Parameter] public TeamPointLogDto[] PointLogs { get; set; } = [];
+}

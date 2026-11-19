@@ -1,0 +1,80 @@
+@using WeihnachtsfeierBit.Framework
+@implements IDisposable
+
+@if (_isVisible)
+{
+    <CanvasTimerBar RemainingSeconds="_remainingSeconds"
+                    TotalSeconds="_totalSeconds"
+                    IsPaused="_isPaused"
+                    Label="@(_isPaused ? "PAUSE" : "ZEIT")" />
+}
+
+@code {
+    [Parameter, EditorRequired] public CanvasEventState Event { get; set; } = null!;
+
+    private readonly CancellationTokenSource _cancellation = new();
+    private Task? _timerTask;
+    private string _phase = string.Empty;
+    private double _remainingSeconds;
+    private int _totalSeconds;
+    private bool _isPaused;
+    private bool _isVisible;
+
+    protected override void OnInitialized()
+    {
+        _timerTask = UpdateTimerAsync(_cancellation.Token);
+    }
+
+    protected override void OnParametersSet()
+    {
+        var workflow = QuestionWorkflowViewState.Read(Event.Parameters);
+        var phaseChanged = !string.Equals(_phase, workflow.Phase, StringComparison.Ordinal);
+        _phase = workflow.Phase;
+        _isPaused = workflow.TimerPaused;
+        _remainingSeconds = GetRemainingSeconds(workflow);
+        _isVisible = workflow.TimerEndsAtUtc.HasValue || workflow.TimerPaused;
+
+        var durationProperty = workflow.Phase == "question"
+            ? "questionTimeLimitSeconds"
+            : "timeLimitSeconds";
+        var durationSeconds = workflow.TimerDurationSeconds > 0
+            ? workflow.TimerDurationSeconds
+            : CanvasSlideData.ReadInt(Event.Parameters, durationProperty, workflow.RemainingSeconds);
+        if (phaseChanged || _totalSeconds != durationSeconds)
+        {
+            _totalSeconds = Math.Max(1, durationSeconds);
+        }
+    }
+
+    private async Task UpdateTimerAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                var workflow = QuestionWorkflowViewState.Read(Event.Parameters);
+                _isPaused = workflow.TimerPaused;
+                _remainingSeconds = GetRemainingSeconds(workflow);
+                _isVisible = workflow.TimerEndsAtUtc.HasValue || workflow.TimerPaused;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static double GetRemainingSeconds(QuestionWorkflowViewState workflow) =>
+        workflow.TimerPaused
+            ? Math.Max(0, workflow.RemainingSeconds)
+            : workflow.TimerEndsAtUtc is DateTimeOffset end
+                ? Math.Max(0, (end - DateTimeOffset.UtcNow).TotalSeconds)
+                : Math.Max(0, workflow.RemainingSeconds);
+
+    public void Dispose()
+    {
+        _cancellation.Cancel();
+        _cancellation.Dispose();
+    }
+}

@@ -12,11 +12,15 @@ public sealed record PantomimeTeamAssignment(
 
 public static class PantomimeGameService
 {
+    public const int DefaultPointsPerCorrectTerm = 1;
+    public const int MaximumPointsPerCorrectTerm = 1000;
+
     private static readonly string[] PublicStateProperties =
     [
         "isRunning",
         "isPaused",
         "isEnded",
+        "isPreparingNextRound",
         "startedAtUtc",
         "deadlineUtc",
         "remainingSeconds",
@@ -31,6 +35,26 @@ public static class PantomimeGameService
         "performerName",
         "correctCount"
     ];
+
+    public static bool TryGetPointsPerCorrectTerm(JsonObject parameters, out int points)
+    {
+        var value = parameters["pointsPerCorrectTerm"];
+        if (value is null)
+        {
+            points = DefaultPointsPerCorrectTerm;
+            return true;
+        }
+
+        if (value is JsonValue jsonValue
+            && jsonValue.TryGetValue<int>(out points)
+            && points is >= 0 and <= MaximumPointsPerCorrectTerm)
+        {
+            return true;
+        }
+
+        points = 0;
+        return false;
+    }
 
     public static JsonElement PublicParameters(JsonElement parameters)
     {
@@ -126,6 +150,7 @@ public static class PantomimeGameService
             ["isRunning"] = true,
             ["isPaused"] = false,
             ["isEnded"] = false,
+            ["isPreparingNextRound"] = false,
             ["startedAtUtc"] = startedAtUtc,
             ["deadlineUtc"] = startedAtUtc.AddSeconds(durationSeconds),
             ["remainingSeconds"] = durationSeconds,

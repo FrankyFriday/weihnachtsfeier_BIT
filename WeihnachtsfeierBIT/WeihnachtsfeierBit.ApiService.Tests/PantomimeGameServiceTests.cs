@@ -7,6 +7,25 @@ namespace WeihnachtsfeierBit.ApiService.Tests;
 public sealed class PantomimeGameServiceTests
 {
     [Fact]
+    public void TryGetPointsPerCorrectTerm_UsesLegacyDefaultAndRejectsOutOfRangeValues()
+    {
+        Assert.True(PantomimeGameService.TryGetPointsPerCorrectTerm(new JsonObject(), out var defaultPoints));
+        Assert.Equal(1, defaultPoints);
+
+        Assert.True(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = 25 },
+            out var configuredPoints));
+        Assert.Equal(25, configuredPoints);
+
+        Assert.False(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = -1 },
+            out _));
+        Assert.False(PantomimeGameService.TryGetPointsPerCorrectTerm(
+            new JsonObject { ["pointsPerCorrectTerm"] = 1001 },
+            out _));
+    }
+
+    [Fact]
     public void CreateRoundState_AssignsDifferentRandomTermsToAllTeams()
     {
         var startedAt = new DateTime(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
@@ -60,6 +79,9 @@ public sealed class PantomimeGameServiceTests
             durationSeconds: 60,
             startedAtUtc: DateTime.UtcNow,
             random: new Random(1));
+        Assert.False(PantomimeGameService.ReadBool(state, "isPreparingNextRound"));
+        state["isEnded"] = true;
+        state["isPreparingNextRound"] = true;
         using var stateDocument = JsonDocument.Parse(state.ToJsonString());
         var parameters = JsonSerializer.SerializeToElement(new
         {
@@ -80,6 +102,7 @@ public sealed class PantomimeGameServiceTests
         Assert.False(publicTeam.TryGetProperty("skipsUsed", out _));
         Assert.True(publicTeam.TryGetProperty("performerId", out _));
         Assert.True(publicTeam.TryGetProperty("correctCount", out _));
+        Assert.True(publicState.GetProperty("isPreparingNextRound").GetBoolean());
     }
 
     [Fact]

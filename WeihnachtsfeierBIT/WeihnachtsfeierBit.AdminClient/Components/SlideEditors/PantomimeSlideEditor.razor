@@ -13,6 +13,9 @@
 <FrameworkFormGroup Label="Überspringen pro darstellender Person" HelpText="Maximale Anzahl übersprungener Begriffe pro Runde. 0 deaktiviert das Überspringen." ForId="pantomime-skip-limit">
     <FrameworkInputNumber Id="pantomime-skip-limit" @bind-Value="Slide.PantomimeMaxSkipsPerPerformer" Min="0" Max="100" />
 </FrameworkFormGroup>
+<FrameworkFormGroup Label="Punkte pro erratenem Begriff" HelpText="Diese Punkte werden dem Team bei jeder Moderator-Bestätigung gutgeschrieben (0 bis 1000)." ForId="pantomime-points-per-term">
+    <FrameworkInputNumber Id="pantomime-points-per-term" @bind-Value="Slide.PantomimePointsPerCorrectTerm" Min="0" Max="1000" />
+</FrameworkFormGroup>
 
 @code {
     [Parameter, EditorRequired] public EditableSlide Slide { get; set; } = null!;

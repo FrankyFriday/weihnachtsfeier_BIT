@@ -3,9 +3,9 @@
 <div class="jp-board" style="display: grid; gap: 14px; width: 100%;">
     @if (_active is { } active)
     {
-        <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: 16px; border-radius: 14px; text-align: center;">
+        <div class="jp-clue" @key="@(active.Category + active.Question)" style="padding: calc(16px * var(--canvas-spacing-scale, 1)); border-radius: 14px; text-align: center;">
             <div class="jp-clue-meta" style="font-size: 12px; font-weight: 800; letter-spacing: .08em;">@active.Category.ToUpperInvariant() · @active.Value</div>
-            @if (!string.IsNullOrEmpty(active.SelectedTeam))
+            @if (ShowActiveTeam && !string.IsNullOrEmpty(active.SelectedTeam))
             {
                 <div class="jp-answering-team">Team @active.SelectedTeam ist an der Reihe</div>
             }
@@ -58,6 +58,7 @@
 @code {
     [Parameter, EditorRequired] public JsonElement Parameters { get; set; }
     [Parameter] public bool Large { get; set; }
+    [Parameter] public bool ShowActiveTeam { get; set; } = true;
 
     private sealed record CategoryView(string Name, List<(int Value, bool Used)> Values);
     private sealed record ActiveView(string Category, int Value, string Question, string? Answer, string? SelectedTeam);

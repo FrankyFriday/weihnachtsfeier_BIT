@@ -1,0 +1,14 @@
+<section class="canvas-slide canvas-slide-ordering">
+    <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+    <div class="canvas-ordering-items">
+        @foreach (var (item, index) in CanvasSlideData.ReadStringArray(Parameters, "items").Select((value, index) => (value, index)))
+        {
+            <div class="canvas-ordering-item" style="--canvas-stagger: @(index * 75)ms">
+                <span>@(index + 1)</span>
+                <strong>@item</strong>
+            </div>
+        }
+    </div>
+</section>
+
+@inherits CanvasSlideRendererBase

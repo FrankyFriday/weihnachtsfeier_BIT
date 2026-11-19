@@ -34,8 +34,10 @@ public sealed class CanvasDisplaySettingsTests
 
         Assert.Equal(CanvasDisplaySettings.Default, settings);
         Assert.True(settings.IsValid);
+        Assert.Equal(80, settings.SpacingScalePercent);
         Assert.True(settings.ShowProjectTitle);
         Assert.True(settings.ShowEventTypeLabel);
+        Assert.True(settings.ShowActiveTeam);
     }
 
     [Fact]
@@ -44,11 +46,13 @@ public sealed class CanvasDisplaySettingsTests
         var settings = CanvasDisplaySettings.Default with
         {
             FontScalePercent = 120,
+            SpacingScalePercent = 70,
             EventScalePercent = 80,
             ScoreboardScalePercent = 140,
             QrCodeScalePercent = 90,
             ShowProjectTitle = false,
-            ShowEventTypeLabel = false
+            ShowEventTypeLabel = false,
+            ShowActiveTeam = false
         };
 
         Assert.Equal(settings, CanvasDisplaySettings.FromJson(settings.ToJson()));
@@ -75,6 +79,32 @@ public sealed class CanvasDisplaySettingsTests
         var settings = CanvasDisplaySettings.Default with
         {
             FontScalePercent = scalePercent
+        };
+
+        Assert.False(settings.IsValid);
+    }
+
+    [Theory]
+    [InlineData(CanvasDisplaySettings.MinimumScalePercent)]
+    [InlineData(CanvasDisplaySettings.MaximumScalePercent)]
+    public void CanvasDisplaySettings_AcceptsSpacingScaleRangeBoundaries(int scalePercent)
+    {
+        var settings = CanvasDisplaySettings.Default with
+        {
+            SpacingScalePercent = scalePercent
+        };
+
+        Assert.True(settings.IsValid);
+    }
+
+    [Theory]
+    [InlineData(59)]
+    [InlineData(161)]
+    public void CanvasDisplaySettings_RejectsSpacingScalesOutsideSupportedRange(int scalePercent)
+    {
+        var settings = CanvasDisplaySettings.Default with
+        {
+            SpacingScalePercent = scalePercent
         };
 
         Assert.False(settings.IsValid);

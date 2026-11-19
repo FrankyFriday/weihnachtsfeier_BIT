@@ -95,7 +95,7 @@ public static class PantomimeEndpoints
             return Results.Forbid();
         }
 
-        if (action is not ("start" or "pause" or "resume" or "end" or "correct" or "skip" or "free-skip"))
+        if (action is not ("start" or "pause" or "resume" or "end" or "prepare-next-round" or "cancel-next-round" or "correct" or "skip" or "free-skip"))
         {
             return Results.BadRequest(new ApiError("Unbekannte Pantomime-Aktion."));
         }
@@ -194,6 +194,10 @@ public static class PantomimeEndpoints
                     {
                         return Results.BadRequest(new ApiError("Das Skip-Limit muss zwischen 0 und 100 liegen."));
                     }
+                    if (!PantomimeGameService.TryGetPointsPerCorrectTerm(parameters, out _))
+                    {
+                        return Results.BadRequest(new ApiError("Die Punkte pro erratenem Begriff müssen zwischen 0 und 1000 liegen."));
+                    }
 
                     parameters["roundDurationSeconds"] = duration;
                     state = PantomimeGameService.CreateRoundState(
@@ -202,6 +206,22 @@ public static class PantomimeEndpoints
                         duration,
                         now,
                         maxSkipsPerPerformer: maxSkipsPerPerformer);
+                    break;
+                case "prepare-next-round":
+                    if (!PantomimeGameService.ReadBool(state, "isEnded"))
+                    {
+                        return Results.Conflict(new ApiError("Die nächste Runde kann nur nach einer beendeten Runde vorbereitet werden."));
+                    }
+
+                    state["isPreparingNextRound"] = true;
+                    break;
+                case "cancel-next-round":
+                    if (!PantomimeGameService.ReadBool(state, "isEnded"))
+                    {
+                        return Results.Conflict(new ApiError("Es wird keine nächste Pantomime-Runde vorbereitet."));
+                    }
+
+                    state["isPreparingNextRound"] = false;
                     break;
                 case "pause":
                     if (!PantomimeGameService.ReadBool(state, "isRunning"))
@@ -287,6 +307,11 @@ public static class PantomimeEndpoints
                         break;
                     }
 
+                    if (!PantomimeGameService.TryGetPointsPerCorrectTerm(parameters, out var pointsPerCorrectTerm))
+                    {
+                        return Results.BadRequest(new ApiError("Die Punkte pro erratenem Begriff müssen zwischen 0 und 1000 liegen."));
+                    }
+
                     var teamEntity = await dbContext.Teams
                         .FirstOrDefaultAsync(item => item.Id == teamId && item.ProjektId == projectId, cancellationToken);
                     if (teamEntity is null)
@@ -294,12 +319,12 @@ public static class PantomimeEndpoints
                         return Results.Conflict(new ApiError("Das Team existiert nicht mehr."));
                     }
 
-                    teamEntity.Punkte = checked(teamEntity.Punkte + 1);
+                    teamEntity.Punkte = checked(teamEntity.Punkte + pointsPerCorrectTerm);
                     dbContext.TeamPointLogs.Add(new TeamPointLog
                     {
                         ProjektId = projectId,
                         TeamId = teamEntity.Id,
-                        DeltaPoints = 1,
+                        DeltaPoints = pointsPerCorrectTerm,
                         NewTotalPoints = teamEntity.Punkte,
                         Reason = "Pantomime-Begriff vom Moderator als erraten markiert",
                         CreatedAtUtc = now

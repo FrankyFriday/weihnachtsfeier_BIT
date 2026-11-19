@@ -1,0 +1,28 @@
+<section class="canvas-slide canvas-slide-ranking">
+    <h2>@CanvasSlideData.ReadString(Parameters, "title", Event.Title)</h2>
+    @if (Teams.Length > 0)
+    {
+        <div class="canvas-ranking-chart @(ChartType == "line_graph" ? "is-line-graph" : null)">
+            <FrameworkChart Teams="Teams"
+                            ChartType="@ChartType"
+                            PointLogs="PointLogs" />
+        </div>
+    }
+    else
+    {
+        <p class="canvas-slide-hint">Noch keine Teams im Wettbewerb.</p>
+    }
+</section>
+
+@code {
+    private string ChartType
+    {
+        get
+        {
+            var chartType = CanvasSlideData.ReadString(Parameters, "chartType", "bar_chart");
+            return chartType is "bar_chart" or "line_graph" ? chartType : "bar_chart";
+        }
+    }
+}
+
+@inherits CanvasSlideRendererBase

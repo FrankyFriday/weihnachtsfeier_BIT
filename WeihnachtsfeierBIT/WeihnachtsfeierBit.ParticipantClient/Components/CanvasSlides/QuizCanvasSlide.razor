@@ -1,0 +1,66 @@
+@using WeihnachtsfeierBit.Framework
+
+@{
+    var workflow = QuestionWorkflowViewState.Read(Parameters);
+    var answers = CanvasSlideData.ReadStringArray(Parameters, "answers");
+    var correctIndices = ReadIntArray(Parameters, "correctAnswerIndices");
+}
+
+<section class="canvas-slide canvas-slide-quiz phase-@workflow.Phase">
+    <div class="canvas-quiz-grid">
+        <div class="canvas-quiz-question">
+            <span class="canvas-slide-kicker">@PhaseLabel(workflow.Phase)</span>
+            <h2>@CanvasSlideData.ReadString(Parameters, "question", Event.Title)</h2>
+        </div>
+
+        @if (workflow.Phase is "answers" or "locked" or "results")
+        {
+            <div class="canvas-quiz-answers">
+                @for (var index = 0; index < answers.Length; index++)
+                {
+                    var isCorrect = workflow.Phase == "results" && correctIndices.Contains(index);
+                    <article @key="index"
+                             class="canvas-quiz-answer @(isCorrect ? "is-correct" : null)"
+                             style="--canvas-stagger: @(index * 90)ms">
+                        <span class="canvas-option-letter">@((char)('A' + index))</span>
+                        <span>@answers[index]</span>
+                        @if (isCorrect)
+                        {
+                            <strong class="canvas-correct-mark">RICHTIG</strong>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </div>
+
+    @if (workflow.Phase == "results" && !string.IsNullOrWhiteSpace(CanvasSlideData.ReadString(Parameters, "explanation")))
+    {
+        <p class="canvas-quiz-explanation">@CanvasSlideData.ReadString(Parameters, "explanation")</p>
+    }
+
+    <CanvasQuestionTimerBar @key="workflow.Phase" Event="Event" />
+</section>
+
+@code {
+    private static int[] ReadIntArray(System.Text.Json.JsonElement element, string property) =>
+        element.ValueKind == System.Text.Json.JsonValueKind.Object
+        && element.TryGetProperty(property, out var value)
+        && value.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? value.EnumerateArray()
+                .Where(item => item.ValueKind == System.Text.Json.JsonValueKind.Number && item.TryGetInt32(out _))
+                .Select(item => item.GetInt32())
+                .ToArray()
+            : [];
+
+    private static string PhaseLabel(string phase) => phase switch
+    {
+        "question" => "FRAGE",
+        "answers" => "ANTWORTEN",
+        "locked" => "ANTWORTZEIT BEENDET",
+        "results" => "AUFLÖSUNG",
+        _ => "QUIZ"
+    };
+}
+
+@inherits CanvasSlideRendererBase

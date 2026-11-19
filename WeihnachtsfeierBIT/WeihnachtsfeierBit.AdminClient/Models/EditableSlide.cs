@@ -123,6 +123,7 @@ public sealed class EditableSlide
     public string PantomimeTermsText { get; set; } = string.Empty;
     public int PantomimeRoundDurationSeconds { get; set; } = 60;
     public int PantomimeMaxSkipsPerPerformer { get; set; }
+    public int PantomimePointsPerCorrectTerm { get; set; } = 1;
 
     public EditableSlide(Guid id, string type, int position, JsonElement parameters)
     {
@@ -228,6 +229,7 @@ public sealed class EditableSlide
                 PantomimeTermsText = string.Join(Environment.NewLine, ReadStringList(parameters, "terms"));
                 PantomimeRoundDurationSeconds = ReadNullableInt(parameters, "roundDurationSeconds") ?? 60;
                 PantomimeMaxSkipsPerPerformer = ReadNullableInt(parameters, "maxSkipsPerPerformer") ?? 0;
+                PantomimePointsPerCorrectTerm = ReadNullableInt(parameters, "pointsPerCorrectTerm") ?? 1;
                 break;
         }
 
@@ -603,10 +605,16 @@ public sealed class EditableSlide
                     ErrorMessage = "Das Skip-Limit muss zwischen 0 und 100 liegen.";
                     return (default, ErrorMessage);
                 }
+                if (PantomimePointsPerCorrectTerm is < 0 or > 1000)
+                {
+                    ErrorMessage = "Die Punkte pro erratenem Begriff müssen zwischen 0 und 1000 liegen.";
+                    return (default, ErrorMessage);
+                }
                 dict["category"] = PantomimeCategory.Trim();
                 dict["terms"] = terms;
                 dict["roundDurationSeconds"] = PantomimeRoundDurationSeconds;
                 dict["maxSkipsPerPerformer"] = PantomimeMaxSkipsPerPerformer;
+                dict["pointsPerCorrectTerm"] = PantomimePointsPerCorrectTerm;
                 break;
 
             default:
