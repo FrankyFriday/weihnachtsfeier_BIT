@@ -62,7 +62,7 @@
         }
 
         <div style="display:grid;gap:16px;width:100%;max-width:720px;margin-top:20px;">
-            @foreach (var team in ReadTeams())
+            @foreach (var team in Teams.Where(team => team.Id == TeamId))
             {
                 <article style="padding:16px;border-radius:12px;background:white;box-shadow:0 2px 10px #182c2412;text-align:left;">
                     <h2 style="margin:0 0 10px;font-size:18px;">@team.Name <small>(@team.Timeline.Length/@ReadInt(Game, "cardsToWin", 10))</small></h2>
