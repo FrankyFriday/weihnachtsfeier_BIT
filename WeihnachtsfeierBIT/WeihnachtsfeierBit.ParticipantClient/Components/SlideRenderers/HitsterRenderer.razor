@@ -25,7 +25,7 @@
         {
             @if (IsMyTurn)
             {
-                <p>Wo gehört der Song in die Zeitleiste?</p>
+                <p>Wo soll der Song in eurer Zeitleiste stehen?</p>
                 <div class="mobile-alert">
                     @ReadInt(VoteSummary, "submittedVotes") von @ReadInt(VoteSummary, "eligibleVoters") Teammitgliedern haben abgestimmt.
                     Noch offen: @ReadInt(VoteSummary, "remainingVotes").
@@ -195,8 +195,9 @@
     }
 
     private string GetPositionLabel(int position) =>
-        position == 0 ? "Ganz vorne" :
-        position == MyTimeline.Length ? "Ganz hinten" :
+        MyTimeline.Length == 0 ? "Erste Karte" :
+        position == 0 ? "Ältester Song" :
+        position == MyTimeline.Length ? "Neuester Song" :
         $"Zwischen {MyTimeline[position - 1].Year} und {MyTimeline[position].Year}";
 
     private int GetPositionVoteCount(int position)
